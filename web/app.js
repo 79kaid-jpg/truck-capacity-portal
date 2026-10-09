@@ -875,7 +875,8 @@ async function boot(){
  const C=window.APP_CONFIG||{};
  if(!window.supabase){app.innerHTML=screen('Không tải được thư viện','<p>Không tải được supabase-js từ cdn.jsdelivr.net. Kiểm tra mạng rồi tải lại trang.</p>');return;}
  if(!C.SUPABASE_URL||/YOUR|xxxx/i.test(C.SUPABASE_URL)||!C.SUPABASE_ANON_KEY){app.innerHTML=screen('Chưa cấu hình','<p>Mở file <code>web/config.js</code>, điền <b>SUPABASE_URL</b> và <b>SUPABASE_ANON_KEY</b> theo README, rồi deploy lại.</p>');return;}
- sb=window.supabase.createClient(C.SUPABASE_URL,C.SUPABASE_ANON_KEY);
+ const url=String(C.SUPABASE_URL).trim().replace(/\/(rest|auth)\/v1\/?$/,'').replace(/\/+$/,'');
+ sb=window.supabase.createClient(url,String(C.SUPABASE_ANON_KEY).trim());
  const{data}=await sb.auth.getSession();
  if(!data.session)return showLogin();
  startApp();
