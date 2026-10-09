@@ -113,8 +113,12 @@ Nếu không cấu hình SMTP riêng, Supabase chỉ gửi email đặt lại m�
 ---
 
 ## Cập nhật phiên bản
+- **Sau mỗi lần mình báo có thay đổi database:** mở `supabase/setup_all.sql` trên GitHub, copy toàn bộ, dán vào Supabase SQL Editor và Run (chọn **Run without RLS** nếu có cảnh báo). Dữ liệu, cấu hình và phân quyền đã chỉnh được giữ nguyên.
 - **Giao diện:** sửa file trong `web/` rồi push hoặc commit lên GitHub. Cloudflare tự deploy lại.
 - **Cơ sở dữ liệu:** chạy lại `supabase/setup_all.sql` trong SQL Editor. Các hàm được thay mới, dữ liệu giữ nguyên.
+
+## Phân quyền
+Admin vào **Setting user account → Phân quyền** để bật/tắt từng tính năng cho Logistics, CS, Sales, Admin. Máy chủ kiểm tra quyền ở mọi thao tác. Phạm vi dữ liệu cố định theo vai trò: Sales chỉ thao tác trên khách mình phụ trách; Khách hàng chỉ xem số tấn còn đặt được và đơn của mình. Admin luôn giữ quyền "Phân quyền vai trò" để không tự khóa mình.
 
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.

@@ -82,6 +82,26 @@ await session('admin@demo.vn', async p => {
   S('testEmail'); await clr(p); await p.click('[data-a="testEmail"]'); log('test email ->', await toast(p));
   S('cust'); await p.click('[data-a="go"][data-v="users"]'); await p.click('[data-a="uTab"][data-t="customers"]'); await shot(p, '6c-admin-customers');
 });
+await session('admin@demo.vn', async p => {
+  S('permsTab'); await p.click('[data-a="go"][data-v="users"]'); await p.click('[data-a="uTab"][data-t="perms"]'); await p.waitForTimeout(200); await shot(p, '10-perms');
+  log('perm rows:', await p.locator('.pmtbl input[type=checkbox]').count(), '| admin perms.manage locked:', await p.locator('input[data-r="admin"][data-p="perms.manage"]').isDisabled());
+  await p.locator('input[data-r="cs"][data-p="booking.cancel"]').uncheck(); await p.waitForTimeout(100);
+  log('dirty note:', await p.locator('.mfoot .muted').first().innerText());
+  await clr(p); await p.click('[data-a="pmSave"]'); log('save perms ->', await toast(p));
+  S('adminApprovals'); await p.click('[data-a="go"][data-v="approvals"]'); log('admin approvals rows:', await p.locator('tr.click').count());
+  await p.locator('tr.click').first().click(); log('admin sees assign buttons:', await p.locator('[data-a="asgSuggest"]').count() > 0, '| reject:', await p.locator('[data-a="asgPanel"][data-p="rej"]').count() > 0);
+});
+await session('cs@demo.vn', async p => {
+  S('csNoCancel'); await p.click('[data-a="go"][data-v="bookings"]'); await p.click('[data-a="blTab"][data-t="hold"]'); log('hold tab rows:', await p.locator('tr.click').count());
+  await p.locator('tr.click').first().click(); await p.click('[data-a="editBk"]'); await p.waitForTimeout(100);
+  log('CS sees Hủy booking after revoke:', await p.locator('[data-a="bfCancelOn"]').count() > 0);
+});
+await session('s1@demo.vn', async p => { S('salesNav'); log('sales nav:', (await p.locator('nav.side button').evaluateAll(b => b.map(x => x.getAttribute('data-v')))).join(',')); });
+await session('admin@demo.vn', async p => {
+  S('permsReset'); await p.click('[data-a="go"][data-v="users"]'); await p.click('[data-a="uTab"][data-t="perms"]');
+  await p.click('[data-a="pmResetOn"]'); await clr(p); await p.click('[data-a="pmResetGo"]'); log('reset ->', await toast(p));
+  log('cs cancel back on:', await p.locator('input[data-r="cs"][data-p="booking.cancel"]').isChecked());
+});
 await session('new@demo.vn', async p => { S('granted'); log('new user after grant sees calendar:', await p.locator('.cal').count() > 0); });
 await session('kh@demo.vn', async p => { S('mobile'); await p.waitForSelector('.cal'); await shot(p, '7-customer-mobile'); }, { width: 390, height: 844 });
 { // forgot password + recovery link (no login)

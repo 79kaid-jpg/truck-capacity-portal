@@ -72,3 +72,33 @@ insert into app.reason_codes (kind, code, name) values
   ('fleet_cut','LONG_TRIP','Xe đi tuyến dài chưa về'),
   ('fleet_cut','OTHER','Lý do khác')
 on conflict do nothing;
+
+-- Danh mục quyền tính năng (tên/mô tả được cập nhật khi chạy lại; def_roles = mặc định)
+insert into app.permissions (code, grp, name, descr, sort, def_roles) values
+  ('day.view',        'Xem',        'Xem chi tiết ngày và đội xe',         'Thẻ xe, phần hàng trên xe, booking chờ, gợi ý gộp của một ngày', 10, '{logistics,cs,sales,admin}'),
+  ('booking.list',    'Xem',        'Danh sách booking',                   'Màn hình Danh sách booking (Sales chỉ thấy khách mình phụ trách)', 20, '{logistics,cs,sales,admin}'),
+  ('booking.create',  'Đặt hàng',   'Tạo booking, giữ chỗ, lưu nháp',      'Nút Đặt hàng trên lịch, chi tiết ngày, danh sách booking', 30, '{cs,admin}'),
+  ('booking.edit',    'Đặt hàng',   'Sửa booking',                         'Đổi ngày, số tấn, địa chỉ, sản phẩm; booking đã xác nhận quay về Chờ xếp xe (BR-11)', 40, '{cs,admin}'),
+  ('booking.cancel',  'Đặt hàng',   'Hủy booking',                         'Hủy kèm lý do, trả lại số tấn', 50, '{cs,admin}'),
+  ('approvals.view',  'Điều phối',  'Xem Approval request',                'Danh sách booking đang giữ chỗ chờ xử lý', 60, '{logistics,admin}'),
+  ('alloc.assign',    'Điều phối',  'Gán xe và xác nhận booking',          'Gợi ý xếp xe, xếp đơn lên xe, sửa / chuyển / gỡ phần hàng, xác nhận', 70, '{logistics,admin}'),
+  ('booking.reject',  'Điều phối',  'Từ chối, đề nghị đổi ngày',           'Từ chối booking hoặc đề nghị ngày khác kèm lý do', 80, '{logistics,admin}'),
+  ('merge.apply',     'Điều phối',  'Áp dụng gợi ý gộp xe',                'Áp dụng hoặc bỏ qua nhóm gộp xe theo khu vực', 90, '{logistics,admin}'),
+  ('booking.region',  'Điều phối',  'Đổi khu vực của booking',             'Chọn lại khu vực giao hàng trên booking', 100, '{logistics,admin}'),
+  ('fleet.manage',    'Điều phối',  'Khai báo số xe theo ngày',            'Trucks capacity setting: số đầu kéo, container mỗi ngày mỗi kho', 110, '{logistics,admin}'),
+  ('config.general',  'Cấu hình',   'Ngưỡng, tải trọng, ngày nghỉ',        'Ngưỡng gần đầy, tải trọng DK/CN, ngưỡng phân loại, SLA, ngày nghỉ lễ', 120, '{logistics,admin}'),
+  ('config.regions',  'Cấu hình',   'Khu vực giao hàng',                   'Thêm khu vực, khu vực lân cận, ngừng dùng', 130, '{logistics,admin}'),
+  ('config.catalog',  'Cấu hình',   'Sản phẩm, màu, độ dày, khổ',          'Thêm, sửa, ngừng dùng mục trong danh mục', 140, '{logistics,admin}'),
+  ('dash.ops',        'Dashboard',  'Dashboard điều phối và hiệu quả xe',  'DB-01 Điều phối hôm nay, DB-02 Hiệu quả sử dụng xe, DB-04 Gộp xe', 150, '{logistics,admin}'),
+  ('dash.service',    'Dashboard',  'Dashboard chất lượng phục vụ',        'DB-03 (bản sau)', 160, '{logistics,cs,admin}'),
+  ('dash.sales',      'Dashboard',  'Dashboard khách hàng và Sales',       'DB-05 (bản sau)', 170, '{logistics,sales,admin}'),
+  ('dash.system',     'Dashboard',  'Dashboard sức khỏe hệ thống',         'DB-06: dung lượng, đăng nhập, email, gửi email thử', 180, '{admin}'),
+  ('users.manage',    'Quản trị',   'Quản lý tài khoản',                   'Cấp quyền, sửa, khóa tài khoản người dùng', 190, '{admin}'),
+  ('customers.manage','Quản trị',   'Quản lý khách hàng',                  'Thêm khách hàng, địa chỉ, Sales phụ trách', 200, '{admin}'),
+  ('perms.manage',    'Quản trị',   'Phân quyền vai trò',                  'Màn hình này. Admin luôn giữ quyền này', 210, '{admin}')
+on conflict (code) do update set grp = excluded.grp, name = excluded.name, descr = excluded.descr, sort = excluded.sort, def_roles = excluded.def_roles;
+
+-- Ma trận mặc định; không ghi đè cấu hình Admin đã chỉnh
+insert into app.role_permissions (role, perm, allowed)
+select r, p.code, r = any(p.def_roles) from app.permissions p cross join unnest(array['logistics','cs','sales','admin']) r
+on conflict (role, perm) do nothing;

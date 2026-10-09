@@ -1,5 +1,5 @@
 -- setup_all.sql = migrations/0001_init.sql + 0002_email.sql + seed.sql + demo_data.sql
--- Dán toàn bộ file này vào Supabase → SQL Editor → Run. Chạy lại nhiều lần không mất dữ liệu.
+-- Dán toàn bộ file này vào Supabase → SQL Editor → Run. Chạy lại nhiều lần không mất dữ liệu (cũng là cách cập nhật phiên bản).
 -- =====================================================================
 -- Truck Capacity Booking Portal – POV
 -- 0001_init.sql : bảng, hàm tính capacity, hàm nghiệp vụ (RPC), phân quyền
@@ -101,6 +101,22 @@ create table if not exists app.reason_codes (
   name   text not null,
   active boolean not null default true,
   primary key (kind, code)
+);
+
+-- Danh mục quyền tính năng và ma trận Vai trò × Quyền (Admin cấu hình được)
+create table if not exists app.permissions (
+  code      text primary key,
+  grp       text not null,
+  name      text not null,
+  descr     text not null default '',
+  sort      int  not null default 0,
+  def_roles text[] not null default '{}'
+);
+create table if not exists app.role_permissions (
+  role    text not null check (role in ('sales','cs','logistics','admin')),
+  perm    text not null references app.permissions(code) on delete cascade,
+  allowed boolean not null,
+  primary key (role, perm)
 );
 
 create table if not exists app.daily_fleet (
@@ -260,6 +276,49 @@ begin
     raise exception 'Vai trò % không được phép thực hiện thao tác này.', m.role using errcode = '42501';
   end if;
   return m;
+end $$;
+
+-- Quyền tính năng. Khách hàng không bao giờ có quyền nào (phạm vi cố định để bảo mật).
+-- Admin luôn có perms.manage để không tự khóa mình.
+create or replace function app.role_has(p_role text, p_perm text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select p_role <> 'customer' and (
+    (p_role = 'admin' and p_perm = 'perms.manage')
+    or exists (select 1 from app.role_permissions rp where rp.role = p_role and rp.perm = p_perm and rp.allowed))
+$$;
+
+create or replace function app.has_perm(p_perm text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from app.profiles p where p.user_id = auth.uid() and p.active and app.role_has(p.role, p_perm))
+$$;
+
+create or replace function app.my_perms(p_role text) returns text[]
+language sql stable security definer set search_path = '' as $$
+  select coalesce(array_agg(code order by sort), '{}') from app.permissions where app.role_has(p_role, code)
+$$;
+
+create or replace function app.require_perm(p_perm text) returns app.profiles
+language plpgsql stable security definer set search_path = '' as $$
+declare m app.profiles; v_name text;
+begin
+  select * into m from app.profiles p where p.user_id = auth.uid() and p.active;
+  if not found then
+    raise exception 'Tài khoản chưa được cấp quyền hoặc đã bị khóa.' using errcode = '42501';
+  end if;
+  if not app.role_has(m.role, p_perm) then
+    select name into v_name from app.permissions where code = p_perm;
+    raise exception 'Vai trò của bạn chưa được cấp quyền "%". Liên hệ Admin.', coalesce(v_name, p_perm) using errcode = '42501';
+  end if;
+  return m;
+end $$;
+
+-- Sales chỉ được thao tác trên khách mình phụ trách
+create or replace function app.check_scope(m app.profiles, p_customer uuid) returns void
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if m.role = 'sales' and not exists (select 1 from app.customers c where c.id = p_customer and c.sales_user_id = m.user_id) then
+    raise exception 'Booking này thuộc khách hàng bạn không phụ trách.' using errcode = '42501';
+  end if;
 end $$;
 
 create or replace function app.is_holiday(p_wh text, p_day date) returns boolean
@@ -448,6 +507,7 @@ begin
     'me', jsonb_build_object('id', me.user_id, 'name', me.full_name, 'email', me.email, 'phone', me.phone, 'role', me.role,
                              'segment', me.segment, 'customerId', me.customer_id, 'wh', me.default_warehouse, 'whs', me.warehouses),
     'cfg', v_cfg,
+    'perms', to_jsonb(app.my_perms(me.role)),
     'warehouses', (select jsonb_agg(jsonb_build_object('id', code, 'name', name, 'full', full_name) order by code) from app.warehouses where active),
     'notifs', (select coalesce(jsonb_agg(jsonb_build_object('id', n.id, 'type', n.type, 'text', n.text, 'link', n.link,
                  'at', extract(epoch from n.created_at), 'read', n.read_at is not null) order by n.created_at desc), '[]')
@@ -477,6 +537,11 @@ begin
   end if;
 
   -- Nội bộ
+  if app.role_has(me.role, 'perms.manage') then
+    res := res || jsonb_build_object(
+      'permCatalog', (select coalesce(jsonb_agg(jsonb_build_object('code', code, 'grp', grp, 'name', name, 'descr', descr, 'def', def_roles) order by sort), '[]') from app.permissions),
+      'roleMatrix', (select jsonb_object_agg(r, to_jsonb(app.my_perms(r))) from unnest(array['logistics','cs','sales','admin']) r));
+  end if;
   res := res || jsonb_build_object(
     'regions', (select coalesce(jsonb_agg(jsonb_build_object('id', r.id, 'wh', r.warehouse_code, 'code', r.code, 'name', r.name,
                   'newProvince', r.new_province, 'days', r.round_trip_days, 'active', r.active,
@@ -539,7 +604,7 @@ create or replace function public.admin_stats() returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare me app.profiles;
 begin
-  me := app.require_role(array['admin']);
+  me := app.require_perm('dash.system');
   return jsonb_build_object(
     'dbMb', round(pg_database_size(current_database()) / 1048576.0, 2),
     'bookings', (select count(*) from app.bookings),
@@ -559,12 +624,13 @@ declare
   v_total numeric; v_avail numeric; v_addr uuid; v_addr_text text := ''; v_prov text := ''; v_region text;
   v_seq int; v_changed boolean := false; v_status text; ln jsonb; i int := 0;
 begin
-  me := app.require_role(array['cs']);
+  me := app.require_perm(case when nullif(p->>'id', '') is null then 'booking.create' else 'booking.edit' end);
   if v_mode not in ('draft','hold') then raise exception 'Chế độ lưu không hợp lệ.'; end if;
   if v_day is null or v_cust is null or v_wh is null then raise exception 'Chọn kho, khách hàng và ngày bốc.'; end if;
   if v_day < app.today() then raise exception 'Không đặt cho ngày đã qua.'; end if;
   select * into c from app.customers where id = v_cust and active;
   if not found then raise exception 'Khách hàng không tồn tại hoặc đã ngừng.'; end if;
+  perform app.check_scope(me, v_cust);
   select coalesce(sum(nullif(l->>'t', '')::numeric), 0) into v_total from jsonb_array_elements(coalesce(p->'lines', '[]'::jsonb)) l;
   v_region := nullif(nullif(p->>'region', ''), 'NONE');
   if v_region is not null and not exists (select 1 from app.regions r where r.id = v_region and r.warehouse_code = v_wh and r.active) then
@@ -632,6 +698,8 @@ begin
   else
     select * into old from app.bookings where id = v_id for update;
     if not found then raise exception 'Không tìm thấy booking %.', v_id; end if;
+    perform app.check_scope(me, old.customer_id);
+    if old.customer_id <> v_cust then raise exception 'Không đổi được khách hàng của booking đã tạo.'; end if;
     if old.status in ('rejected','cancelled') then raise exception 'Booking đã đóng, không sửa được.'; end if;
     if old.status = 'draft' and old.cs_user_id <> me.user_id then raise exception 'Chỉ CS tạo nháp mới sửa được nháp này.'; end if;
     v_changed := old.day <> v_day or abs(app.bk_total(v_id) - v_total) > 0.005;
@@ -676,10 +744,11 @@ create or replace function public.cancel_booking(p_id text, p_reason text, p_rea
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; b app.bookings; c app.customers;
 begin
-  me := app.require_role(array['cs']);
+  me := app.require_perm('booking.cancel');
   if coalesce(trim(p_reason), '') = '' then raise exception 'Nhập lý do hủy.'; end if;
   select * into b from app.bookings where id = p_id for update;
   if not found or b.status in ('rejected','cancelled') then raise exception 'Booking không tồn tại hoặc đã đóng.'; end if;
+  perform app.check_scope(me, b.customer_id);
   select * into c from app.customers where id = b.customer_id;
   delete from app.allocations where booking_id = p_id;
   update app.bookings set status = 'cancelled', closed_at = now(), reason_code = p_reason_code, reason_note = p_reason, updated_at = now() where id = p_id;
@@ -701,9 +770,10 @@ declare
   v_total numeric; v_sum numeric := 0; v_tons numeric; v_ex numeric; v_pref text; v_regs text[]; v_stops text[];
   v_warn text[] := '{}'; v_ov boolean; v_key text;
 begin
-  me := app.require_role(array['logistics']);
+  me := app.require_perm('alloc.assign');
   select * into b from app.bookings where id = p_id for update;
   if not found or b.status not in ('hold','ok') then raise exception 'Booking không ở trạng thái chờ xếp xe hoặc đã xác nhận.'; end if;
+  perform app.check_scope(me, b.customer_id);
   if b.day < app.today() then raise exception 'Ngày đã qua, không thay đổi được (BR-12).'; end if;
   perform app.lock_day(b.warehouse_code, b.day);
   v_total := app.bk_total(p_id);
@@ -754,9 +824,10 @@ create or replace function public.place_on_truck(p_id text, p_truck text, p_tons
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; b app.bookings; t record; v_rem numeric;
 begin
-  me := app.require_role(array['logistics']);
+  me := app.require_perm('alloc.assign');
   select * into b from app.bookings where id = p_id for update;
   if not found or b.status <> 'hold' then raise exception 'Booking không ở trạng thái chờ xếp xe.'; end if;
+  perform app.check_scope(me, b.customer_id);
   if b.day < app.today() then raise exception 'Ngày đã qua, không thay đổi được.'; end if;
   perform app.lock_day(b.warehouse_code, b.day);
   select * into t from app.trucks(b.warehouse_code, b.day) x where x.code = p_truck;
@@ -777,10 +848,11 @@ create or replace function public.edit_allocation(p_id text, p_truck text, p_mod
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; b app.bookings; c app.customers; t record; tg record; v_cur numeric; v_on_target numeric; v_txt text;
 begin
-  me := app.require_role(array['logistics']);
+  me := app.require_perm('alloc.assign');
   if coalesce(trim(p_reason), '') = '' then raise exception 'Nhập lý do sửa.'; end if;
   select * into b from app.bookings where id = p_id for update;
   if not found or b.status not in ('hold','ok') then raise exception 'Booking không hợp lệ.'; end if;
+  perform app.check_scope(me, b.customer_id);
   if b.day < app.today() then raise exception 'Ngày đã qua, không thay đổi được.'; end if;
   perform app.lock_day(b.warehouse_code, b.day);
   select * into c from app.customers where id = b.customer_id;
@@ -830,10 +902,11 @@ create or replace function public.reject_booking(p_id text, p_reason text, p_rea
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; b app.bookings; c app.customers;
 begin
-  me := app.require_role(array['logistics']);
+  me := app.require_perm('booking.reject');
   if coalesce(trim(p_reason), '') = '' then raise exception 'Nhập lý do từ chối.'; end if;
   select * into b from app.bookings where id = p_id for update;
   if not found or b.status <> 'hold' then raise exception 'Chỉ từ chối được booking đang chờ xếp xe.'; end if;
+  perform app.check_scope(me, b.customer_id);
   select * into c from app.customers where id = b.customer_id;
   delete from app.allocations where booking_id = p_id;
   update app.bookings set status = 'rejected', closed_at = now(), reason_code = p_reason_code, reason_note = p_reason, updated_at = now() where id = p_id;
@@ -847,10 +920,11 @@ create or replace function public.propose_day(p_id text, p_day date, p_reason te
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; b app.bookings; c app.customers;
 begin
-  me := app.require_role(array['logistics']);
+  me := app.require_perm('booking.reject');
   if p_day is null or coalesce(trim(p_reason), '') = '' then raise exception 'Chọn ngày đề xuất và nhập lý do.'; end if;
   select * into b from app.bookings where id = p_id for update;
   if not found or b.status <> 'hold' then raise exception 'Chỉ đề nghị đổi ngày cho booking đang chờ xếp xe.'; end if;
+  perform app.check_scope(me, b.customer_id);
   if not exists (select 1 from app.daily_fleet f where f.warehouse_code = b.warehouse_code and f.day = p_day) or app.is_holiday(b.warehouse_code, p_day) then
     raise exception 'Ngày đề xuất chưa khai báo xe.';
   end if;
@@ -868,9 +942,10 @@ create or replace function public.set_region(p_id text, p_region text) returns v
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; b app.bookings; v_region text := nullif(nullif(p_region, ''), 'NONE');
 begin
-  me := app.require_role(array['logistics']);
+  me := app.require_perm('booking.region');
   select * into b from app.bookings where id = p_id for update;
   if not found then raise exception 'Không tìm thấy booking.'; end if;
+  perform app.check_scope(me, b.customer_id);
   if v_region is not null and not exists (select 1 from app.regions r where r.id = v_region and r.warehouse_code = b.warehouse_code) then
     raise exception 'Khu vực không thuộc kho của booking.';
   end if;
@@ -882,7 +957,7 @@ create or replace function public.apply_group(p_ids text[], p_tons numeric[], p_
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; b app.bookings; t record; i int; v_wh text; v_day date;
 begin
-  me := app.require_role(array['logistics']);
+  me := app.require_perm('merge.apply');
   if coalesce(array_length(p_ids, 1), 0) < 1 or array_length(p_ids, 1) <> array_length(p_tons, 1) then raise exception 'Dữ liệu nhóm không hợp lệ.'; end if;
   select warehouse_code, day into v_wh, v_day from app.bookings where id = p_ids[1];
   perform app.lock_day(v_wh, v_day);
@@ -892,6 +967,7 @@ begin
   for i in 1 .. array_length(p_ids, 1) loop
     select * into b from app.bookings where id = p_ids[i] for update;
     if not found or b.status <> 'hold' or b.warehouse_code <> v_wh or b.day <> v_day then raise exception 'Booking % không còn chờ xếp xe.', p_ids[i]; end if;
+    perform app.check_scope(me, b.customer_id);
     if p_tons[i] > app.bk_total(b.id) - app.alloc_sum(b.id) + 0.001 then raise exception 'Booking % đã thay đổi, hãy tải lại.', b.id; end if;
     insert into app.allocations (booking_id, truck_code, tons, override, override_reason)
     values (b.id, p_truck, p_tons[i], p_neighbor, case when p_neighbor then 'Gộp khu vực lân cận theo gợi ý' end)
@@ -906,7 +982,7 @@ create or replace function public.skip_group(p_wh text, p_day date, p_ids text[]
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles;
 begin
-  me := app.require_role(array['logistics']);
+  me := app.require_perm('merge.apply');
   insert into app.merge_suggestion_log (warehouse_code, day, booking_ids, fill_ratio, outcome, actor)
   values (p_wh, p_day, p_ids, p_fill, 'skipped', me.user_id);
 end $$;
@@ -915,10 +991,11 @@ create or replace function public.confirm_group(p_ids text[]) returns int
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; v_id text; n int := 0; b app.bookings;
 begin
-  me := app.require_role(array['logistics']);
+  me := app.require_perm('alloc.assign');
   foreach v_id in array p_ids loop
     select * into b from app.bookings where id = v_id for update;
-    if found and b.status = 'hold' and abs(app.alloc_sum(v_id) - app.bk_total(v_id)) < 0.005 then
+    if found and b.status = 'hold' and abs(app.alloc_sum(v_id) - app.bk_total(v_id)) < 0.005
+       and (me.role <> 'sales' or exists (select 1 from app.customers c where c.id = b.customer_id and c.sales_user_id = me.user_id)) then
       perform app.confirm_internal(v_id); n := n + 1;
     end if;
   end loop;
@@ -929,7 +1006,7 @@ create or replace function public.upsert_fleet(p_wh text, p_rows jsonb) returns 
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; r jsonb; v_day date; v_dk int; v_cn int; v_reason text; f app.daily_fleet; v_busy_dk int; v_busy_cn int; n int := 0; v_txt text;
 begin
-  me := app.require_role(array['logistics']);
+  me := app.require_perm('fleet.manage');
   for r in select * from jsonb_array_elements(p_rows) loop
     v_day := (r->>'day')::date; v_dk := (r->>'dk')::int; v_cn := (r->>'cn')::int; v_reason := coalesce(trim(r->>'reason'), '');
     if v_day < app.today() then raise exception 'Ngày % đã qua, không sửa được.', app.dm(v_day); end if;
@@ -963,7 +1040,7 @@ create or replace function public.update_settings(p jsonb) returns void
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; k text;
 begin
-  me := app.require_role(array['logistics']);
+  me := app.require_perm('config.general');
   for k in select jsonb_object_keys(p) loop
     if k not in ('near','capDK','capCN','split','sla','maxStops','fillMin','suggestOn','sundayOff','holidays') then
       raise exception 'Cấu hình % không hợp lệ.', k;
@@ -980,7 +1057,7 @@ create or replace function public.add_region(p_wh text, p_name text, p_new_provi
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; v_code text; v_id text; n text;
 begin
-  me := app.require_role(array['logistics']);
+  me := app.require_perm('config.regions');
   if coalesce(trim(p_name), '') = '' or coalesce(p_new_province, '') = '' then raise exception 'Nhập tên khu vực và chọn tỉnh mới tương ứng.'; end if;
   if exists (select 1 from app.regions where warehouse_code = p_wh and lower(name) = lower(trim(p_name))) then raise exception 'Kho này đã có khu vực cùng tên.'; end if;
   v_code := upper(left(regexp_replace(translate(trim(p_name),
@@ -1001,7 +1078,7 @@ create or replace function public.toggle_region(p_id text) returns void
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; r app.regions; v_act int;
 begin
-  me := app.require_role(array['logistics']);
+  me := app.require_perm('config.regions');
   select * into r from app.regions where id = p_id;
   if r.active then
     select count(*) into v_act from app.bookings where region_id = p_id and status in ('hold','ok') and day >= app.today();
@@ -1014,7 +1091,7 @@ create or replace function public.catalog_save(p_kind text, p_key text, p_code t
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; v_old text; v_used int;
 begin
-  me := app.require_role(array['logistics']);
+  me := app.require_perm('config.catalog');
   if p_kind in ('products','colors') then
     if coalesce(trim(p_code), '') = '' or coalesce(trim(p_name), '') = '' then raise exception 'Nhập mã và tên.'; end if;
     if p_key is null then
@@ -1054,7 +1131,7 @@ create or replace function public.catalog_toggle(p_kind text, p_key text) return
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; v_tbl text; v_col text; v_active int;
 begin
-  me := app.require_role(array['logistics']);
+  me := app.require_perm('config.catalog');
   v_tbl := case p_kind when 'products' then 'products' when 'colors' then 'colors' when 'thicks' then 'thicknesses' when 'widths' then 'widths' end;
   v_col := case when p_kind in ('products','colors') then 'code' else 'value_mm' end;
   if v_tbl is null then raise exception 'Danh mục không hợp lệ.'; end if;
@@ -1074,7 +1151,7 @@ create or replace function public.admin_upsert_profile(p jsonb) returns uuid
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; v_uid uuid; v_role text := p->>'role'; v_seg text := nullif(p->>'segment', ''); v_cust uuid := nullif(p->>'customer_id', '')::uuid;
 begin
-  me := app.require_role(array['admin']);
+  me := app.require_perm('users.manage');
   select id into v_uid from auth.users where lower(email) = lower(trim(p->>'email'));
   if v_uid is null then
     raise exception 'Chưa có tài khoản đăng nhập cho email này. Tạo trước trong Supabase → Authentication → Users → Add user.';
@@ -1096,7 +1173,7 @@ create or replace function public.admin_toggle_user(p_user uuid) returns text
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; u app.profiles; alt uuid;
 begin
-  me := app.require_role(array['admin']);
+  me := app.require_perm('users.manage');
   if p_user = me.user_id then raise exception 'Không tự khóa tài khoản của mình.'; end if;
   select * into u from app.profiles where user_id = p_user;
   if u.active and u.role = 'sales' and exists (select 1 from app.customers where sales_user_id = p_user) then
@@ -1112,7 +1189,7 @@ create or replace function public.admin_add_customer(p jsonb) returns uuid
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; v_id uuid; v_addr uuid; v_sales app.profiles; v_region text := nullif(p->>'region', '');
 begin
-  me := app.require_role(array['admin']);
+  me := app.require_perm('customers.manage');
   if coalesce(trim(p->>'code'), '') = '' or coalesce(trim(p->>'name'), '') = '' or coalesce(p->>'label', '') = ''
      or coalesce(p->>'province', '') = '' or coalesce(trim(p->>'ward'), '') = '' then
     raise exception 'Điền đủ các trường bắt buộc.';
@@ -1127,6 +1204,39 @@ begin
   return v_id;
 exception when unique_violation then
   raise exception 'Mã khách hàng đã tồn tại.';
+end $$;
+
+-- Lưu ma trận quyền: p = {"logistics": ["perm",...], "cs": [...], "sales": [...], "admin": [...]}
+create or replace function public.save_role_permissions(p jsonb) returns int
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; r text; n int := 0; v_old text[]; v_new text[];
+begin
+  me := app.require_perm('perms.manage');
+  foreach r in array array['logistics','cs','sales','admin'] loop
+    continue when not (p ? r);
+    v_old := app.my_perms(r);
+    insert into app.role_permissions (role, perm, allowed)
+    select r, pm.code, pm.code in (select jsonb_array_elements_text(p->r)) or (r = 'admin' and pm.code = 'perms.manage')
+      from app.permissions pm
+    on conflict (role, perm) do update set allowed = excluded.allowed;
+    v_new := app.my_perms(r);
+    if v_old is distinct from v_new then
+      n := n + 1;
+      perform app.audit('permissions', 'Phân quyền ' || r || ': ' || array_to_string(v_new, ', '));
+    end if;
+  end loop;
+  return n;
+end $$;
+
+create or replace function public.reset_role_permissions() returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles;
+begin
+  me := app.require_perm('perms.manage');
+  insert into app.role_permissions (role, perm, allowed)
+  select r, pm.code, r = any(pm.def_roles) from app.permissions pm cross join unnest(array['logistics','cs','sales','admin']) r
+  on conflict (role, perm) do update set allowed = excluded.allowed;
+  perform app.audit('permissions', 'Khôi phục phân quyền mặc định');
 end $$;
 
 create or replace function public.update_my_profile(p_name text, p_phone text) returns void
@@ -1168,7 +1278,8 @@ begin
        'get_state','admin_stats','save_booking','cancel_booking','save_allocations','place_on_truck','edit_allocation',
        'reject_booking','propose_day','set_region','apply_group','skip_group','confirm_group','upsert_fleet',
        'update_settings','add_region','toggle_region','catalog_save','catalog_toggle',
-       'admin_upsert_profile','admin_toggle_user','admin_add_customer','update_my_profile','mark_notifs_read')
+       'admin_upsert_profile','admin_toggle_user','admin_add_customer','update_my_profile','mark_notifs_read',
+       'save_role_permissions','reset_role_permissions')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);
@@ -1315,7 +1426,7 @@ create or replace function public.admin_stats() returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare me app.profiles; v_start timestamptz := (app.today()::timestamp at time zone 'Asia/Ho_Chi_Minh');
 begin
-  me := app.require_role(array['admin']);
+  me := app.require_perm('dash.system');
   return jsonb_build_object(
     'dbMb', round(pg_database_size(current_database()) / 1048576.0, 2),
     'bookings', (select count(*) from app.bookings),
@@ -1339,7 +1450,7 @@ create or replace function public.admin_test_email() returns text
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles;
 begin
-  me := app.require_role(array['admin']);
+  me := app.require_perm('dash.system');
   if not coalesce((app.setting('emailOn') #>> '{}')::boolean, false) then
     raise exception 'Email đang TẮT. Chạy select app.setup_email(...) trong Supabase SQL Editor để bật.';
   end if;
@@ -1426,6 +1537,36 @@ insert into app.reason_codes (kind, code, name) values
   ('fleet_cut','LONG_TRIP','Xe đi tuyến dài chưa về'),
   ('fleet_cut','OTHER','Lý do khác')
 on conflict do nothing;
+
+-- Danh mục quyền tính năng (tên/mô tả được cập nhật khi chạy lại; def_roles = mặc định)
+insert into app.permissions (code, grp, name, descr, sort, def_roles) values
+  ('day.view',        'Xem',        'Xem chi tiết ngày và đội xe',         'Thẻ xe, phần hàng trên xe, booking chờ, gợi ý gộp của một ngày', 10, '{logistics,cs,sales,admin}'),
+  ('booking.list',    'Xem',        'Danh sách booking',                   'Màn hình Danh sách booking (Sales chỉ thấy khách mình phụ trách)', 20, '{logistics,cs,sales,admin}'),
+  ('booking.create',  'Đặt hàng',   'Tạo booking, giữ chỗ, lưu nháp',      'Nút Đặt hàng trên lịch, chi tiết ngày, danh sách booking', 30, '{cs,admin}'),
+  ('booking.edit',    'Đặt hàng',   'Sửa booking',                         'Đổi ngày, số tấn, địa chỉ, sản phẩm; booking đã xác nhận quay về Chờ xếp xe (BR-11)', 40, '{cs,admin}'),
+  ('booking.cancel',  'Đặt hàng',   'Hủy booking',                         'Hủy kèm lý do, trả lại số tấn', 50, '{cs,admin}'),
+  ('approvals.view',  'Điều phối',  'Xem Approval request',                'Danh sách booking đang giữ chỗ chờ xử lý', 60, '{logistics,admin}'),
+  ('alloc.assign',    'Điều phối',  'Gán xe và xác nhận booking',          'Gợi ý xếp xe, xếp đơn lên xe, sửa / chuyển / gỡ phần hàng, xác nhận', 70, '{logistics,admin}'),
+  ('booking.reject',  'Điều phối',  'Từ chối, đề nghị đổi ngày',           'Từ chối booking hoặc đề nghị ngày khác kèm lý do', 80, '{logistics,admin}'),
+  ('merge.apply',     'Điều phối',  'Áp dụng gợi ý gộp xe',                'Áp dụng hoặc bỏ qua nhóm gộp xe theo khu vực', 90, '{logistics,admin}'),
+  ('booking.region',  'Điều phối',  'Đổi khu vực của booking',             'Chọn lại khu vực giao hàng trên booking', 100, '{logistics,admin}'),
+  ('fleet.manage',    'Điều phối',  'Khai báo số xe theo ngày',            'Trucks capacity setting: số đầu kéo, container mỗi ngày mỗi kho', 110, '{logistics,admin}'),
+  ('config.general',  'Cấu hình',   'Ngưỡng, tải trọng, ngày nghỉ',        'Ngưỡng gần đầy, tải trọng DK/CN, ngưỡng phân loại, SLA, ngày nghỉ lễ', 120, '{logistics,admin}'),
+  ('config.regions',  'Cấu hình',   'Khu vực giao hàng',                   'Thêm khu vực, khu vực lân cận, ngừng dùng', 130, '{logistics,admin}'),
+  ('config.catalog',  'Cấu hình',   'Sản phẩm, màu, độ dày, khổ',          'Thêm, sửa, ngừng dùng mục trong danh mục', 140, '{logistics,admin}'),
+  ('dash.ops',        'Dashboard',  'Dashboard điều phối và hiệu quả xe',  'DB-01 Điều phối hôm nay, DB-02 Hiệu quả sử dụng xe, DB-04 Gộp xe', 150, '{logistics,admin}'),
+  ('dash.service',    'Dashboard',  'Dashboard chất lượng phục vụ',        'DB-03 (bản sau)', 160, '{logistics,cs,admin}'),
+  ('dash.sales',      'Dashboard',  'Dashboard khách hàng và Sales',       'DB-05 (bản sau)', 170, '{logistics,sales,admin}'),
+  ('dash.system',     'Dashboard',  'Dashboard sức khỏe hệ thống',         'DB-06: dung lượng, đăng nhập, email, gửi email thử', 180, '{admin}'),
+  ('users.manage',    'Quản trị',   'Quản lý tài khoản',                   'Cấp quyền, sửa, khóa tài khoản người dùng', 190, '{admin}'),
+  ('customers.manage','Quản trị',   'Quản lý khách hàng',                  'Thêm khách hàng, địa chỉ, Sales phụ trách', 200, '{admin}'),
+  ('perms.manage',    'Quản trị',   'Phân quyền vai trò',                  'Màn hình này. Admin luôn giữ quyền này', 210, '{admin}')
+on conflict (code) do update set grp = excluded.grp, name = excluded.name, descr = excluded.descr, sort = excluded.sort, def_roles = excluded.def_roles;
+
+-- Ma trận mặc định; không ghi đè cấu hình Admin đã chỉnh
+insert into app.role_permissions (role, perm, allowed)
+select r, p.code, r = any(p.def_roles) from app.permissions p cross join unnest(array['logistics','cs','sales','admin']) r
+on conflict (role, perm) do nothing;
 -- =====================================================================
 -- demo_data.sql : dữ liệu mẫu để chạy thử (TÙY CHỌN)
 -- Chạy SAU khi đã tạo các tài khoản Sales/CS trong ứng dụng, rồi gọi:

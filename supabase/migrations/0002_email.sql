@@ -139,7 +139,7 @@ create or replace function public.admin_stats() returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare me app.profiles; v_start timestamptz := (app.today()::timestamp at time zone 'Asia/Ho_Chi_Minh');
 begin
-  me := app.require_role(array['admin']);
+  me := app.require_perm('dash.system');
   return jsonb_build_object(
     'dbMb', round(pg_database_size(current_database()) / 1048576.0, 2),
     'bookings', (select count(*) from app.bookings),
@@ -163,7 +163,7 @@ create or replace function public.admin_test_email() returns text
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles;
 begin
-  me := app.require_role(array['admin']);
+  me := app.require_perm('dash.system');
   if not coalesce((app.setting('emailOn') #>> '{}')::boolean, false) then
     raise exception 'Email đang TẮT. Chạy select app.setup_email(...) trong Supabase SQL Editor để bật.';
   end if;
