@@ -456,7 +456,8 @@ function vUsers(){const UT=[['users','Người dùng','users.manage'],['customer
  return `<div class="panel"><div class="pagehead"><h2>SETTING USER ACCOUNT</h2>${T==='users'?'<button class="btn" data-a="userNew">Cấp quyền tài khoản</button>':T==='customers'?'<button class="btn" data-a="custNew">Thêm khách hàng</button>':''}</div>
  <div class="tabs">${UT.map(([k,l])=>`<button class="${T===k?'on':''}" data-a="uTab" data-t="${k}">${l}</button>`).join('')}</div>
  ${T==='perms'?vPerms():T==='users'?`<div class="tbl-wrap"><table><thead><tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Segment</th><th>Kho mặc định</th><th>Công ty</th><th>Trạng thái</th><th></th></tr></thead><tbody>${S.users.map(u=>`<tr><td><b>${esc(u.name)}</b></td><td>${esc(u.email)}</td><td>${ROLE_LABEL[u.role]}</td><td>${u.segment?SEG_LABEL[u.segment]:u.customerId?SEG_LABEL[cust(u.customerId).segment]:'–'}</td><td>${u.wh}</td><td>${u.customerId?esc(cust(u.customerId).name):'–'}</td><td>${u.active?'<span class="st st-ok">Hoạt động</span>':'<span class="st st-cancelled">Khóa</span>'}</td><td class="r" style="white-space:nowrap"><button class="btn ghost sm" data-a="userEdit" data-id="${u.id}">Sửa</button> ${u.id!==V.me?`<button class="btn ghost sm" data-a="userToggle" data-id="${u.id}">${u.active?'Khóa':'Mở khóa'}</button>`:''}</td></tr>`).join('')}</tbody></table></div>${V.userErr?`<div class="err" style="margin-top:8px">${esc(V.userErr)}</div>`:''}`
- :`<div class="tbl-wrap"><table><thead><tr><th>Mã KH</th><th>Tên công ty</th><th>Segment</th><th>Sales phụ trách</th><th>Địa chỉ giao · khu vực</th><th class="r">Tài khoản</th></tr></thead><tbody>${S.customers.map(c=>`<tr><td>${c.code}</td><td><b>${esc(c.name)}</b></td><td>${SEG_LABEL[c.segment]}</td><td>${esc(user(c.salesId).name)}</td><td class="small">${c.addresses.map(a=>`${esc(a.label)}, ${esc(a.ward)}, ${esc(a.province)} · <b>${Object.values(a.regions).map(regName).map(esc).join(', ')||'Chưa phân khu vực'}</b>`).join('<br>')}</td><td class="r">${S.users.filter(u=>u.customerId===c.id).length}</td></tr>`).join('')}</tbody></table></div>`}</div>`;
+ :`<div class="tbl-wrap"><table><thead><tr><th>Mã KH</th><th>Tên công ty</th><th>Segment</th><th>Sales phụ trách</th><th>Địa chỉ giao · khu vực</th><th class="r">Tài khoản</th><th>Trạng thái</th><th></th></tr></thead><tbody>${S.customers.map(c=>`<tr style="${c.active===false?'opacity:.6':''}"><td>${c.code}</td><td><b>${esc(c.name)}</b></td><td>${SEG_LABEL[c.segment]}</td><td>${esc(user(c.salesId).name)}</td><td class="small">${c.addresses.map(a=>`${esc(a.label)}, ${esc(a.ward)}, ${esc(a.province)} · <b>${Object.values(a.regions).map(regName).map(esc).join(', ')||'Chưa phân khu vực'}</b>`).join('<br>')}</td><td class="r">${S.users.filter(u=>u.customerId===c.id).length}</td><td>${c.active===false?'<span class="st st-cancelled">Ngừng dùng</span>':'<span class="st st-ok">Đang dùng</span>'}</td>
+ <td class="r" style="white-space:nowrap"><button class="btn ghost sm" data-a="custEdit" data-id="${c.id}">Sửa</button> <button class="btn ghost sm" data-a="custToggle" data-id="${c.id}">${c.active===false?'Dùng lại':'Ngừng dùng'}</button></td></tr>`).join('')}</tbody></table></div>`}</div>`;
 }
 
 
@@ -594,7 +595,7 @@ function vProfile(){const u=me();
  <h3 style="margin-top:18px;font-size:15px">ĐỔI MẬT KHẨU</h3><div class="fgrid"><div class="field"><label for="pw1">Mật khẩu mới</label><input id="pw1" type="password" class="inp" autocomplete="new-password" data-f="pw" data-k="pw" value="${esc(V.pw||'')}"></div><div class="field"><label for="pw2">Nhập lại</label><input id="pw2" type="password" class="inp" autocomplete="new-password" data-f="pw" data-k="pw2" value="${esc(V.pw2||'')}"></div></div>${V.pwErr?`<div class="err">${esc(V.pwErr)}</div>`:''}<div class="mfoot"><button class="btn ghost" data-a="pwSave">Đổi mật khẩu</button></div></div>`;}
 
 /* ===================== modals ===================== */
-function modalView(){const M=V.modal;switch(M.type){case'truck':return mTruck();case'editAl':return mEditAl();case'place':return mPlace();case'bf':return mBF();case'custDay':return mCustDay();case'group':return mGroup();case'userNew':return mUserNew();case'custNew':return mCustNew();}return '';}
+function modalView(){const M=V.modal;switch(M.type){case'truck':return mTruck();case'editAl':return mEditAl();case'place':return mPlace();case'bf':return mBF();case'custDay':return mCustDay();case'group':return mGroup();case'userNew':return mUserNew();case'custNew':return mCustNew();case'custEdit':return mCustEdit();}return '';}
 function mTruck(){const t=truckByCode(V.modal.code);const al=liveAllocsOnTruck(t.code);const l=r2(al.reduce((s,a)=>s+a.tons,0));const s=truckState(t,l);const past=t.date<TODAY;const isLog=can('alloc.assign');
  const byBk={};al.forEach(a=>{(byBk[a.bk]=byBk[a.bk]||{bk:a.bk,tons:0,ids:[]});byBk[a.bk].tons+=a.tons;byBk[a.bk].ids.push(a.id);});const segs=Object.values(byBk);
  return `<div class="mhead"><span class="meta">${WH.find(w=>w.id===t.wh).full.toUpperCase()}</span><span class="meta">Ngày: ${dmy(t.date)}</span></div>
@@ -637,6 +638,31 @@ function mGroup(){const ids=V.modal.ids;
  <div class="tbl-wrap"><table><thead><tr><th>Booking</th><th>Khách</th><th class="r">Đã gán / Tổng</th><th>Xe</th><th></th></tr></thead><tbody>${ids.map(id=>{const b=bkById(id);return `<tr><td>${b.id}</td><td>${esc(cust(b.customerId).name)}</td><td class="r num">${t2(allocSum(id))} / ${t2(bkTotal(b))}</td><td>${allocsOf(id).map(a=>truckByCode(a.truck).short).join(', ')}</td><td><button class="btn ghost sm" data-a="openBk" data-id="${id}">Mở</button></td></tr>`;}).join('')}</tbody></table></div>
  <div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button><button class="btn" data-a="groupConfirm">Xác nhận cả nhóm</button></div>`;}
 
+function mCustEdit(){const M=V.modal;const f=M.f;const c=cust(M.id);if(!c){return '<div class="empty">Không tìm thấy khách hàng.</div>';}
+ const sales=S.users.filter(u=>u.role==='sales'&&(u.active||u.id===f.salesId)&&u.segment===f.segment);const A=M.addr;
+ const regTxt=a=>WH.map(w=>a.regions[w.id]?`${w.name}: ${regName(a.regions[w.id])}`:'').filter(Boolean).join(' · ')||'Chưa phân khu vực';
+ const addrForm=A?`<div class="panel" style="background:var(--sand);margin-top:8px"><b>${A.id?'Sửa địa chỉ':'Thêm địa chỉ'}</b><div class="fgrid" style="margin-top:8px">
+  <div class="field"><label for="ad-l">Tên điểm giao <span class="req">*</span></label><input id="ad-l" class="inp" data-f="ad" data-k="label" value="${esc(A.label)}" placeholder="Ví dụ: Kho Bình Chánh"></div>
+  <div class="field"><label for="ad-p">Tỉnh/Thành (từ 01/07/2025) <span class="req">*</span></label><select id="ad-p" class="inp" data-f="ad" data-k="province"><option value="">Chọn</option>${PROVINCES.map(p=>`<option ${A.province===p?'selected':''}>${p}</option>`).join('')}</select></div>
+  <div class="field"><label for="ad-w">Phường/Xã <span class="req">*</span></label><input id="ad-w" class="inp" data-f="ad" data-k="ward" value="${esc(A.ward)}"></div>
+  ${WH.map(w=>{const rs=S.regions.filter(r=>r.wh===w.id&&(r.active||A.regions[w.id]===r.id));return `<div class="field"><label for="ad-r-${w.id}">Khu vực khi giao từ ${esc(w.full)}</label><select id="ad-r-${w.id}" class="inp" data-f="adr" data-w="${w.id}"><option value="">Chưa phân khu vực</option>${rs.map(r=>`<option value="${r.id}" ${A.regions[w.id]===r.id?'selected':''}>${esc(r.name)}${r.newProvince===A.province?' · thuộc '+esc(r.newProvince):''}</option>`).join('')}</select></div>`;}).join('')}
+  </div>${M.addrErr?`<div class="err">${esc(M.addrErr)}</div>`:''}<div class="mfoot"><button class="btn ghost sm" data-a="addrCancel">Hủy</button><button class="btn sm" data-a="addrSave">Lưu địa chỉ</button></div></div>`:'';
+ return `<div class="mhead"><h2>SỬA KHÁCH HÀNG</h2><span class="meta">${esc(c.code)} · ${c.active===false?'Ngừng dùng':'Đang dùng'}</span></div>
+ <div class="fgrid">
+ <div class="field"><label for="ce-c">Mã khách hàng <span class="req">*</span></label><input id="ce-c" class="inp" data-f="ce" data-k="code" value="${esc(f.code)}"></div>
+ <div class="field"><label for="ce-n">Tên công ty <span class="req">*</span></label><input id="ce-n" class="inp" data-f="ce" data-k="name" value="${esc(f.name)}"></div>
+ <div class="field"><label for="ce-s">Segment <span class="req">*</span></label><select id="ce-s" class="inp" data-f="ce" data-k="segment"><option value="DD" ${f.segment==='DD'?'selected':''}>Dân dụng</option><option value="DA" ${f.segment==='DA'?'selected':''}>Dự án</option></select></div>
+ <div class="field"><label for="ce-sl">Sales phụ trách (cùng segment) <span class="req">*</span></label><select id="ce-sl" class="inp" data-f="ce" data-k="salesId"><option value="">Chọn</option>${sales.map(u=>`<option value="${u.id}" ${f.salesId===u.id?'selected':''}>${esc(u.name)}${u.active?'':' (đã khóa)'}</option>`).join('')}</select>${f.salesId!==c.salesId&&f.salesId?'<span class="small" style="color:var(--warn)">Đổi Sales: Sales mới thấy toàn bộ booking của khách này, Sales cũ không còn thấy.</span>':''}</div></div>
+ ${M.err?`<div class="err" style="margin-top:8px">${esc(M.err)}</div>`:''}
+ <div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button><button class="btn" data-a="ceSave">Lưu thông tin</button></div>
+ <h3 style="margin-top:16px;font-size:15px">ĐỊA CHỈ GIAO HÀNG</h3>
+ <div class="tbl-wrap"><table><thead><tr><th>Điểm giao</th><th>Phường/Xã · Tỉnh</th><th>Khu vực theo kho</th><th></th></tr></thead><tbody>
+ ${c.addresses.map(a=>`<tr><td><b>${esc(a.label)}</b></td><td class="small">${esc(a.ward)}, ${esc(a.province)}</td><td class="small">${esc(regTxt(a))}</td>
+  <td class="r" style="white-space:nowrap">${M.delAddr===a.id?`<span class="small">Xóa địa chỉ này?</span> <button class="btn ghost sm" data-a="addrDelOff">Thôi</button> <button class="btn danger sm" data-a="addrDelGo" data-id="${a.id}">Xóa</button>`
+  :`<button class="btn ghost sm" data-a="addrEdit" data-id="${a.id}">Sửa</button> <button class="btn ghost sm" data-a="addrDel" data-id="${a.id}">Xóa</button>`}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">Chưa có địa chỉ.</td></tr>'}
+ </tbody></table></div>${M.delErr?`<div class="err" style="margin-top:6px">${esc(M.delErr)}</div>`:''}
+ ${A?addrForm:'<div class="row" style="margin-top:8px"><button class="btn ghost sm" data-a="addrNew">+ Thêm địa chỉ</button><span class="small muted">Booking cũ giữ nguyên địa chỉ đã ghi, sửa ở đây chỉ áp dụng cho booking mới.</span></div>'}`;}
+
 /* booking form SCR-08 */
 function bfNew(date,src){const wh=V.wh;return{type:'bf',mode:src?'edit':'new',id:src?.id||null,f:src?{wh:src.wh,date:src.date,delivery:src.delivery,customerId:src.customerId,ref:src.ref,addrId:src.addrId||'new',addrText:src.addrId?src.addrText:src.addrText.split(',').slice(0,-1).join(',').trim()||src.addrText,province:src.province,ward:src.addrId?'':(src.addrText.includes(',')?src.addrText.split(',').pop().trim():''),region:src.region,regionMode:'saved',lines:src.lines.map(l=>({...l})),note:src.note,saveAddr:false}:{wh,date,delivery:'',customerId:'',ref:'',addrId:'',addrText:'',province:'',ward:'',region:'',regionMode:'',lines:[{p:'',c:'',th:'',w:'',t:''}],note:'',saveAddr:true},err:'',cancel:false,cancelReason:'',wide:true};}
 function detectRegion(f){const c=cust(f.customerId);
@@ -665,7 +691,7 @@ function mBF(){const M=V.modal;const f=M.f;const c=cust(f.customerId);const det=
  <div class="fgrid">
  <div class="field"><label for="bf-wh">Kho <span class="req">*</span></label><select id="bf-wh" class="inp" data-f="bf" data-k="wh" ${editing?'disabled':''}>${WH.map(w=>`<option value="${w.id}" ${f.wh===w.id?'selected':''}>${w.name}</option>`).join('')}</select></div>
  <div class="field"><label for="bf-date">Ngày bốc <span class="req">*</span></label><input id="bf-date" type="date" class="inp" min="${TODAY}" value="${f.date}" data-f="bf" data-k="date"></div>
- <div class="field"><label for="bf-cust">Khách hàng <span class="req">*</span></label><select id="bf-cust" class="inp" data-f="bf" data-k="customerId" ${editing?'disabled':''}><option value="">Tìm và chọn khách hàng</option>${S.customers.map(x=>`<option value="${x.id}" ${f.customerId===x.id?'selected':''}>${esc(x.name)} · ${x.code}</option>`).join('')}</select>${c?`<span class="small muted">${SEG_LABEL[c.segment]} · Sales: ${esc(user(c.salesId).name)}</span>`:''}</div>
+ <div class="field"><label for="bf-cust">Khách hàng <span class="req">*</span></label><select id="bf-cust" class="inp" data-f="bf" data-k="customerId" ${editing?'disabled':''}><option value="">Tìm và chọn khách hàng</option>${S.customers.filter(x=>x.active!==false||x.id===f.customerId).map(x=>`<option value="${x.id}" ${f.customerId===x.id?'selected':''}>${esc(x.name)} · ${x.code}${x.active===false?' (ngừng dùng)':''}</option>`).join('')}</select>${c?`<span class="small muted">${SEG_LABEL[c.segment]} · Sales: ${esc(user(c.salesId).name)}</span>`:''}</div>
  <div class="field"><label for="bf-ref">Ref đơn hàng (SO) <span class="req">*</span></label><input id="bf-ref" class="inp" maxlength="30" value="${esc(f.ref)}" data-f="bf" data-k="ref" placeholder="SO-4500xxx"></div>
  <div class="field"><label for="bf-del">Ngày giao yêu cầu</label><input id="bf-del" type="date" class="inp" min="${f.date}" value="${f.delivery}" data-f="bf" data-k="delivery"></div>
  <div class="field"><label>Loại xe gợi ý (nội bộ)</label><div id="bf-pref" style="padding-top:6px"><span class="chip">${bfTotal(f)?pref+' · '+(pref==='DK'?'đầu kéo':'container'):'–'}</span></div></div>
@@ -852,6 +878,18 @@ const A={
   if(f.role==='sales'&&!f.phone.trim()){M.err='Sales cần số điện thoại (hiển thị cho khách).';return render();}if(f.role==='customer'&&!f.customerId){M.err='Chọn công ty khách hàng.';return render();}
   mutate('admin_upsert_profile',{p:{email:f.email.trim(),name:f.name.trim(),role:f.role,phone:f.phone,segment:f.segment,customer_id:f.customerId,wh:f.wh}},
    {err:m=>M.err=m,ok:()=>{V.modal=null;toast((M.edit?'Đã cập nhật ':'Đã cấp quyền cho ')+f.email.trim());}});},
+ custEdit:d=>{const c=cust(d.id);V.modal={type:'custEdit',id:c.id,wide:true,err:'',addr:null,f:{code:c.code,name:c.name,segment:c.segment,salesId:c.salesId||''}};render();},
+ ceSave:()=>{const M=V.modal;const f=M.f;if(!f.code.trim()||!f.name.trim()||!f.salesId){M.err='Điền đủ mã, tên công ty và Sales phụ trách.';return render();}
+  mutate('admin_update_customer',{p:{id:M.id,code:f.code.trim(),name:f.name.trim(),segment:f.segment,sales_id:f.salesId}},{err:m=>M.err=m,ok:()=>{V.modal=null;toast('Đã lưu khách hàng '+f.name.trim());}});},
+ custToggle:d=>{const c=cust(d.id);mutate('admin_toggle_customer',{p_id:d.id},{ok:r=>toast(r.active?`Đã dùng lại ${c.name}`:`Đã ngừng dùng ${c.name}: không tạo booking mới được${r.openBookings?`; ${r.openBookings} booking đang mở vẫn được xử lý`:''}`)});},
+ addrNew:()=>{V.modal.addr={id:'',label:'',province:'',ward:'',regions:{}};V.modal.addrErr='';render();},
+ addrEdit:d=>{const a=cust(V.modal.id).addresses.find(x=>x.id===d.id);V.modal.addr={id:a.id,label:a.label,province:a.province,ward:a.ward,regions:{...a.regions}};V.modal.addrErr='';render();},
+ addrCancel:()=>{V.modal.addr=null;render();},
+ addrSave:()=>{const M=V.modal;const A=M.addr;if(!A.label.trim()||!A.province||!A.ward.trim()){M.addrErr='Nhập tên điểm giao, tỉnh/thành và phường/xã.';return render();}
+  mutate('admin_save_address',{p:{id:A.id,customer_id:M.id,label:A.label.trim(),province:A.province,ward:A.ward.trim(),regions:A.regions}},{err:m=>M.addrErr=m,ok:()=>{M.addr=null;M.addrErr='';render();toast('Đã lưu địa chỉ '+A.label.trim());}});},
+ addrDel:d=>{V.modal.delAddr=d.id;V.modal.delErr='';render();},
+ addrDelOff:()=>{V.modal.delAddr=null;render();},
+ addrDelGo:d=>{const M=V.modal;mutate('admin_delete_address',{p_id:d.id},{err:m=>{M.delErr=m;M.delAddr=null;},ok:()=>{M.delAddr=null;M.delErr='';render();toast('Đã xóa địa chỉ');}});},
  custNew:()=>{V.modal={type:'custNew',f:{code:'KH0'+(300+S.customers.length),name:'',segment:'DD',salesId:'',label:'',province:'',ward:'',region:''},err:''};render();},
  cnSave:()=>{const M=V.modal;const f=M.f;if(!f.code.trim()||!f.name.trim()||!f.salesId||!f.label.trim()||!f.province||!f.ward.trim()){M.err='Điền đủ các trường bắt buộc.';return render();}
   mutate('admin_add_customer',{p:{code:f.code.trim(),name:f.name.trim(),segment:f.segment,sales_id:f.salesId,label:f.label.trim(),province:f.province,ward:f.ward.trim(),region:f.region}},
@@ -993,6 +1031,9 @@ document.addEventListener('change',e=>{const el=e.target;const a=el.dataset.a;
  if(f==='un'){V.modal.f[el.dataset.k]=el.value;if(el.dataset.k==='role')render();return;}
  if(f==='cn'){V.modal.f[el.dataset.k]=el.value;if(['segment','province'].includes(el.dataset.k)){if(el.dataset.k==='segment')V.modal.f.salesId='';if(el.dataset.k==='province'){const c=S.regions.filter(r=>r.active&&r.newProvince===el.value);V.modal.f.region=c.length===1?c[0].id:'';}render();}return;}
  if(f==='hol'){V.hol=el.value;return;}
+ if(f==='ce'){V.modal.f[el.dataset.k]=el.value;if(el.dataset.k==='segment'){V.modal.f.salesId='';}if(['segment','salesId'].includes(el.dataset.k))render();return;}
+ if(f==='ad'){const A=V.modal.addr;A[el.dataset.k]=el.value;if(el.dataset.k==='province'){WH.forEach(w=>{if(A.regions[w.id])return;const c=S.regions.filter(r=>r.wh===w.id&&r.active&&r.newProvince===A.province);if(c.length===1)A.regions[w.id]=c[0].id;});render();}return;}
+ if(f==='adr'){V.modal.addr.regions[el.dataset.w]=el.value;return;}
  if(f==='pm'){const r=el.dataset.r,p=el.dataset.p;const set=new Set(V.pm[r]||[]);el.checked?set.add(p):set.delete(p);V.pm[r]=[...set];render();return;}
  if(f==='bulk'){V.bulk={from:TODAY,to:addDays(TODAY,6),dk:9,cn:4,...(V.bulk||{}),[el.dataset.k]:el.value};return;}
 });
@@ -1011,7 +1052,8 @@ document.addEventListener('input',e=>{const el=e.target;const f=el.dataset.f;if(
  if(f==='newReg'){V.newReg={...(V.newReg||{}),[el.dataset.k]:el.value};return;}
  if(f==='cat'){const[k,fld]=el.dataset.k.split('.');V.cat={...(V.cat||{}),[k]:{...((V.cat||{})[k]||{}),[fld]:el.value}};return;}
  if(f==='catE'){V.catEdit[el.dataset.k]=el.value;return;}
- if(f==='un'||f==='cn'){V.modal.f[el.dataset.k]=el.value;return;}
+ if(f==='un'||f==='cn'||f==='ce'){V.modal.f[el.dataset.k]=el.value;return;}
+ if(f==='ad'&&el.tagName==='INPUT'){V.modal.addr[el.dataset.k]=el.value;return;}
  if(f==='pf'){me()[el.dataset.k]=el.value;return;}
  if(f==='pw'){V[el.dataset.k]=el.value;return;}
  if(f==='bulk'){V.bulk={from:TODAY,to:addDays(TODAY,6),dk:9,cn:4,...(V.bulk||{}),[el.dataset.k]:el.value};return;}

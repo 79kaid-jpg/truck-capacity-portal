@@ -102,6 +102,33 @@ await session('admin@demo.vn', async p => {
   await p.click('[data-a="pmResetOn"]'); await clr(p); await p.click('[data-a="pmResetGo"]'); log('reset ->', await toast(p));
   log('cs cancel back on:', await p.locator('input[data-r="cs"][data-p="booking.cancel"]').isChecked());
 });
+await session('admin@demo.vn', async p => {
+  S('custEdit'); await p.click('[data-a="go"][data-v="users"]'); await p.click('[data-a="uTab"][data-t="customers"]');
+  log('customer row buttons:', await p.locator('[data-a="custEdit"]').count(), await p.locator('[data-a="custToggle"]').count());
+  const row = p.locator('tr', { hasText: 'Vạn Thành' }).filter({ hasNotText: 'UQ' });
+  await row.locator('[data-a="custEdit"]').click(); await p.waitForTimeout(100);
+  await type(p, '#ce-n', 'Vạn Thành Group'); await p.selectOption('#ce-s', 'DA'); await p.waitForTimeout(100);
+  await p.selectOption('#ce-sl', { index: 1 }); await p.waitForTimeout(100); await shot(p, '11-cust-edit');
+  log('sales warning shown:', await p.locator('.modal', { hasText: 'Đổi Sales' }).count() > 0);
+  await clr(p); await p.click('[data-a="ceSave"]'); log('save customer ->', await toast(p));
+  await p.locator('tr', { hasText: 'Vạn Thành Group' }).locator('[data-a="custEdit"]').click();
+  await p.click('[data-a="addrNew"]'); await type(p, '#ad-l', 'Kho Nhơn Trạch'); await p.selectOption('#ad-p', 'Đồng Nai'); await p.waitForTimeout(100);
+  log('auto region PMY:', await p.locator('#ad-r-PMY').inputValue()); await type(p, '#ad-w', 'Xã Phước An');
+  await clr(p); await p.click('[data-a="addrSave"]'); log('add address ->', await toast(p), '| rows:', await p.locator('.modal tbody tr').count());
+  await p.locator('.modal [data-a="addrDel"]').first().click(); await clr(p); await p.locator('.modal [data-a="addrDelGo"]').click(); log('delete address ->', await toast(p));
+  await p.locator('.modal [data-a="addrDel"]').first().click(); await p.locator('.modal [data-a="addrDelGo"]').click(); await p.waitForTimeout(500);
+  log('delete last address ->', await p.locator('.modal .err').innerText().catch(() => '(none)')); await shot(p, '11b-cust-addr');
+  await p.click('[data-a="close"]');
+  S('custToggle'); await clr(p); await p.locator('tr', { hasText: 'Lysaght' }).locator('[data-a="custToggle"]').click(); log('stop customer ->', await toast(p));
+});
+await session('cs@demo.vn', async p => {
+  S('csInactive'); await p.locator('[data-a="newBk"]').first().click();
+  const opts = await p.locator('#bf-cust option').allInnerTexts(); log('CS form has Lysaght:', opts.some(o => o.includes('Lysaght')), '| Vạn Thành Group:', opts.some(o => o.includes('Vạn Thành Group')));
+});
+await session('admin@demo.vn', async p => {
+  S('custRestore'); await p.click('[data-a="go"][data-v="users"]'); await p.click('[data-a="uTab"][data-t="customers"]');
+  await clr(p); await p.locator('tr', { hasText: 'Lysaght' }).locator('[data-a="custToggle"]').click(); log('restore customer ->', await toast(p));
+});
 await session('new@demo.vn', async p => { S('granted'); log('new user after grant sees calendar:', await p.locator('.cal').count() > 0); });
 await session('kh@demo.vn', async p => { S('mobile'); await p.waitForSelector('.cal'); await shot(p, '7-customer-mobile'); }, { width: 390, height: 844 });
 { // forgot password + recovery link (no login)

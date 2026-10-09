@@ -1237,6 +1237,93 @@ begin
   perform app.audit('permissions', 'Khôi phục phân quyền mặc định');
 end $$;
 
+-- Sửa thông tin khách hàng: p = {id, code, name, segment, sales_id}
+create or replace function public.admin_update_customer(p jsonb) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; c app.customers; v_sales app.profiles; v_txt text := '';
+begin
+  me := app.require_perm('customers.manage');
+  select * into c from app.customers where id = nullif(p->>'id', '')::uuid for update;
+  if not found then raise exception 'Không tìm thấy khách hàng.'; end if;
+  if coalesce(trim(p->>'code'), '') = '' or coalesce(trim(p->>'name'), '') = '' or coalesce(p->>'segment', '') not in ('DD','DA') then
+    raise exception 'Điền đủ mã, tên công ty và segment.';
+  end if;
+  select * into v_sales from app.profiles where user_id = nullif(p->>'sales_id', '')::uuid and role = 'sales' and active;
+  if not found or v_sales.segment <> p->>'segment' then raise exception 'Chọn Sales phụ trách đang hoạt động, cùng segment (BR-17).'; end if;
+  if c.code <> trim(p->>'code') then v_txt := v_txt || 'mã ' || c.code || ' → ' || trim(p->>'code') || '; '; end if;
+  if c.name <> trim(p->>'name') then v_txt := v_txt || 'tên → ' || trim(p->>'name') || '; '; end if;
+  if c.segment <> p->>'segment' then v_txt := v_txt || 'segment ' || c.segment || ' → ' || (p->>'segment') || '; '; end if;
+  if c.sales_user_id is distinct from v_sales.user_id then v_txt := v_txt || 'Sales → ' || v_sales.full_name || '; '; end if;
+  update app.customers set code = trim(p->>'code'), name = trim(p->>'name'), segment = p->>'segment', sales_user_id = v_sales.user_id where id = c.id;
+  if v_txt <> '' then perform app.audit('customer:' || c.id, 'Sửa khách hàng ' || c.name || ': ' || v_txt); end if;
+exception when unique_violation then
+  raise exception 'Mã khách hàng đã tồn tại.';
+end $$;
+
+-- Ngừng dùng / dùng lại khách hàng. Ngừng dùng: không tạo booking mới; booking đã có vẫn xử lý bình thường.
+create or replace function public.admin_toggle_customer(p_id uuid) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; c app.customers; v_open int;
+begin
+  me := app.require_perm('customers.manage');
+  select * into c from app.customers where id = p_id for update;
+  if not found then raise exception 'Không tìm thấy khách hàng.'; end if;
+  select count(*) into v_open from app.bookings where customer_id = p_id and status in ('draft','hold','ok','resched') and day >= app.today();
+  update app.customers set active = not active where id = p_id;
+  perform app.audit('customer:' || p_id, case when c.active then 'Ngừng dùng' else 'Dùng lại' end || ' khách hàng ' || c.name);
+  return jsonb_build_object('active', not c.active, 'openBookings', v_open);
+end $$;
+
+-- Thêm / sửa địa chỉ giao: p = {id (rỗng = thêm), customer_id, label, ward, province, regions: {"PMY": "PMY-HCM", ...}}
+create or replace function public.admin_save_address(p jsonb) returns uuid
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; v_id uuid := nullif(p->>'id', '')::uuid; v_cust uuid := nullif(p->>'customer_id', '')::uuid; k text; v text;
+begin
+  me := app.require_perm('customers.manage');
+  if not exists (select 1 from app.customers where id = v_cust) then raise exception 'Không tìm thấy khách hàng.'; end if;
+  if coalesce(trim(p->>'label'), '') = '' or coalesce(p->>'province', '') = '' or coalesce(trim(p->>'ward'), '') = '' then
+    raise exception 'Nhập tên điểm giao, tỉnh/thành và phường/xã.';
+  end if;
+  for k, v in select key, value #>> '{}' from jsonb_each(coalesce(p->'regions', '{}'::jsonb)) loop
+    if coalesce(v, '') <> '' and not exists (select 1 from app.regions r where r.id = v and r.warehouse_code = k) then
+      raise exception 'Khu vực % không thuộc kho %.', v, k;
+    end if;
+  end loop;
+  if v_id is null then
+    insert into app.customer_addresses (customer_id, label, ward, province, is_default)
+    values (v_cust, trim(p->>'label'), trim(p->>'ward'), p->>'province', not exists (select 1 from app.customer_addresses where customer_id = v_cust))
+    returning id into v_id;
+  else
+    update app.customer_addresses set label = trim(p->>'label'), ward = trim(p->>'ward'), province = p->>'province'
+     where id = v_id and customer_id = v_cust;
+    if not found then raise exception 'Địa chỉ không thuộc khách hàng này.'; end if;
+    delete from app.address_regions where address_id = v_id;
+  end if;
+  insert into app.address_regions (address_id, warehouse_code, region_id)
+  select v_id, key, value #>> '{}' from jsonb_each(coalesce(p->'regions', '{}'::jsonb)) where coalesce(value #>> '{}', '') <> '';
+  perform app.audit('customer:' || v_cust, 'Lưu địa chỉ ' || trim(p->>'label'));
+  return v_id;
+end $$;
+
+-- Xóa địa chỉ giao (booking cũ giữ nguyên địa chỉ dạng chữ). Phải còn ít nhất một địa chỉ.
+create or replace function public.admin_delete_address(p_id uuid) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; a app.customer_addresses;
+begin
+  me := app.require_perm('customers.manage');
+  select * into a from app.customer_addresses where id = p_id;
+  if not found then raise exception 'Không tìm thấy địa chỉ.'; end if;
+  if (select count(*) from app.customer_addresses where customer_id = a.customer_id) <= 1 then
+    raise exception 'Khách hàng cần ít nhất một địa chỉ giao. Thêm địa chỉ mới trước khi xóa địa chỉ này.';
+  end if;
+  delete from app.customer_addresses where id = p_id;
+  if a.is_default then
+    update app.customer_addresses set is_default = true
+     where id = (select id from app.customer_addresses where customer_id = a.customer_id order by label limit 1);
+  end if;
+  perform app.audit('customer:' || a.customer_id, 'Xóa địa chỉ ' || a.label);
+end $$;
+
 create or replace function public.update_my_profile(p_name text, p_phone text) returns void
 language plpgsql volatile security definer set search_path = '' as $$
 begin
@@ -1277,7 +1364,8 @@ begin
        'reject_booking','propose_day','set_region','apply_group','skip_group','confirm_group','upsert_fleet',
        'update_settings','add_region','toggle_region','catalog_save','catalog_toggle',
        'admin_upsert_profile','admin_toggle_user','admin_add_customer','update_my_profile','mark_notifs_read',
-       'save_role_permissions','reset_role_permissions')
+       'save_role_permissions','reset_role_permissions',
+       'admin_update_customer','admin_toggle_customer','admin_save_address','admin_delete_address')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);
