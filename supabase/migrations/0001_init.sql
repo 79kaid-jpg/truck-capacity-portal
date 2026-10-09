@@ -1098,6 +1098,35 @@ begin
   return v_id;
 end $$;
 
+-- Sửa khu vực: tên, tỉnh mới, số ngày đi-về, khu vực lân cận (mã/ID giữ nguyên để không ảnh hưởng booking, địa chỉ)
+create or replace function public.update_region(p_id text, p_name text, p_new_province text, p_days int, p_neighbors text[]) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; r app.regions; n text; v_txt text := '';
+begin
+  me := app.require_perm('config.regions');
+  select * into r from app.regions where id = p_id for update;
+  if not found then raise exception 'Không tìm thấy khu vực.'; end if;
+  if coalesce(trim(p_name), '') = '' or coalesce(p_new_province, '') = '' then raise exception 'Nhập tên khu vực và chọn tỉnh mới tương ứng.'; end if;
+  if coalesce(p_days, 0) < 1 or p_days > 30 then raise exception 'Số ngày đi-về phải từ 1 đến 30.'; end if;
+  if exists (select 1 from app.regions where warehouse_code = r.warehouse_code and lower(name) = lower(trim(p_name)) and id <> p_id) then
+    raise exception 'Kho này đã có khu vực cùng tên.';
+  end if;
+  foreach n in array coalesce(p_neighbors, '{}') loop
+    if n = p_id or not exists (select 1 from app.regions where id = n and warehouse_code = r.warehouse_code) then
+      raise exception 'Khu vực lân cận % không hợp lệ (phải cùng kho, khác khu vực đang sửa).', n;
+    end if;
+  end loop;
+  if r.name <> trim(p_name) then v_txt := v_txt || 'tên ' || r.name || ' → ' || trim(p_name) || '; '; end if;
+  if r.new_province <> p_new_province then v_txt := v_txt || 'tỉnh mới → ' || p_new_province || '; '; end if;
+  if r.round_trip_days <> p_days then v_txt := v_txt || 'đi-về ' || r.round_trip_days || ' → ' || p_days || ' ngày; '; end if;
+  update app.regions set name = trim(p_name), new_province = p_new_province, round_trip_days = p_days where id = p_id;
+  delete from app.region_neighbors where region_a = p_id or region_b = p_id;
+  foreach n in array coalesce(p_neighbors, '{}') loop
+    insert into app.region_neighbors values (p_id, n), (n, p_id) on conflict do nothing;
+  end loop;
+  perform app.audit('region:' || p_id, 'Sửa khu vực ' || r.name || ': ' || v_txt || 'lân cận: ' || coalesce(array_to_string(p_neighbors, ', '), ''));
+end $$;
+
 create or replace function public.toggle_region(p_id text) returns void
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; r app.regions; v_act int;
@@ -1424,7 +1453,7 @@ begin
        'admin_upsert_profile','admin_toggle_user','admin_add_customer','update_my_profile','mark_notifs_read',
        'save_role_permissions','reset_role_permissions',
        'admin_update_customer','admin_toggle_customer','admin_save_address','admin_delete_address',
-       'impersonate_start','impersonate_stop')
+       'impersonate_start','impersonate_stop','update_region')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);

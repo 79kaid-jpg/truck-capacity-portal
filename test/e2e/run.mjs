@@ -141,6 +141,19 @@ await session('admin@demo.vn', async p => {
   log('as customer: calendar cells "Có thể đặt":', ((await p.locator('.main').innerText()).match(/Có thể đặt/g) || []).length, '| banner:', await p.locator('.impbar').count());
   await shot(p, '12b-login-as-customer'); await p.click('[data-a="impStop"]'); await p.waitForTimeout(300);
 });
+await session('log@demo.vn', async p => {
+  S('regEdit'); await p.click('[data-a="go"][data-v="config"]'); await p.click('[data-a="cfgTab"][data-t="regions"]');
+  log('region edit buttons:', await p.locator('[data-a="regEdit"]').count());
+  await p.locator('tr', { hasText: 'PMY-DNA' }).first().locator('[data-a="regEdit"]').click().catch(async () => { await p.locator('tr', { hasText: 'DNA' }).first().locator('[data-a="regEdit"]').click(); });
+  await type(p, '#re-n', 'Vũng Tàu'); await clr(p); await p.click('[data-a="regEditSave"]'); await p.waitForTimeout(300);
+  log('duplicate name ->', await p.locator('tr.editing .err').innerText().catch(() => '(none)'));
+  await type(p, '#re-n', 'Đồng Nai (Biên Hòa)'); await p.fill('#re-d', '2'); await p.locator('#re-d').dispatchEvent('input');
+  await p.locator('tr.editing input[data-f="regENb"]', { has: p.locator('xpath=.') }).first();
+  const lan = p.locator('tr.editing label', { hasText: 'Long An' }).locator('input'); await lan.check();
+  await shot(p, '13-region-edit'); await clr(p); await p.click('[data-a="regEditSave"]'); log('save region ->', await toast(p));
+  const longAn = await p.locator('tr', { hasText: 'Long An' }).first().innerText(); log('Long An neighbors now include renamed:', longAn.includes('Đồng Nai (Biên Hòa)'));
+  const dna = await p.locator('tr', { hasText: 'Đồng Nai (Biên Hòa)' }).first().innerText(); log('renamed row:', dna.replace(/\s+/g, ' ').slice(0, 120));
+});
 await session('new@demo.vn', async p => { S('granted'); log('new user after grant sees calendar:', await p.locator('.cal').count() > 0); });
 await session('kh@demo.vn', async p => { S('mobile'); await p.waitForSelector('.cal'); await shot(p, '7-customer-mobile'); }, { width: 390, height: 844 });
 { // forgot password + recovery link (no login)

@@ -439,7 +439,14 @@ function vConfig(){const C=S.cfg;
  if(T==='regions'){const rs=S.regions.filter(r=>r.wh===V.wh);const mapped=new Set(rs.filter(r=>r.active).map(r=>r.newProvince));const unm=PROVINCES.filter(p=>!mapped.has(p));const none=S.bookings.filter(b=>b.wh===V.wh&&b.region==='NONE'&&['hold','ok'].includes(b.status)).length;const NR=V.newReg||{};
   body=`<div class="row" style="margin-bottom:10px"><label class="whsel"><span>Kho:</span><select data-a="wh" aria-label="Chọn kho">${WH.map(w=>`<option value="${w.id}" ${w.id===V.wh?'selected':''}>${w.name}</option>`).join('')}</select></label><span class="muted small">Khu vực = tỉnh, cấu hình theo cặp Kho – Khu vực. Lân cận chỉ dùng để gợi ý.</span></div>
   <div class="tbl-wrap"><table><thead><tr><th>Mã</th><th>Khu vực (tỉnh)</th><th>Tỉnh mới tương ứng</th><th>Khu vực lân cận</th><th class="r">Đi-về (ngày)</th><th class="r">Booking hoạt động</th><th>Trạng thái</th></tr></thead><tbody>
-  ${rs.map(r=>{const act=S.bookings.filter(b=>b.region===r.id&&['hold','ok'].includes(b.status)&&b.date>=TODAY).length;return `<tr><td>${r.code}</td><td><b>${esc(r.name)}</b></td><td>${esc(r.newProvince)}</td><td>${r.neighbors.map(x=>`<span class="chip">${esc(regName(x))}</span>`).join(' ')||'–'}</td><td class="r num">${r.days}</td><td class="r num">${act}</td><td>${r.active?`<button class="btn ghost sm" data-a="regToggle" data-id="${r.id}">Ngừng dùng</button>`:`<button class="btn sm" data-a="regToggle" data-id="${r.id}">Bật lại</button>`}</td></tr>`;}).join('')}</tbody></table></div>
+  ${rs.map(r=>{const act=S.bookings.filter(b=>b.region===r.id&&['hold','ok'].includes(b.status)&&b.date>=TODAY).length;const E=V.regEdit&&V.regEdit.id===r.id?V.regEdit:null;
+  if(E)return `<tr class="editing"><td>${r.code}</td><td colspan="6"><div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+   <div class="field"><label for="re-n">Tên khu vực (tỉnh) <span class="req">*</span></label><input id="re-n" class="inp" data-f="regE" data-k="name" value="${esc(E.name)}"></div>
+   <div class="field"><label for="re-p">Tỉnh mới tương ứng <span class="req">*</span></label><select id="re-p" class="inp" data-f="regE" data-k="np">${PROVINCES.map(p=>`<option ${E.np===p?'selected':''}>${p}</option>`).join('')}</select></div>
+   <div class="field"><label for="re-d">Đi-về tham khảo (ngày)</label><input id="re-d" class="inp num" inputmode="numeric" data-f="regE" data-k="days" value="${esc(E.days)}"></div>
+   <div class="field" style="grid-column:1/-1"><label>Khu vực lân cận (chỉ dùng để gợi ý gộp xe)</label><div class="chk">${rs.filter(x=>x.id!==r.id&&(x.active||E.nb.includes(x.id))).map(x=>`<label><input type="checkbox" data-f="regENb" value="${x.id}" ${E.nb.includes(x.id)?'checked':''}>${esc(x.name)}</label>`).join('')||'<span class="muted small">Kho chưa có khu vực khác.</span>'}</div></div></div>
+   ${E.err?`<div class="err">${esc(E.err)}</div>`:''}<div class="mfoot"><span class="small muted grow" style="align-self:center">Mã ${r.code} giữ nguyên; booking và địa chỉ khách đang gắn khu vực này không bị ảnh hưởng.</span><button class="btn ghost sm" data-a="regEditOff">Hủy</button><button class="btn sm" data-a="regEditSave">Lưu khu vực</button></div></td></tr>`;
+  return `<tr><td>${r.code}</td><td><b>${esc(r.name)}</b></td><td>${esc(r.newProvince)}</td><td>${r.neighbors.map(x=>`<span class="chip">${esc(regName(x))}</span>`).join(' ')||'–'}</td><td class="r num">${r.days}</td><td class="r num">${act}</td><td style="white-space:nowrap"><button class="btn ghost sm" data-a="regEdit" data-id="${r.id}">Sửa</button> ${r.active?`<button class="btn ghost sm" data-a="regToggle" data-id="${r.id}">Ngừng dùng</button>`:`<button class="btn sm" data-a="regToggle" data-id="${r.id}">Bật lại</button>`}</td></tr>`;}).join('')}</tbody></table></div>
   <div class="panel" style="background:var(--sand);margin-top:12px"><b>Thêm khu vực cho ${WH.find(w=>w.id===V.wh).full}</b><div class="fgrid" style="margin-top:8px">
   <div class="field"><label for="nr-n">Tên khu vực (tỉnh) <span class="req">*</span></label><input id="nr-n" class="inp" data-f="newReg" data-k="name" value="${esc(NR.name||'')}" placeholder="Ví dụ: Bình Phước"></div>
   <div class="field"><label for="nr-p">Tỉnh mới tương ứng <span class="req">*</span></label><select id="nr-p" class="inp" data-f="newReg" data-k="np"><option value="">Chọn tỉnh</option>${PROVINCES.map(p=>`<option ${NR.np===p?'selected':''}>${p}</option>`).join('')}</select></div>
@@ -847,6 +854,10 @@ const A={
   mutate('upsert_fleet',{p_wh:V.wh,p_rows:rows},{err:m=>V.fleetErr=m,ok:n=>{V.fleetEdit={};V.fleetErr='';toast(`Đã lưu ${n} ngày`);}});},
  // config
  cfgTab:d=>{V.cfgTab=d.t;render();},
+ regEdit:d=>{const r=reg(d.id);V.regEdit={id:r.id,name:r.name,np:r.newProvince,days:String(r.days),nb:[...r.neighbors],err:''};render();},
+ regEditOff:()=>{V.regEdit=null;render();},
+ regEditSave:()=>{const E=V.regEdit;E.err='';const days=parseInt(E.days,10);if(!E.name.trim()||!E.np){E.err='Nhập tên khu vực và chọn tỉnh mới tương ứng.';return render();}if(!(days>=1&&days<=30)){E.err='Số ngày đi-về phải từ 1 đến 30.';return render();}
+  mutate('update_region',{p_id:E.id,p_name:E.name.trim(),p_new_province:E.np,p_days:days,p_neighbors:E.nb},{err:m=>E.err=m,ok:()=>{V.regEdit=null;toast('Đã lưu khu vực '+E.name.trim());}});},
  regToggle:d=>mutate('toggle_region',{p_id:d.id},{ok:()=>toast('Đã cập nhật khu vực')}),
  regAdd:()=>{const N=V.newReg||{};V.regErr='';if(!N.name?.trim()||!N.np){V.regErr='Nhập tên khu vực và chọn tỉnh mới tương ứng.';return render();}
   mutate('add_region',{p_wh:V.wh,p_name:N.name.trim(),p_new_province:N.np,p_days:parseInt(N.days,10)||1,p_neighbors:N.nb||[]},{err:m=>V.regErr=m,ok:()=>{V.newReg={};toast('Đã thêm khu vực '+N.name.trim());}});},
@@ -1035,6 +1046,8 @@ document.addEventListener('change',e=>{const el=e.target;const a=el.dataset.a;
  if(f==='un'){V.modal.f[el.dataset.k]=el.value;if(el.dataset.k==='role')render();return;}
  if(f==='cn'){V.modal.f[el.dataset.k]=el.value;if(['segment','province'].includes(el.dataset.k)){if(el.dataset.k==='segment')V.modal.f.salesId='';if(el.dataset.k==='province'){const c=S.regions.filter(r=>r.active&&r.newProvince===el.value);V.modal.f.region=c.length===1?c[0].id:'';}render();}return;}
  if(f==='hol'){V.hol=el.value;return;}
+ if(f==='regE'){V.regEdit[el.dataset.k]=el.value;return;}
+ if(f==='regENb'){const s2=new Set(V.regEdit.nb);el.checked?s2.add(el.value):s2.delete(el.value);V.regEdit.nb=[...s2];return;}
  if(f==='ce'){V.modal.f[el.dataset.k]=el.value;if(el.dataset.k==='segment'){V.modal.f.salesId='';}if(['segment','salesId'].includes(el.dataset.k))render();return;}
  if(f==='ad'){const A=V.modal.addr;A[el.dataset.k]=el.value;if(el.dataset.k==='province'){WH.forEach(w=>{if(A.regions[w.id])return;const c=S.regions.filter(r=>r.wh===w.id&&r.active&&r.newProvince===A.province);if(c.length===1)A.regions[w.id]=c[0].id;});render();}return;}
  if(f==='adr'){V.modal.addr.regions[el.dataset.w]=el.value;return;}
@@ -1057,6 +1070,7 @@ document.addEventListener('input',e=>{const el=e.target;const f=el.dataset.f;if(
  if(f==='cat'){const[k,fld]=el.dataset.k.split('.');V.cat={...(V.cat||{}),[k]:{...((V.cat||{})[k]||{}),[fld]:el.value}};return;}
  if(f==='catE'){V.catEdit[el.dataset.k]=el.value;return;}
  if(f==='un'||f==='cn'||f==='ce'){V.modal.f[el.dataset.k]=el.value;return;}
+ if(f==='regE'){V.regEdit[el.dataset.k]=el.value;return;}
  if(f==='ad'&&el.tagName==='INPUT'){V.modal.addr[el.dataset.k]=el.value;return;}
  if(f==='pf'){me()[el.dataset.k]=el.value;return;}
  if(f==='pw'){V[el.dataset.k]=el.value;return;}
