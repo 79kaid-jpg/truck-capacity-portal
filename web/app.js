@@ -531,18 +531,26 @@ function meter(label,used,limit,unit,note){const r=used/limit;const col=r>=.9?'v
  return `<div class="meter" data-tip="${label}: ${used.toLocaleString('vi-VN')} / ${limit.toLocaleString('vi-VN')} ${unit}"><div class="row"><b>${label}</b><span class="num">${used.toLocaleString('vi-VN',{maximumFractionDigits:2})} / ${limit.toLocaleString('vi-VN')} ${unit} · <span style="color:${col};font-weight:700">${st}</span></span></div><div class="trk"><div class="fil" style="width:${Math.min(100,r*100)}%;background:${col}"></div></div>${note?`<div class="small muted">${note}</div>`:''}</div>`;}
 function dashSystem(){
  if(!V.stats){if(!V.statsLoading){V.statsLoading=true;rpc('admin_stats').then(x=>{V.stats=x;V.statsLoading=false;render();}).catch(e=>{V.statsLoading=false;toast(e.message);});}return '<div class="empty">Đang tải số liệu…</div>';}
- const X=V.stats;const users=S.users.filter(u=>u.active);const recent=users.filter(u=>u.last&&u.last>=addDays(TODAY,-6));
+ const X=V.stats;const E=X.email||{};const users=S.users.filter(u=>u.active);const recent=users.filter(u=>u.last&&u.last>=addDays(TODAY,-6));
  return `<div class="kpis"><div class="tile"><span class="lbl">Tài khoản được cấp</span><span class="val num">${users.length}</span><span class="sub">${users.filter(u=>u.role==='customer').length} khách hàng · ${users.length-users.filter(u=>u.role==='customer').length} nội bộ</span></div>
  <div class="tile"><span class="lbl">Đăng nhập trong 7 ngày</span><span class="val num">${recent.length}</span><span class="sub">Mức độ chấp nhận ${users.length?pct(recent.length/users.length):'0%'}</span></div>
  <div class="tile"><span class="lbl">Tổng booking</span><span class="val num">${X.bookings}</span><span class="sub">Mọi trạng thái, mọi kho</span></div>
- <div class="tile"><span class="lbl">Thông báo hôm nay</span><span class="val num">${X.notifsToday}</span><span class="sub">Trong ứng dụng (email để bản sau)</span></div></div>
+ <div class="tile ${E.failedToday?'crit':''}"><span class="lbl">Email hôm nay</span><span class="val num">${E.sentToday??0}</span><span class="sub">${!E.on?'Email đang tắt':`${E.queued||0} chờ gửi · ${E.failedToday||0} lỗi`} · ${X.notifsToday} thông báo</span></div></div>
  <div class="dgrid"><div class="dcard"><h3>MỨC DÙNG GÓI MIỄN PHÍ</h3><p class="cap">Xanh &lt; 70% · vàng 70–90% · đỏ ≥ 90%</p>
  ${meter('Dung lượng database',X.dbMb,500,'MB','Supabase Free: 500 MB')}
+ ${E.on?meter('Email hôm nay',E.sentToday||0,100,'email','Resend Free: 100 email/ngày; hệ thống tự dừng ở '+(E.cap||95)):''}
+ ${E.on?meter('Email tháng này',E.sentMonth||0,3000,'email',''):''}
  <p class="small muted">Egress (5 GB/tháng) và số người dùng hoạt động (50.000/tháng) xem tại Supabase → Project → Usage.</p></div>
+ <div class="dcard"><h3>EMAIL THÔNG BÁO</h3><p class="cap">Gửi qua Resend cho các loại: giữ chỗ, xác nhận, từ chối, đổi ngày, hủy, sửa phần hàng</p>
+ <dl class="dl"><dt>Trạng thái</dt><dd>${E.on?'<span class="st st-ok">Đang bật</span>':'<span class="st st-cancelled">Đang tắt</span>'}</dd>
+ <dt>Khóa Resend</dt><dd>${E.hasKey?'Đã có trong Vault':'<span style="color:var(--bad)">Chưa có</span>'}</dd>
+ <dt>Gửi từ</dt><dd>${esc(E.from||'–')}</dd><dt>Chờ gửi</dt><dd class="num">${E.queued||0}</dd>
+ ${E.lastError?`<dt>Lỗi gần nhất</dt><dd class="small" style="color:var(--bad)">${esc(E.lastError)}</dd>`:''}</dl>
+ ${E.on?'<div class="mfoot"><button class="btn ghost sm" data-a="testEmail">Gửi email thử cho tôi</button></div>':'<p class="small muted">Bật email: xem README, mục "Bật email thông báo".</p>'}</div>
  <div class="dcard"><h3>LƯU Ý VẬN HÀNH POV</h3><ul class="small" style="margin:0;padding-left:18px;line-height:1.7">
  <li>Supabase Free tự tạm dừng project sau 7 ngày không ai dùng; vào Supabase bấm <b>Restore</b> để chạy lại.</li>
  <li>Gói Free không có bản sao lưu tự động: mỗi tuần vào Table Editor → schema <b>app</b> → Export CSV các bảng bookings, booking_lines, allocations, daily_fleet.</li>
- <li>Mật khẩu: Admin đặt mật khẩu tạm trong Supabase → Authentication; người dùng tự đổi trong Hồ sơ cá nhân.</li></ul></div>
+ <li>Mật khẩu: Admin đặt mật khẩu tạm khi tạo tài khoản; người dùng tự đổi trong Hồ sơ cá nhân, hoặc bấm <b>Quên mật khẩu?</b> ở màn hình đăng nhập (cần cấu hình SMTP, xem README).</li></ul></div>
  <div class="dcard span2"><h3>NGƯỜI DÙNG VÀ LẦN ĐĂNG NHẬP GẦN NHẤT</h3><p class="cap">Tài khoản chưa đăng nhập 7 ngày cần nhắc hoặc hướng dẫn lại</p><div class="tbl-wrap"><table><thead><tr><th>Họ tên</th><th>Vai trò</th><th>Công ty</th><th>Đăng nhập gần nhất</th><th>Trạng thái</th></tr></thead><tbody>${users.sort((a,b)=>(b.last||'').localeCompare(a.last||'')).map(u=>{const ok=u.last&&u.last>=addDays(TODAY,-6);return `<tr><td>${esc(u.name)}</td><td>${ROLE_LABEL[u.role]}</td><td>${u.customerId?esc(cust(u.customerId).name):'–'}</td><td class="num">${u.last?dmy(u.last):'Chưa đăng nhập'}</td><td>${ok?'<span class="st st-ok">Đang dùng</span>':'<span class="st st-hold">Cần nhắc</span>'}</td></tr>`;}).join('')}</tbody></table></div></div></div>`;}
 
 /* ---------- SCR-17 profile ---------- */
@@ -824,6 +832,7 @@ const A={
  pwSave:async()=>{const p=V.pw||'';if(p.length<8){V.pwErr='Mật khẩu tối thiểu 8 ký tự.';return render();}if(p!==V.pw2){V.pwErr='Hai lần nhập không khớp.';return render();}
   setBusy(true);const{error}=await sb.auth.updateUser({password:p});setBusy(false);if(error){V.pwErr=error.message;return render();}V.pw='';V.pw2='';V.pwErr='';toast('Đã đổi mật khẩu');},
  dashTab:d=>{V.dashTab=d.t;render();},
+ testEmail:()=>mutate('admin_test_email',{},{ok:to=>toast('Đã xếp hàng email thử tới '+to+', thường đến trong 1–2 phút')}),
  dashTable:()=>{V.dashTable=!V.dashTable;render();},
  dashDay:d=>{V.wh=d.w;V.day=d.d;V.view='day';V.dayFilter={st:'all',region:'all'};afterNav(goMonth(d.d));window.scrollTo(0,0);},
 };
@@ -857,11 +866,37 @@ function showLogin(err){
   <form id="login" class="fgrid" style="grid-template-columns:1fr"><div class="field"><label for="lg-e">Email</label><input id="lg-e" class="inp" type="email" autocomplete="username" required></div>
   <div class="field"><label for="lg-p">Mật khẩu</label><input id="lg-p" class="inp" type="password" autocomplete="current-password" required></div>
   ${err?`<div class="err">${esc(err)}</div>`:''}<button class="btn" type="submit">Đăng nhập</button></form>
-  <p class="small muted">Chưa có tài khoản hoặc quên mật khẩu? Liên hệ Admin.</p>`);
+  <p class="small"><button class="linkbtn" type="button" id="lg-forgot">Quên mật khẩu?</button></p>
+  <p class="small muted">Chưa có tài khoản? Liên hệ Admin.</p>`);
+ document.getElementById('lg-forgot').addEventListener('click',()=>showForgot(document.getElementById('lg-e').value.trim()));
  document.getElementById('lg-e').focus();
  document.getElementById('login').addEventListener('submit',async e=>{e.preventDefault();const btn=e.target.querySelector('button');btn.disabled=true;btn.textContent='Đang đăng nhập…';
   const{error}=await sb.auth.signInWithPassword({email:document.getElementById('lg-e').value.trim(),password:document.getElementById('lg-p').value});
   if(error)return showLogin(/invalid/i.test(error.message)?'Sai email hoặc mật khẩu.':error.message);startApp();});
+}
+function showForgot(email,sent){
+ app.innerHTML=screen('Quên mật khẩu',sent?`<p>Nếu <b>${esc(sent)}</b> là email đã đăng ký, bạn sẽ nhận được link đặt lại mật khẩu trong vài phút. Kiểm tra cả hộp thư Spam.</p><p class="small muted">Link chỉ dùng được một lần và hết hạn sau 1 giờ.</p>`
+  :`<p class="muted small" style="margin-top:0">Nhập email đăng nhập, hệ thống gửi link để bạn đặt mật khẩu mới.</p>
+  <form id="fg" class="fgrid" style="grid-template-columns:1fr"><div class="field"><label for="fg-e">Email</label><input id="fg-e" class="inp" type="email" autocomplete="username" required value="${esc(email||'')}"></div>
+  <div class="err" id="fg-err" hidden></div><button class="btn" type="submit">Gửi link đặt lại mật khẩu</button></form>`,
+  '<p class="small"><button class="linkbtn" type="button" id="fg-back">← Quay lại đăng nhập</button></p>');
+ document.getElementById('fg-back').addEventListener('click',()=>showLogin());
+ const f=document.getElementById('fg');if(!f)return;document.getElementById('fg-e').focus();
+ f.addEventListener('submit',async e=>{e.preventDefault();const btn=f.querySelector('button');btn.disabled=true;btn.textContent='Đang gửi…';const em=document.getElementById('fg-e').value.trim();
+  const{error}=await sb.auth.resetPasswordForEmail(em,{redirectTo:location.origin+location.pathname});
+  if(error&&!/not found|user/i.test(error.message)){const x=document.getElementById('fg-err');x.hidden=false;x.textContent=/rate|seconds/i.test(error.message)?'Bạn vừa yêu cầu gần đây, vui lòng đợi một lát rồi thử lại.':error.message;btn.disabled=false;btn.textContent='Gửi link đặt lại mật khẩu';return;}
+  showForgot(em,em);});
+}
+function showSetPassword(){
+ app.innerHTML=screen('Đặt mật khẩu mới',`<form id="sp" class="fgrid" style="grid-template-columns:1fr"><div class="field"><label for="sp1">Mật khẩu mới (tối thiểu 8 ký tự)</label><input id="sp1" class="inp" type="password" autocomplete="new-password" required></div>
+  <div class="field"><label for="sp2">Nhập lại mật khẩu mới</label><input id="sp2" class="inp" type="password" autocomplete="new-password" required></div>
+  <div class="err" id="sp-err" hidden></div><button class="btn" type="submit">Lưu mật khẩu và vào ứng dụng</button></form>`);
+ document.getElementById('sp1').focus();
+ document.getElementById('sp').addEventListener('submit',async e=>{e.preventDefault();const p1=document.getElementById('sp1').value,p2=document.getElementById('sp2').value;const x=document.getElementById('sp-err');
+  const fail=m=>{x.hidden=false;x.textContent=m;};if(p1.length<8)return fail('Mật khẩu tối thiểu 8 ký tự.');if(p1!==p2)return fail('Hai lần nhập không khớp.');
+  const btn=e.target.querySelector('button');btn.disabled=true;const{error}=await sb.auth.updateUser({password:p1});
+  if(error){btn.disabled=false;return fail(/same|different/i.test(error.message)?'Mật khẩu mới phải khác mật khẩu cũ.':error.message);}
+  startApp();});
 }
 async function startApp(){
  try{await reload();}catch(e){app.innerHTML=screen('Không tải được dữ liệu',`<p>${esc(e.message)}</p>`,'<button class="btn" data-a="logout">Đăng xuất</button>');return;}
@@ -875,10 +910,14 @@ async function boot(){
  const C=window.APP_CONFIG||{};
  if(!window.supabase){app.innerHTML=screen('Không tải được thư viện','<p>Không tải được supabase-js từ cdn.jsdelivr.net. Kiểm tra mạng rồi tải lại trang.</p>');return;}
  if(!C.SUPABASE_URL||/YOUR|xxxx/i.test(C.SUPABASE_URL)||!C.SUPABASE_ANON_KEY){app.innerHTML=screen('Chưa cấu hình','<p>Mở file <code>web/config.js</code>, điền <b>SUPABASE_URL</b> và <b>SUPABASE_ANON_KEY</b> theo README, rồi deploy lại.</p>');return;}
+ const H=new URLSearchParams(location.hash.replace(/^#/,''));const recovery=H.get('type')==='recovery';const linkErr=H.get('error_description');
  const url=String(C.SUPABASE_URL).trim().replace(/\/(rest|auth)\/v1\/?$/,'').replace(/\/+$/,'');
  sb=window.supabase.createClient(url,String(C.SUPABASE_ANON_KEY).trim());
  const{data}=await sb.auth.getSession();
+ if(location.hash)history.replaceState(null,'',location.pathname+location.search);
+ if(linkErr)return showLogin(/expired|invalid/i.test(linkErr)?'Link đã hết hạn hoặc đã được dùng. Bấm "Quên mật khẩu?" để nhận link mới.':linkErr);
  if(!data.session)return showLogin();
+ if(recovery)return showSetPassword();
  startApp();
 }
 

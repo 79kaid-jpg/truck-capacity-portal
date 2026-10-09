@@ -5,8 +5,11 @@ P="psql -h /tmp -U postgres -v ON_ERROR_STOP=1 -q"
 $P -d postgres -c "select pg_terminate_backend(pid) from pg_stat_activity where datname='t' and pid<>pg_backend_pid()" >/dev/null
 $P -d postgres -c "drop database if exists t" -c "create database t"
 for r in anon authenticated service_role; do $P -d postgres -c "do \$\$begin create role $r nologin; exception when duplicate_object then null; end\$\$" ; done
-grep -v '^create role' test/00_supabase_stub.sql | $P -d t
-$P -d t -f supabase/migrations/0001_init.sql -f supabase/seed.sql -f supabase/demo_data.sql
+grep -v "^create role" test/00_supabase_stub.sql | $P -d t
+$P -d t -f test/01_supabase_ext_stub.sql
+$P -d t -f supabase/migrations/0001_init.sql
+grep -v "^create extension if not exists pg_" supabase/migrations/0002_email.sql | $P -d t
+$P -d t -f supabase/seed.sql -f supabase/demo_data.sql
 $P -d t <<'SQL'
 insert into auth.users (id,email) values
  ('00000000-0000-0000-0000-00000000000a','admin@demo.vn'),('00000000-0000-0000-0000-0000000000b1','log@demo.vn'),

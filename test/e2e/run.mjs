@@ -78,10 +78,30 @@ await session('admin@demo.vn', async p => {
   S('users'); await p.click('[data-a="go"][data-v="users"]'); await p.click('[data-a="userNew"]');
   await type(p, '#un-n', 'Người Mới'); await type(p, '#un-e', 'new@demo.vn');
   await clr(p); await p.click('[data-a="unSave"]'); log('grant ->', await toast(p), await p.locator('.modal .err').textContent().catch(() => '')); await shot(p, '6-admin-users');
-  S('dash6'); await p.click('[data-a="go"][data-v="dash"]'); await p.waitForTimeout(600); await shot(p, '6b-admin-dash');
+  S('dash6'); await p.click('[data-a="go"][data-v="dash"]'); await p.click('[data-a="dashTab"][data-t="DB-06"]'); await p.waitForTimeout(600); await shot(p, '6b-admin-dash');
+  S('testEmail'); await clr(p); await p.click('[data-a="testEmail"]'); log('test email ->', await toast(p));
   S('cust'); await p.click('[data-a="go"][data-v="users"]'); await p.click('[data-a="uTab"][data-t="customers"]'); await shot(p, '6c-admin-customers');
 });
 await session('new@demo.vn', async p => { S('granted'); log('new user after grant sees calendar:', await p.locator('.cal').count() > 0); });
 await session('kh@demo.vn', async p => { S('mobile'); await p.waitForSelector('.cal'); await shot(p, '7-customer-mobile'); }, { width: 390, height: 844 });
+{ // forgot password + recovery link (no login)
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } }); const p = await ctx.newPage();
+  await p.route('**/cdn.jsdelivr.net/**', r => r.fulfill({ contentType: 'text/javascript', body: mock }));
+  await p.route('**/config.js', r => r.fulfill({ contentType: 'text/javascript', body: "window.APP_CONFIG={SUPABASE_URL:'http://127.0.0.1:8787/rest/v1/',SUPABASE_ANON_KEY:'test'}" }));
+  await p.route('**/fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
+  p.on('pageerror', e => errors.push(`[forgot ${step}] pageerror: ${e.message}`));
+  S('forgot'); await p.goto('http://127.0.0.1:8787/'); await p.fill('#lg-e', 'cs@demo.vn'); await p.click('#lg-forgot');
+  await p.click('#fg button'); await p.waitForTimeout(300); log('forgot ->', (await p.locator('.loginbox').innerText()).split('\n').slice(1, 2).join(' '), JSON.stringify(await p.evaluate(() => window.__reset)));
+  await shot(p, '8-forgot-sent');
+  S('expired'); await p.goto('about:blank'); await p.goto('http://127.0.0.1:8787/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired'); await p.waitForTimeout(400);
+  log('expired link ->', await p.locator('.err').innerText().catch(() => '(none)'));
+  S('recovery'); await p.goto('about:blank'); await p.goto('http://127.0.0.1:8787/#access_token=x&type=recovery&mock_uid=00000000-0000-0000-0000-0000000000c1&mock_email=cs@demo.vn'); await p.waitForTimeout(500);
+  log('recovery screen ->', await p.locator('h1').innerText(), '| hash cleared:', await p.evaluate(() => location.hash === ''));
+  await shot(p, '9-set-password');
+  await p.fill('#sp1', 'abc'); await p.fill('#sp2', 'abc'); await p.click('#sp button'); log('short pw ->', await p.locator('#sp-err').innerText());
+  await p.fill('#sp1', 'MatKhauMoi1'); await p.fill('#sp2', 'MatKhauMoi1'); await p.click('#sp button'); await p.waitForTimeout(800);
+  log('after set password sees calendar:', await p.locator('.cal').count() > 0);
+  await ctx.close();
+}
 await browser.close();
 console.log('\nERRORS:', errors.length ? '\n' + errors.join('\n') : 'none');

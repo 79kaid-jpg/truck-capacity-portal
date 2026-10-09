@@ -6,6 +6,7 @@ Cổng đặt tải xe cho kho Phú Mỹ, Cửa Lò, Hải Phòng. Bản POV ch�
 |---|---|---|
 | Giao diện | Cloudflare Pages (thư mục `web/`, không cần build) | Trang web tĩnh |
 | Dữ liệu, đăng nhập | Supabase Free, region Singapore | Postgres + Auth + hàm nghiệp vụ |
+| Email | Resend Free | Email thông báo và đặt lại mật khẩu |
 | Mã nguồn | GitHub (repo private) | Mỗi lần push, Cloudflare tự deploy lại |
 
 **Bảo mật:** mọi bảng nằm trong schema `app`, không mở ra API, đã bật RLS. Trình duyệt chỉ gọi các hàm trong schema `public`. Mỗi hàm tự kiểm tra vai trò và chỉ trả dữ liệu được phép, ví dụ khách hàng chỉ thấy số tấn còn đặt được và đơn của mình. `web/config.js` chỉ chứa URL và khóa **anon public**, đây là khóa công khai. Không bao giờ dán `service_role` / secret key hay mật khẩu database vào repo.
@@ -59,6 +60,58 @@ select app.load_demo();   -- 10 khách hàng mẫu, khai báo xe 30 ngày tới,
 
 ---
 
+## Bật email thông báo và quên mật khẩu
+
+Email gửi qua **Resend** (miễn phí 100 email/ngày, 3.000 email/tháng). Có hai loại email:
+- **Email thông báo nghiệp vụ** (giữ chỗ, xác nhận, từ chối, đổi ngày, hủy, sửa phần hàng): database tự gửi mỗi phút qua Resend API.
+- **Email đặt lại mật khẩu**: Supabase Auth gửi qua SMTP của Resend.
+
+> **Cần một tên miền** (ví dụ `congty.vn`) để gửi tới mọi người. Chưa có tên miền thì Resend chỉ cho gửi tới đúng email bạn đăng ký Resend, đủ để tự thử nhưng không đủ để chạy pilot.
+
+### E1 – Tạo tài khoản và khóa Resend
+1. Đăng ký tại resend.com.
+2. Có tên miền: vào **Domains → Add Domain**, nhập tên miền, chọn region **Tokyo (ap-northeast-1)**. Thêm các bản ghi DNS Resend đưa ra (MX, TXT/SPF, DKIM) ở nơi quản lý tên miền, rồi bấm **Verify**. Thường mất vài phút đến vài giờ.
+3. Vào **API Keys → Create API Key**, quyền **Sending access**, rồi copy khóa (bắt đầu bằng `re_`). Khóa này là **bí mật**: không gửi cho ai và không dán vào GitHub.
+
+### E2 – Cài phần gửi email vào database
+1. Supabase → **SQL Editor** → New query, dán nội dung [`supabase/email_setup.sql`](supabase/email_setup.sql) rồi bấm **Run**. Nếu hiện cảnh báo, chọn **Run without RLS**, vì script đã tự bật RLS.
+2. Lưu khóa Resend vào Vault. Cách 1: vào **Integrations → Vault → Add new secret**, tên **`resend_api_key`**, giá trị là khóa `re_...`. Cách 2: chạy trong SQL Editor (thay khóa thật):
+   ```sql
+   select vault.create_secret('re_xxxxxxxxxxxx', 'resend_api_key');
+   ```
+3. Bật email, thay địa chỉ gửi và địa chỉ trang web của bạn:
+   ```sql
+   select app.setup_email('Đặt Xe <noreply@congty.vn>', 'https://truck-capacity-portal.pages.dev');
+   -- Chưa có tên miền:  select app.setup_email('Đặt Xe <onboarding@resend.dev>', 'https://truck-capacity-portal.pages.dev');
+   -- Tắt email:         select app.setup_email('Đặt Xe <noreply@congty.vn>', 'https://truck-capacity-portal.pages.dev', false);
+   ```
+4. Kiểm tra: đăng nhập Admin → **Dashboard → DB-06 → Gửi email thử cho tôi**. Email thường đến trong 1–2 phút. Thẻ "Email thông báo" hiện số đã gửi và lỗi gần nhất nếu có.
+
+Hệ thống tự dừng gửi khi đạt 95 email/ngày, để không vượt gói miễn phí. Thông báo trong ứng dụng vẫn hoạt động bình thường.
+
+### E3 – Quên mật khẩu (Supabase Auth gửi qua SMTP của Resend)
+1. Supabase → **Authentication → URL Configuration**:
+   - **Site URL:** `https://truck-capacity-portal.pages.dev`
+   - **Redirect URLs:** thêm `https://truck-capacity-portal.pages.dev/**`
+2. Supabase → **Authentication → Emails → SMTP Settings**, bật **Enable custom SMTP** rồi điền:
+   - Sender email: `noreply@congty.vn` · Sender name: `Đặt Xe`
+   - Host: `smtp.resend.com` · Port: `465`
+   - Username: `resend` · Password: khóa Resend `re_...`
+3. (Nên làm) **Authentication → Emails → Templates → Reset Password**, sửa sang tiếng Việt:
+   - Subject: `[Đặt Xe] Đặt lại mật khẩu`
+   - Body:
+     ```html
+     <p>Chào bạn,</p>
+     <p>Bấm vào nút dưới đây để đặt mật khẩu mới cho cổng Đặt Xe. Link dùng được một lần và hết hạn sau 1 giờ.</p>
+     <p><a href="{{ .ConfirmationURL }}">Đặt mật khẩu mới</a></p>
+     <p>Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>
+     ```
+4. Kiểm tra: màn hình đăng nhập → **Quên mật khẩu?** → nhập email → mở link trong email → đặt mật khẩu mới.
+
+Nếu không cấu hình SMTP riêng, Supabase chỉ gửi email đặt lại mật khẩu tới các thành viên của project Supabase, tối đa vài email mỗi giờ.
+
+---
+
 ## Cập nhật phiên bản
 - **Giao diện:** sửa file trong `web/` rồi push hoặc commit lên GitHub. Cloudflare tự deploy lại.
 - **Cơ sở dữ liệu:** chạy lại `supabase/setup_all.sql` trong SQL Editor. Các hàm được thay mới, dữ liệu giữ nguyên.
@@ -67,7 +120,7 @@ select app.load_demo();   -- 10 khách hàng mẫu, khai báo xe 30 ngày tới,
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.
 - Gói Free **không có backup tự động**. Mỗi tuần nên export các bảng chính (Table Editor → schema `app` → Export CSV).
 - Giới hạn: database 500 MB, egress 5 GB/tháng, 50.000 người dùng hoạt động/tháng. Theo dõi ở Dashboard DB-06 và trang Usage của Supabase.
-- Email thông báo chưa có trong v0.1; thông báo hiện chỉ hiển thị trong ứng dụng.
+- Resend Free: 100 email/ngày, 3.000 email/tháng; hệ thống tự dừng ở 95 email/ngày (xem DB-06).
 
 ## Cấu trúc mã nguồn
 ```
@@ -78,7 +131,9 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
 supabase/
   migrations/0001_init.sql  Bảng, phân quyền, hàm nghiệp vụ
   seed.sql                  Danh mục: kho, khu vực, sản phẩm, màu, độ dày, khổ, cấu hình
+  migrations/0002_email.sql Hàng đợi email + gửi qua Resend (pg_net, pg_cron, Vault)
   demo_data.sql             Hàm load_demo() / clear_demo()
-  setup_all.sql             Gộp 3 file trên, dùng để dán vào SQL Editor
+  email_setup.sql           = 0002_email.sql, dán vào SQL Editor để bật email
+  setup_all.sql             Gộp tất cả, dùng cho cài đặt mới
 test/                     Kiểm thử cục bộ (Postgres 16 + Playwright), không deploy
 ```
