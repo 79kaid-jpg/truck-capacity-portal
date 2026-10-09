@@ -4,6 +4,6 @@
 //   SUPABASE_ANON_KEY = khóa "anon public" (hoặc "Publishable key")
 // TUYỆT ĐỐI KHÔNG dán "service_role" / "secret key" vào đây.
 window.APP_CONFIG = {
-  SUPABASE_URL: 'https://YOUR-PROJECT-REF.supabase.co',
-  SUPABASE_ANON_KEY: 'YOUR-ANON-PUBLIC-KEY'
+  SUPABASE_URL: 'https://mxidssucimgjvzdankzy.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14aWRzc3VjaW1nanZ6ZGFua3p5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1Mjk1MjAsImV4cCI6MjEwNzEwNTUyMH0.1RcUgC00oSPMMOPr_owiCHZ7KUOwFSDBX1nbAMFlQLs'
 };
