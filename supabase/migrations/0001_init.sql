@@ -117,6 +117,14 @@ create table if not exists app.role_permissions (
   primary key (role, perm)
 );
 
+-- Phiên "Login as": Admin xem và thao tác với tư cách người dùng khác (tối đa 60 phút)
+create table if not exists app.impersonations (
+  admin_id   uuid primary key references app.profiles(user_id) on delete cascade,
+  target_id  uuid not null references app.profiles(user_id) on delete cascade,
+  started_at timestamptz not null default now(),
+  expires_at timestamptz not null
+);
+
 create table if not exists app.daily_fleet (
   warehouse_code text not null references app.warehouses(code),
   day            date not null,
@@ -257,16 +265,31 @@ language sql stable security definer set search_path = '' as $$
   select (value #>> '{}')::numeric from app.settings where key = k
 $$;
 
+-- Người dùng hiệu lực: người được "Login as" nếu Admin đang có phiên hợp lệ, ngược lại chính người đăng nhập
+create or replace function app.uid() returns uuid
+language plpgsql stable security definer set search_path = '' as $$
+declare v uuid;
+begin
+  select i.target_id into v from app.impersonations i
+    join app.profiles a on a.user_id = i.admin_id and a.active
+    join app.profiles t on t.user_id = i.target_id and t.active
+   where i.admin_id = auth.uid() and i.expires_at > now() and app.role_has(a.role, 'users.impersonate');
+  return coalesce(v, auth.uid());
+end $$;
+
+create or replace function app.impersonating() returns boolean
+language sql stable security definer set search_path = '' as $$ select app.uid() is distinct from auth.uid() $$;
+
 create or replace function app.me() returns app.profiles
 language sql stable security definer set search_path = '' as $$
-  select p.* from app.profiles p where p.user_id = auth.uid() and p.active
+  select p.* from app.profiles p where p.user_id = app.uid() and p.active
 $$;
 
 create or replace function app.require_role(roles text[]) returns app.profiles
 language plpgsql stable security definer set search_path = '' as $$
 declare m app.profiles;
 begin
-  select * into m from app.profiles p where p.user_id = auth.uid() and p.active;
+  select * into m from app.profiles p where p.user_id = app.uid() and p.active;
   if not found then
     raise exception 'Tài khoản chưa được cấp quyền hoặc đã bị khóa.' using errcode = '42501';
   end if;
@@ -287,7 +310,7 @@ $$;
 
 create or replace function app.has_perm(p_perm text) returns boolean
 language sql stable security definer set search_path = '' as $$
-  select exists (select 1 from app.profiles p where p.user_id = auth.uid() and p.active and app.role_has(p.role, p_perm))
+  select exists (select 1 from app.profiles p where p.user_id = app.uid() and p.active and app.role_has(p.role, p_perm))
 $$;
 
 create or replace function app.my_perms(p_role text) returns text[]
@@ -299,7 +322,7 @@ create or replace function app.require_perm(p_perm text) returns app.profiles
 language plpgsql stable security definer set search_path = '' as $$
 declare m app.profiles; v_name text;
 begin
-  select * into m from app.profiles p where p.user_id = auth.uid() and p.active;
+  select * into m from app.profiles p where p.user_id = app.uid() and p.active;
   if not found then
     raise exception 'Tài khoản chưa được cấp quyền hoặc đã bị khóa.' using errcode = '42501';
   end if;
@@ -417,13 +440,14 @@ end $$;
 
 create or replace function app.audit(p_entity text, p_detail text) returns void
 language sql security definer set search_path = '' as $$
-  insert into app.audit_log (entity_id, detail, actor) values (p_entity, p_detail, auth.uid())
+  insert into app.audit_log (entity_id, detail, actor)
+  values (p_entity, p_detail || case when app.impersonating() then ' · ' || coalesce((select full_name from app.profiles where user_id = auth.uid()), 'Admin') || ' thao tác thay (Login as)' else '' end, app.uid())
 $$;
 
 create or replace function app.status_change(p_id text, p_from text, p_to text, p_reason text default null, p_note text default null) returns void
 language sql security definer set search_path = '' as $$
   insert into app.booking_status_history (booking_id, from_status, to_status, reason_code, note, actor)
-  values (p_id, p_from, p_to, p_reason, p_note, auth.uid())
+  values (p_id, p_from, p_to, p_reason, p_note, app.uid())
 $$;
 
 create or replace function app.notify(p_users uuid[], p_type text, p_text text, p_link jsonb default null) returns void
@@ -492,7 +516,7 @@ language plpgsql stable security definer set search_path = '' as $$
 declare
   me app.profiles; res jsonb; v_cfg jsonb; v_internal boolean;
 begin
-  select * into me from app.profiles p where p.user_id = auth.uid() and p.active;
+  select * into me from app.profiles p where p.user_id = app.uid() and p.active;
   if not found then
     return jsonb_build_object('me', null, 'today', app.today(), 'error', 'no_profile');
   end if;
@@ -506,6 +530,8 @@ begin
                              'segment', me.segment, 'customerId', me.customer_id, 'wh', me.default_warehouse, 'whs', me.warehouses),
     'cfg', v_cfg,
     'perms', to_jsonb(app.my_perms(me.role)),
+    'imp', case when app.impersonating() then (select jsonb_build_object('by', a.full_name, 'expiresAt', extract(epoch from i.expires_at))
+                from app.impersonations i join app.profiles a on a.user_id = i.admin_id where i.admin_id = auth.uid()) end,
     'warehouses', (select jsonb_agg(jsonb_build_object('id', code, 'name', name, 'full', full_name) order by code) from app.warehouses where active),
     'notifs', (select coalesce(jsonb_agg(jsonb_build_object('id', n.id, 'type', n.type, 'text', n.text, 'link', n.link,
                  'at', extract(epoch from n.created_at), 'read', n.read_at is not null) order by n.created_at desc), '[]')
@@ -1204,6 +1230,37 @@ exception when unique_violation then
   raise exception 'Mã khách hàng đã tồn tại.';
 end $$;
 
+-- Login as: bắt đầu / kết thúc. Kiểm tra quyền theo người đăng nhập thật (không theo người đang được xem).
+create or replace function public.impersonate_start(p_user uuid) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare a app.profiles; t app.profiles; v_min int := 60;
+begin
+  select * into a from app.profiles where user_id = auth.uid() and active;
+  if not found or not app.role_has(a.role, 'users.impersonate') then
+    raise exception 'Vai trò của bạn chưa được cấp quyền "Login as".' using errcode = '42501';
+  end if;
+  select * into t from app.profiles where user_id = p_user;
+  if not found then raise exception 'Không tìm thấy tài khoản.'; end if;
+  if not t.active then raise exception 'Tài khoản % đang bị khóa, không Login as được.', t.email; end if;
+  if t.user_id = a.user_id then raise exception 'Không Login as chính mình.'; end if;
+  insert into app.impersonations (admin_id, target_id, expires_at) values (a.user_id, t.user_id, now() + make_interval(mins => v_min))
+  on conflict (admin_id) do update set target_id = excluded.target_id, started_at = now(), expires_at = excluded.expires_at;
+  insert into app.audit_log (entity_id, detail, actor) values ('login-as', a.full_name || ' bắt đầu Login as ' || t.full_name || ' (' || t.email || ', ' || t.role || ')', a.user_id);
+  return jsonb_build_object('name', t.full_name, 'role', t.role, 'minutes', v_min);
+end $$;
+
+create or replace function public.impersonate_stop() returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare i app.impersonations; v_a text; v_t text;
+begin
+  delete from app.impersonations where admin_id = auth.uid() returning * into i;
+  if found then
+    select full_name into v_a from app.profiles where user_id = i.admin_id;
+    select full_name into v_t from app.profiles where user_id = i.target_id;
+    insert into app.audit_log (entity_id, detail, actor) values ('login-as', coalesce(v_a, 'Admin') || ' kết thúc Login as ' || coalesce(v_t, '?'), i.admin_id);
+  end if;
+end $$;
+
 -- Lưu ma trận quyền: p = {"logistics": ["perm",...], "cs": [...], "sales": [...], "admin": [...]}
 create or replace function public.save_role_permissions(p jsonb) returns int
 language plpgsql volatile security definer set search_path = '' as $$
@@ -1327,6 +1384,7 @@ end $$;
 create or replace function public.update_my_profile(p_name text, p_phone text) returns void
 language plpgsql volatile security definer set search_path = '' as $$
 begin
+  if app.impersonating() then raise exception 'Đang Login as người dùng khác: không sửa hồ sơ của họ.'; end if;
   if coalesce(trim(p_name), '') = '' then raise exception 'Nhập họ tên.'; end if;
   update app.profiles set full_name = trim(p_name), phone = nullif(trim(p_phone), '') where user_id = auth.uid() and active;
 end $$;
@@ -1334,7 +1392,7 @@ end $$;
 create or replace function public.mark_notifs_read(p_ids bigint[] default null) returns void
 language sql volatile security definer set search_path = '' as $$
   update app.notifications set read_at = now()
-   where user_id = auth.uid() and read_at is null and (p_ids is null or id = any(p_ids))
+   where user_id = auth.uid() and read_at is null and (p_ids is null or id = any(p_ids)) and not app.impersonating()
 $$;
 
 -- Tạo Admin đầu tiên (chạy trong SQL Editor với quyền postgres, không gọi được từ trình duyệt)
@@ -1365,7 +1423,8 @@ begin
        'update_settings','add_region','toggle_region','catalog_save','catalog_toggle',
        'admin_upsert_profile','admin_toggle_user','admin_add_customer','update_my_profile','mark_notifs_read',
        'save_role_permissions','reset_role_permissions',
-       'admin_update_customer','admin_toggle_customer','admin_save_address','admin_delete_address')
+       'admin_update_customer','admin_toggle_customer','admin_save_address','admin_delete_address',
+       'impersonate_start','impersonate_stop')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);

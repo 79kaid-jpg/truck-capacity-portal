@@ -120,6 +120,9 @@ Nếu không cấu hình SMTP riêng, Supabase chỉ gửi email đặt lại m�
 ## Phân quyền
 Admin vào **Setting user account → Phân quyền** để bật/tắt từng tính năng cho Logistics, CS, Sales, Admin. Máy chủ kiểm tra quyền ở mọi thao tác. Phạm vi dữ liệu cố định theo vai trò: Sales chỉ thao tác trên khách mình phụ trách; Khách hàng chỉ xem số tấn còn đặt được và đơn của mình. Admin luôn giữ quyền "Phân quyền vai trò" để không tự khóa mình.
 
+## Login as
+Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") bấm **Login as** ở danh sách người dùng để xem và thao tác đúng như người đó, không cần mật khẩu của họ. Phiên tối đa 60 phút, có dải cảnh báo và nút **Thoát Login as** ở đầu trang. Nhật ký ghi lúc bắt đầu, lúc kết thúc và mọi thao tác kèm "… thao tác thay (Login as)". Trong phiên này không sửa được hồ sơ, mật khẩu, và không đổi trạng thái đã đọc thông báo của người kia.
+
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.
 - Gói Free **không có backup tự động**. Mỗi tuần nên export các bảng chính (Table Editor → schema `app` → Export CSV).

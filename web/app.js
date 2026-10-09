@@ -51,7 +51,7 @@ const num=v=>parseFloat(String(v??'').replace(',','.'));
 const CFG_DEFAULT={near:80,capDK:30,capCN:15,split:15,sla:60,maxStops:3,fillMin:70,suggestOn:true,sundayOff:true,holidays:[]};
 function adopt(st){
  const S={};
- S.me=st.me;S.cfg={...CFG_DEFAULT,...(st.cfg||{})};S.perms=st.perms||[];S.permCatalog=st.permCatalog||[];S.roleMatrix=st.roleMatrix||null;
+ S.me=st.me;S.cfg={...CFG_DEFAULT,...(st.cfg||{})};S.perms=st.perms||[];S.imp=st.imp||null;S.permCatalog=st.permCatalog||[];S.roleMatrix=st.roleMatrix||null;
  WH=(st.warehouses||[]).map(w=>({id:w.id,name:String(w.name).toUpperCase(),full:w.full}));
  S.regions=(st.regions||[]).map(r=>({...r,neighbors:r.neighbors||[]}));
  S.products=st.products||[];S.colors=st.colors||[];
@@ -186,10 +186,12 @@ function groupSuggest(wh,date){
 const app=document.getElementById('app');
 function render(){
  if(!S)return;const u=me();if(!u)return;
- app.innerHTML=`${topbar(u)}<div class="shell">${sidebar(u)}<main class="main" id="main">${mainView()}</main></div>${V.modal?`<div class="scrim" data-a="scrim"><div class="modal ${V.modal.wide?'wide':''}" role="dialog" aria-modal="true">${modalView()}</div></div>`:''}${V.toast?`<div class="toast" role="status">${esc(V.toast)}</div>`:''}`;
+ app.innerHTML=`${topbar(u)}${S.imp?impBar(u):''}<div class="shell">${sidebar(u)}<main class="main" id="main">${mainView()}</main></div>${V.modal?`<div class="scrim" data-a="scrim"><div class="modal ${V.modal.wide?'wide':''}" role="dialog" aria-modal="true">${modalView()}</div></div>`:''}${V.toast?`<div class="toast" role="status">${esc(V.toast)}</div>`:''}`;
 }
 function toast(t){V.toast=t;render();clearTimeout(toast._t);toast._t=setTimeout(()=>{V.toast='';const el=document.querySelector('.toast');if(el)el.remove();},3200);}
 
+function impBar(u){const left=Math.min(60,Math.max(0,Math.floor(S.imp.expiresAt/60-S.clock)));
+ return `<div class="impbar" role="status"><span>Đang <b>Login as ${esc(u.name)}</b> · ${ROLE_LABEL[u.role]}${u.customerId&&cust(u.customerId)?' · '+esc(cust(u.customerId).name):''} — bạn thấy và thao tác đúng như người này. Mọi thao tác ghi nhật ký là ${esc(S.imp.by)} làm thay.</span><span class="small">Còn ${left} phút</span><button class="btn sm" data-a="impStop">Thoát Login as</button></div>`;}
 function topbar(u){const w=WH.find(x=>x.id===V.wh);
  return `<header class="top"><button class="logo" data-a="go" data-v="calendar"><span class="mark">${IC.truck.replace('<svg','<svg width="16" height="16"')}</span>ĐẶT XE</button>
  <div class="ctx">Lịch Đặt Xe – ${esc(w.full)}</div>
@@ -455,7 +457,7 @@ function vUsers(){const UT=[['users','Người dùng','users.manage'],['customer
  if(!UT.some(t=>t[0]===V.uTab))V.uTab=UT[0][0];const T=V.uTab;
  return `<div class="panel"><div class="pagehead"><h2>SETTING USER ACCOUNT</h2>${T==='users'?'<button class="btn" data-a="userNew">Cấp quyền tài khoản</button>':T==='customers'?'<button class="btn" data-a="custNew">Thêm khách hàng</button>':''}</div>
  <div class="tabs">${UT.map(([k,l])=>`<button class="${T===k?'on':''}" data-a="uTab" data-t="${k}">${l}</button>`).join('')}</div>
- ${T==='perms'?vPerms():T==='users'?`<div class="tbl-wrap"><table><thead><tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Segment</th><th>Kho mặc định</th><th>Công ty</th><th>Trạng thái</th><th></th></tr></thead><tbody>${S.users.map(u=>`<tr><td><b>${esc(u.name)}</b></td><td>${esc(u.email)}</td><td>${ROLE_LABEL[u.role]}</td><td>${u.segment?SEG_LABEL[u.segment]:u.customerId?SEG_LABEL[cust(u.customerId).segment]:'–'}</td><td>${u.wh}</td><td>${u.customerId?esc(cust(u.customerId).name):'–'}</td><td>${u.active?'<span class="st st-ok">Hoạt động</span>':'<span class="st st-cancelled">Khóa</span>'}</td><td class="r" style="white-space:nowrap"><button class="btn ghost sm" data-a="userEdit" data-id="${u.id}">Sửa</button> ${u.id!==V.me?`<button class="btn ghost sm" data-a="userToggle" data-id="${u.id}">${u.active?'Khóa':'Mở khóa'}</button>`:''}</td></tr>`).join('')}</tbody></table></div>${V.userErr?`<div class="err" style="margin-top:8px">${esc(V.userErr)}</div>`:''}`
+ ${T==='perms'?vPerms():T==='users'?`<div class="tbl-wrap"><table><thead><tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Segment</th><th>Kho mặc định</th><th>Công ty</th><th>Trạng thái</th><th></th></tr></thead><tbody>${S.users.map(u=>`<tr><td><b>${esc(u.name)}</b></td><td>${esc(u.email)}</td><td>${ROLE_LABEL[u.role]}</td><td>${u.segment?SEG_LABEL[u.segment]:u.customerId?SEG_LABEL[cust(u.customerId).segment]:'–'}</td><td>${u.wh}</td><td>${u.customerId?esc(cust(u.customerId).name):'–'}</td><td>${u.active?'<span class="st st-ok">Hoạt động</span>':'<span class="st st-cancelled">Khóa</span>'}</td><td class="r" style="white-space:nowrap">${can('users.impersonate')&&u.id!==V.me&&u.active?`<button class="btn ghost sm" data-a="loginAs" data-id="${u.id}" title="Xem và thao tác với tư cách ${esc(u.name)}">Login as</button> `:''}<button class="btn ghost sm" data-a="userEdit" data-id="${u.id}">Sửa</button> ${u.id!==V.me?`<button class="btn ghost sm" data-a="userToggle" data-id="${u.id}">${u.active?'Khóa':'Mở khóa'}</button>`:''}</td></tr>`).join('')}</tbody></table></div>${V.userErr?`<div class="err" style="margin-top:8px">${esc(V.userErr)}</div>`:''}`
  :`<div class="tbl-wrap"><table><thead><tr><th>Mã KH</th><th>Tên công ty</th><th>Segment</th><th>Sales phụ trách</th><th>Địa chỉ giao · khu vực</th><th class="r">Tài khoản</th><th>Trạng thái</th><th></th></tr></thead><tbody>${S.customers.map(c=>`<tr style="${c.active===false?'opacity:.6':''}"><td>${c.code}</td><td><b>${esc(c.name)}</b></td><td>${SEG_LABEL[c.segment]}</td><td>${esc(user(c.salesId).name)}</td><td class="small">${c.addresses.map(a=>`${esc(a.label)}, ${esc(a.ward)}, ${esc(a.province)} · <b>${Object.values(a.regions).map(regName).map(esc).join(', ')||'Chưa phân khu vực'}</b>`).join('<br>')}</td><td class="r">${S.users.filter(u=>u.customerId===c.id).length}</td><td>${c.active===false?'<span class="st st-cancelled">Ngừng dùng</span>':'<span class="st st-ok">Đang dùng</span>'}</td>
  <td class="r" style="white-space:nowrap"><button class="btn ghost sm" data-a="custEdit" data-id="${c.id}">Sửa</button> <button class="btn ghost sm" data-a="custToggle" data-id="${c.id}">${c.active===false?'Dùng lại':'Ngừng dùng'}</button></td></tr>`).join('')}</tbody></table></div>`}</div>`;
 }
@@ -591,8 +593,8 @@ function vProfile(){const u=me();
  ${u.segment?`<div class="field"><label>Segment</label><div>${SEG_LABEL[u.segment]}</div></div>`:''}
  ${u.customerId&&cust(u.customerId)?`<div class="field"><label>Công ty</label><div>${esc(cust(u.customerId).name)} · ${SEG_LABEL[cust(u.customerId).segment]}</div></div><div class="field"><label>Sales phụ trách</label><div>${esc(user(cust(u.customerId).salesId).name)}</div></div>`:''}
  <div class="field"><label>Kho mặc định</label><div>${(WH.find(w=>w.id===u.wh)||{full:u.wh}).full}</div></div></div>
- <div class="mfoot"><button class="btn" data-a="pfSave">Lưu</button></div>
- <h3 style="margin-top:18px;font-size:15px">ĐỔI MẬT KHẨU</h3><div class="fgrid"><div class="field"><label for="pw1">Mật khẩu mới</label><input id="pw1" type="password" class="inp" autocomplete="new-password" data-f="pw" data-k="pw" value="${esc(V.pw||'')}"></div><div class="field"><label for="pw2">Nhập lại</label><input id="pw2" type="password" class="inp" autocomplete="new-password" data-f="pw" data-k="pw2" value="${esc(V.pw2||'')}"></div></div>${V.pwErr?`<div class="err">${esc(V.pwErr)}</div>`:''}<div class="mfoot"><button class="btn ghost" data-a="pwSave">Đổi mật khẩu</button></div></div>`;}
+ ${S.imp?'<p class="small muted" style="margin-top:12px">Đang Login as: không sửa hồ sơ và mật khẩu của người này.</p>':`<div class="mfoot"><button class="btn" data-a="pfSave">Lưu</button></div>
+ <h3 style="margin-top:18px;font-size:15px">ĐỔI MẬT KHẨU</h3><div class="fgrid"><div class="field"><label for="pw1">Mật khẩu mới</label><input id="pw1" type="password" class="inp" autocomplete="new-password" data-f="pw" data-k="pw" value="${esc(V.pw||'')}"></div><div class="field"><label for="pw2">Nhập lại</label><input id="pw2" type="password" class="inp" autocomplete="new-password" data-f="pw" data-k="pw2" value="${esc(V.pw2||'')}"></div></div>${V.pwErr?`<div class="err">${esc(V.pwErr)}</div>`:''}<div class="mfoot"><button class="btn ghost" data-a="pwSave">Đổi mật khẩu</button></div>`}</div>`;}
 
 /* ===================== modals ===================== */
 function modalView(){const M=V.modal;switch(M.type){case'truck':return mTruck();case'editAl':return mEditAl();case'place':return mPlace();case'bf':return mBF();case'custDay':return mCustDay();case'group':return mGroup();case'userNew':return mUserNew();case'custNew':return mCustNew();case'custEdit':return mCustEdit();}return '';}
@@ -878,6 +880,8 @@ const A={
   if(f.role==='sales'&&!f.phone.trim()){M.err='Sales cần số điện thoại (hiển thị cho khách).';return render();}if(f.role==='customer'&&!f.customerId){M.err='Chọn công ty khách hàng.';return render();}
   mutate('admin_upsert_profile',{p:{email:f.email.trim(),name:f.name.trim(),role:f.role,phone:f.phone,segment:f.segment,customer_id:f.customerId,wh:f.wh}},
    {err:m=>M.err=m,ok:()=>{V.modal=null;toast((M.edit?'Đã cập nhật ':'Đã cấp quyền cho ')+f.email.trim());}});},
+ loginAs:d=>{const u=user(d.id);mutate('impersonate_start',{p_user:d.id},{ok:r=>{V.view='calendar';V.modal=null;V.asg=null;V.menu=false;V.wh=me().wh||'PMY';V.fleetEdit={};render();window.scrollTo(0,0);toast(`Đang Login as ${r.name} trong ${r.minutes} phút`);}});},
+ impStop:()=>mutate('impersonate_stop',{},{ok:()=>{V.view='users';V.uTab='users';V.modal=null;V.asg=null;V.wh=me().wh||'PMY';render();toast('Đã thoát Login as');}}),
  custEdit:d=>{const c=cust(d.id);V.modal={type:'custEdit',id:c.id,wide:true,err:'',addr:null,f:{code:c.code,name:c.name,segment:c.segment,salesId:c.salesId||''}};render();},
  ceSave:()=>{const M=V.modal;const f=M.f;if(!f.code.trim()||!f.name.trim()||!f.salesId){M.err='Điền đủ mã, tên công ty và Sales phụ trách.';return render();}
   mutate('admin_update_customer',{p:{id:M.id,code:f.code.trim(),name:f.name.trim(),segment:f.segment,sales_id:f.salesId}},{err:m=>M.err=m,ok:()=>{V.modal=null;toast('Đã lưu khách hàng '+f.name.trim());}});},

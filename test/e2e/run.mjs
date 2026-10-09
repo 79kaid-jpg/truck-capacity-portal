@@ -129,6 +129,18 @@ await session('admin@demo.vn', async p => {
   S('custRestore'); await p.click('[data-a="go"][data-v="users"]'); await p.click('[data-a="uTab"][data-t="customers"]');
   await clr(p); await p.locator('tr', { hasText: 'Lysaght' }).locator('[data-a="custToggle"]').click(); log('restore customer ->', await toast(p));
 });
+await session('admin@demo.vn', async p => {
+  S('loginAs'); await p.click('[data-a="go"][data-v="users"]'); await p.click('[data-a="uTab"][data-t="users"]');
+  log('login-as buttons:', await p.locator('[data-a="loginAs"]').count());
+  await clr(p); await p.locator('tr', { hasText: 'cs@demo.vn' }).locator('[data-a="loginAs"]').click(); log('login as CS ->', await toast(p));
+  log('banner:', (await p.locator('.impbar').innerText()).split('\n')[0].slice(0, 60), '| nav:', (await p.locator('nav.side button').evaluateAll(b => b.map(x => x.getAttribute('data-v')))).join(','));
+  await shot(p, '12-login-as-cs');
+  await p.click('[data-a="menu"]'); await p.click('.menu [data-a="go"][data-v="profile"]'); log('profile pw hidden:', await p.locator('#pw1').count() === 0);
+  await clr(p); await p.click('[data-a="impStop"]'); log('stop ->', await toast(p), '| back on users tab:', await p.locator('[data-a="loginAs"]').count() > 0);
+  await clr(p); await p.locator('tr', { hasText: 'kh@demo.vn' }).locator('[data-a="loginAs"]').click(); await p.waitForTimeout(300);
+  log('as customer: calendar cells "Có thể đặt":', ((await p.locator('.main').innerText()).match(/Có thể đặt/g) || []).length, '| banner:', await p.locator('.impbar').count());
+  await shot(p, '12b-login-as-customer'); await p.click('[data-a="impStop"]'); await p.waitForTimeout(300);
+});
 await session('new@demo.vn', async p => { S('granted'); log('new user after grant sees calendar:', await p.locator('.cal').count() > 0); });
 await session('kh@demo.vn', async p => { S('mobile'); await p.waitForSelector('.cal'); await shot(p, '7-customer-mobile'); }, { width: 390, height: 844 });
 { // forgot password + recovery link (no login)
