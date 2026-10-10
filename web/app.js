@@ -48,7 +48,7 @@ const ST_CUST={hold:'Chờ duyệt',ok:'Đã xác nhận',rejected:'Từ chối'
 const vnToday=()=>{const p={};new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).forEach(x=>p[x.type]=x.value);return `${p.year}-${p.month}-${p.day}`;};
 TODAY=vnToday();
 const num=v=>parseFloat(String(v??'').replace(',','.'));
-const CFG_DEFAULT={near:80,capDK:30,capCN:15,split:15,sla:60,maxStops:3,fillMin:70,suggestOn:true,sundayOff:true,holidays:[]};
+const CFG_DEFAULT={capDKMin:15,capDKMax:35,capCNMin:5,capCNMax:20,near:80,capDK:30,capCN:15,split:15,sla:60,maxStops:3,fillMin:70,suggestOn:true,sundayOff:true,holidays:[]};
 function adopt(st){
  const S={};
  S.me=st.me;S.cfg={...CFG_DEFAULT,...(st.cfg||{})};S.perms=st.perms||[];S.imp=st.imp||null;S.permCatalog=st.permCatalog||[];S.roleMatrix=st.roleMatrix||null;
@@ -62,6 +62,7 @@ function adopt(st){
  S.customers=(st.customers||[]).map(c=>({...c,addresses:(c.addresses||[]).map(a=>({...a,regions:a.regions||{}}))}));
  S.fleet={};WH.forEach(w=>S.fleet[w.id]={});
  (st.fleet||[]).forEach(f=>{(S.fleet[f.wh]=S.fleet[f.wh]||{})[f.date]={dk:f.dk,cn:f.cn,reason:f.reason||'',by:f.by,at:f.at};});
+ S.truckInfo={};(st.truckInfo||[]).forEach(t=>{S.truckInfo[t.code]={...t,cap:t.cap==null?null:+t.cap};});
  S.cal={};(st.calendar||[]).forEach(c=>{S.cal[c.wh+'|'+c.day]=c;});
  S.bookings=(st.bookings||[]).map(b=>({...b,delivery:b.delivery||'',ref:b.ref||'',addrText:b.addrText||'',province:b.province||'',region:b.region||'NONE',
   heldAt:Math.floor(b.heldAt||0),note:b.note||'',rejectReason:b.rejectReason||'',proposedDate:b.proposedDate||'',
@@ -96,7 +97,7 @@ const bkById=id=>S.bookings.find(b=>b.id===id);
 const allocsOf=id=>S.allocs.filter(a=>a.bk===id);
 const allocSum=id=>r2(allocsOf(id).reduce((s,a)=>s+a.tons,0));
 const isHoliday=(wh,date)=>(S.cfg.sundayOff&&dow(date)===0)||S.cfg.holidays.includes(date);
-function trucksOf(wh,date){const f=(S.fleet[wh]||{})[date];if(!f||isHoliday(wh,date))return[];const out=[];const mk=(type,n,cap)=>{for(let i=1;i<=n;i++)out.push({code:`${wh}-${ddmmyy(date)}-${type}-${pad(i)}`,short:`${type}-${pad(i)}`,type,cap,idx:i,wh,date});};mk('DK',f.dk,S.cfg.capDK);mk('CN',f.cn,S.cfg.capCN);return out;}
+function trucksOf(wh,date){const f=(S.fleet[wh]||{})[date];if(!f||isHoliday(wh,date))return[];const out=[];const mk=(type,n,cap)=>{for(let i=1;i<=n;i++){const code=`${wh}-${ddmmyy(date)}-${type}-${pad(i)}`;const inf=(S.truckInfo||{})[code]||null;out.push({code,short:`${type}-${pad(i)}`,type,cap:inf&&inf.cap!=null?inf.cap:cap,defCap:cap,info:inf,idx:i,wh,date});}};mk('DK',f.dk,S.cfg.capDK);mk('CN',f.cn,S.cfg.capCN);return out;}
 const truckByCode=code=>{const[wh,dd,type,n]=code.split('-');const date=`20${dd.slice(4)}-${dd.slice(2,4)}-${dd.slice(0,2)}`;return trucksOf(wh,date).find(t=>t.code===code);};
 const liveAllocsOnTruck=code=>S.allocs.filter(a=>a.truck===code&&['hold','ok'].includes(bkById(a.bk)?.status));
 const loadOf=(code,exceptBk)=>r2(liveAllocsOnTruck(code).filter(a=>a.bk!==exceptBk).reduce((s,a)=>s+a.tons,0));
@@ -302,7 +303,7 @@ function truckCard(t,past){
  const badRegion=regs.length>1&&regs.some((r,i)=>regs.some((q,j)=>j>i&&relation(r,q)==='other'));
  const hl=V.hl&&V.hl.includes(t.code)?'hl':'';const dim=V.dayFilter.region!=='all'&&regs.length&&!regs.includes(V.dayFilter.region)?'dim':'';
  return `<div class="tcard ${s==='full'||s==='over'?'full':''} ${hl} ${dim}" data-a="truck" data-c="${t.code}" tabindex="0" role="button" aria-label="Xe ${t.short}">
-  <div class="tc-top">${TICON(t.type)}<span class="grow"></span>${tsPill(s)}</div><div style="min-width:0"><div class="tc-code">${t.short}</div><div class="tc-full muted">${t.code}</div></div>
+  <div class="tc-top">${TICON(t.type)}<span class="grow"></span>${tsPill(s)}</div><div style="min-width:0"><div class="tc-code">${t.short}</div><div class="tc-full muted">${t.code}</div>${t.cap!==t.defCap?`<div class="capchip" title="${esc(t.info&&t.info.reason||'')}">Tải trọng hôm nay ${t2(t.cap)} t · chuẩn ${t.defCap} t</div>`:''}${t.info&&t.info.plate?`<div class="small muted">${esc(t.info.plate)}${t.info.driver?' · '+esc(t.info.driver):''}</div>`:''}</div>
   <div class="small num">${pct(l/t.cap)} (${t2(l)}/${t.cap} t)</div><div class="bar">${segs}</div>
   ${regs.length?`<div class="row" style="gap:4px">${regs.map(r=>`<span class="rtag ${badRegion?'warn':''}">${esc(regName(r))}</span>`).join('')}${badRegion?'<span class="small" title="Khác khu vực" style="color:var(--bad)">⚠</span>':''}</div>`:''}
   ${al.length?`<div class="tc-lines">${lines}</div>`:''}
@@ -433,7 +434,7 @@ function vConfig(){const C=S.cfg;
  if(!tabs.some(t=>t[0]===V.cfgTab))V.cfgTab=tabs[0]?tabs[0][0]:'general';const T=V.cfgTab;
  let body='';
  if(T==='general'){const f=(k,l,suf)=>`<div class="field"><label for="cf-${k}">${l}</label><div class="row" style="flex-wrap:nowrap"><input id="cf-${k}" class="inp num" inputmode="decimal" data-f="cfg" data-k="${k}" value="${C[k]}"><span class="muted small">${suf}</span></div></div>`;
-  body=`<div class="fgrid">${f('near','Ngưỡng GẦN ĐẦY','%')}${f('capDK','Tải trọng mặc định đầu kéo (DK)','tấn')}${f('capCN','Tải trọng mặc định container (CN)','tấn')}${f('split','Ngưỡng phân loại đơn DK / CN','tấn')}${f('sla','Thời hạn phản hồi giữ chỗ','phút')}${f('maxStops','Số điểm giao tối đa / xe','điểm')}${f('fillMin','Lấp đầy tối thiểu để đề xuất nhóm gộp','%')}
+  body=`<div class="fgrid">${f('near','Ngưỡng GẦN ĐẦY','%')}${f('capDK','Tải trọng mặc định đầu kéo (DK)','tấn')}${f('capCN','Tải trọng mặc định container (CN)','tấn')}${f('capDKMin','DK: tải trọng tối thiểu khi chỉnh từng xe','tấn')}${f('capDKMax','DK: tải trọng tối đa khi chỉnh từng xe','tấn')}${f('capCNMin','CN: tải trọng tối thiểu khi chỉnh từng xe','tấn')}${f('capCNMax','CN: tải trọng tối đa khi chỉnh từng xe','tấn')}${f('split','Ngưỡng phân loại đơn DK / CN','tấn')}${f('sla','Thời hạn phản hồi giữ chỗ','phút')}${f('maxStops','Số điểm giao tối đa / xe','điểm')}${f('fillMin','Lấp đầy tối thiểu để đề xuất nhóm gộp','%')}
   <div class="field"><label>Gợi ý gộp xe</label><label class="row"><input type="checkbox" data-f="cfgb" data-k="suggestOn" ${C.suggestOn?'checked':''}> Bật gợi ý gộp xe theo khu vực</label></div></div>
   <p class="small muted">Đơn trên ${C.split} tấn gợi ý DK, từ ${C.split} tấn trở xuống gợi ý CN. Thay đổi áp dụng ngay cho mọi người dùng.</p>`;}
  if(T==='regions'){const rs=S.regions.filter(r=>r.wh===V.wh);const mapped=new Set(rs.filter(r=>r.active).map(r=>r.newProvince));const unm=PROVINCES.filter(p=>!mapped.has(p));const none=S.bookings.filter(b=>b.wh===V.wh&&b.region==='NONE'&&['hold','ok'].includes(b.status)).length;const NR=V.newReg||{};
@@ -610,12 +611,28 @@ function mTruck(){const t=truckByCode(V.modal.code);const al=liveAllocsOnTruck(t
  return `<div class="mhead"><span class="meta">${WH.find(w=>w.id===t.wh).full.toUpperCase()}</span><span class="meta">Ngày: ${dmy(t.date)}</span></div>
  <div class="truckbig">${TICON(t.type)}<div><div class="row"><span class="code">${t.short}</span>${tsPill(s)}</div><div class="small muted">${t.code}</div>
  <div style="font-family:var(--f-display);font-weight:800;font-size:24px;margin-top:6px" class="num">${pct(l/t.cap)} (${t2(l)} tấn)</div>
- <div class="small">Loại: ${t.type==='DK'?'Đầu kéo':'Container'} · Tải trọng: ${t.cap} t · Còn trống: ${t2(Math.max(0,t.cap-l))} t${truckRegions(t.code).length?' · Khu vực: '+truckRegions(t.code).map(regName).map(esc).join(', '):''} · Điểm giao: ${truckStops(t.code).size}/${S.cfg.maxStops}</div></div></div>
+ <div class="small">Loại: ${t.type==='DK'?'Đầu kéo':'Container'} · Tải trọng: ${t2(t.cap)} t${t.cap!==t.defCap?` (chuẩn ${t.defCap} t)`:''} · Còn trống: ${t2(Math.max(0,t.cap-l))} t${truckRegions(t.code).length?' · Khu vực: '+truckRegions(t.code).map(regName).map(esc).join(', '):''} · Điểm giao: ${truckStops(t.code).size}/${S.cfg.maxStops}</div></div></div>
+ ${truckInfoBlock(t,l,past)}
  <h3 style="margin-top:16px;font-size:15px">CHI TIẾT XẾP HÀNG – XE ${t.short}</h3>
  <div class="floor">${segs.map(g=>{const b=bkById(g.bk);const own=ownsCust(b.customerId);return `<div style="width:${g.tons/Math.max(t.cap,l)*100}%;background:${own?custColor(b.customerId):'var(--mask)'}">${isLog&&!past?`<button class="ed" data-a="editAl" data-id="${g.ids[0]}">Sửa</button>`:''}<span>${own?esc(cust(b.customerId).name):'Khách khác'} – ${t2(g.tons)} t</span><span class="num">(${pct(g.tons/t.cap)})</span></div>`;}).join('')}${l<t.cap?`<div class="free" style="width:${(t.cap-l)/t.cap*100}%"><span>Còn trống – ${t2(t.cap-l)} t</span><span class="num">(${pct((t.cap-l)/t.cap)})</span></div>`:''}</div>
  <div class="orders">${segs.map((g,i)=>{const b=bkById(g.bk);const own=ownsCust(b.customerId);return own?`<div><h4 style="color:${custColor(b.customerId)}">ĐƠN HÀNG ${i+1}: ${esc(cust(b.customerId).name)}</h4><div>${b.id} · ${esc(b.ref)} · <span class="st st-${b.status}">${ST_LABEL[b.status]}</span></div><div class="num">Trên xe này: <b>${t2(g.tons)} t</b> / tổng ${t2(bkTotal(b))} t</div><div>${b.lines.map(x=>`${esc(x.p)} · ${esc(x.c)} · ${x.th}×${x.w} · ${t2(x.t)} t`).join('<br>')}</div><div>Điểm giao: ${esc(b.addrText)}</div><div>Khu vực: ${esc(regName(b.region))}</div></div>`:`<div><h4>ĐƠN HÀNG ${i+1}: Khách khác</h4><div class="num">${t2(g.tons)} t</div><div class="muted small">Không thuộc khách bạn phụ trách.</div></div>`;}).join('')||'<div class="muted">Xe chưa có hàng.</div>'}</div>
  <div class="small" style="margin-top:12px;font-weight:700">TÌNH TRẠNG: ${TS_LABEL[s].toUpperCase()} – ${pct(l/t.cap)} (${t2(l)}/${t.cap} tấn)</div>
  <div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button>${isLog&&!past&&l<t.cap-0.001?`<button class="btn" data-a="place" data-c="${t.code}">Xếp đơn</button>`:''}</div>`;}
+
+function truckInfoBlock(t,l,past){const M=V.modal;const inf=t.info||{};const canEdit=(can('fleet.manage')||can('alloc.assign'))&&!past;
+ if(!canEdit){return inf.plate||inf.driver||inf.phone||t.cap!==t.defCap?`<div class="panel tinfo"><b>Thông tin xe hôm nay</b><div class="small">${inf.plate?'Biển số: <b>'+esc(inf.plate)+'</b> · ':''}${inf.driver?'Tài xế: '+esc(inf.driver)+' · ':''}${inf.phone?'SĐT: '+esc(inf.phone)+' · ':''}Tải trọng: ${t2(t.cap)} t${t.cap!==t.defCap?' (chuẩn '+t.defCap+' t'+(inf.reason?'; '+esc(inf.reason):'')+')':''}</div></div>`:'';}
+ if(!M.ti||M.ti.code!==t.code)M.ti={code:t.code,cap:t.cap!==t.defCap?String(t.cap).replace('.',','):'',plate:inf.plate||'',driver:inf.driver||'',phone:inf.phone||'',reason:inf.reason||'',err:''};
+ const T=M.ti;const lim=t.type==='DK'?[S.cfg.capDKMin,S.cfg.capDKMax]:[S.cfg.capCNMin,S.cfg.capCNMax];const newCap=T.cap===''?t.defCap:num(T.cap);const changed=Math.abs((Number.isFinite(newCap)?newCap:t.defCap)-t.cap)>0.005;const over=Number.isFinite(newCap)?r2(l-newCap):0;
+ return `<div class="panel tinfo"><div class="row"><b class="grow">Thông tin xe hôm nay</b><span class="small muted">Xe thuê ngoài: điền khi xe đến bốc${inf.at?' · cập nhật '+esc(inf.by)+' '+esc(inf.at):''}</span></div>
+ <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-top:8px">
+  <div class="field"><label for="ti-c">Tải trọng hôm nay (tấn)</label><input id="ti-c" class="inp num" inputmode="decimal" data-f="ti" data-k="cap" value="${esc(T.cap)}" placeholder="${t.defCap} (chuẩn)"><span class="small muted">Để trống = chuẩn ${t.defCap} t · cho phép ${lim[0]}–${lim[1]} t</span></div>
+  <div class="field"><label for="ti-p">Biển số</label><input id="ti-p" class="inp" data-f="ti" data-k="plate" value="${esc(T.plate)}" placeholder="51C-123.45"></div>
+  <div class="field"><label for="ti-d">Tài xế</label><input id="ti-d" class="inp" data-f="ti" data-k="driver" value="${esc(T.driver)}"></div>
+  <div class="field"><label for="ti-ph">SĐT tài xế</label><input id="ti-ph" class="inp" inputmode="tel" data-f="ti" data-k="phone" value="${esc(T.phone)}"></div>
+  ${changed&&T.cap.trim()!==''&&Math.abs(newCap-t.defCap)>0.005?`<div class="field" style="grid-column:1/-1"><label for="ti-r">Lý do đổi tải trọng <span class="req">*</span></label><input id="ti-r" class="inp" data-f="ti" data-k="reason" value="${esc(T.reason)}" placeholder="Ví dụ: xe nhà cung cấp chỉ chở được 25 t, cấm tải tuyến…"></div>`:''}</div>
+ ${changed&&over>0.001?`<div class="warnlist">Sau khi lưu, xe sẽ <b>quá tải ${t2(over)} t</b> (đang xếp ${t2(l)} t). Chuyển bớt phần hàng sang xe khác bằng nút <b>Sửa</b> trên phần hàng → Chuyển sang xe khác.</div>`:''}
+ ${changed&&over<=0.001?`<div class="small muted">Số tấn có thể đặt của ngày sẽ ${newCap>t.cap?'tăng':'giảm'} ${t2(Math.abs(newCap-t.cap))} t; CS và Sales được thông báo.</div>`:''}
+ ${T.err?`<div class="err">${esc(T.err)}</div>`:''}<div class="mfoot" style="margin-top:6px"><button class="btn sm" data-a="tiSave">Lưu thông tin xe</button></div></div>`;}
 function mEditAl(){const M=V.modal;const a=S.allocs.find(x=>x.id===M.id);const b=bkById(a.bk);const t=truckByCode(a.truck);const tot=r2(allocsOf(b.id).filter(x=>x.truck===a.truck).reduce((s,x)=>s+x.tons,0));
  const others=trucksOf(t.wh,t.date).filter(x=>x.code!==t.code);
  return `<div class="mhead"><h2>SỬA PHẦN HÀNG – ${t.short}</h2><span class="meta">${dmy(t.date)}</span></div>
@@ -803,6 +820,8 @@ const A={
   const rem=r2(bkTotal(b)-allocSum(b.id));let tons=num(M.tons);if(!(tons>0))tons=r2(Math.min(rem,t.cap-loadOf(t.code)));
   if(!(tons>0)){M.err='Nhập số tấn lớn hơn 0.';return render();}if(tons>rem+0.001){M.err='Vượt phần chưa gán của booking ('+t2(rem)+' t).';return render();}
   mutate('place_on_truck',{p_id:b.id,p_truck:t.code,p_tons:r2(tons)},{err:m=>M.err=m,ok:full=>{if(full){openBooking(b.id);toast('Booking đã xếp đủ tấn. Kiểm tra rồi bấm Xác nhận.');}else{V.modal=null;toast(`Đã xếp ${t2(tons)} t lên ${t.short}`);}}});},
+ tiSave:()=>{const M=V.modal;const T=M.ti;T.err='';const c=T.cap.trim()===''?null:num(T.cap);if(T.cap.trim()!==''&&!(c>0)){T.err='Tải trọng phải là số lớn hơn 0.';return render();}
+  mutate('set_truck_info',{p_code:T.code,p_cap:c,p_plate:T.plate,p_driver:T.driver,p_phone:T.phone,p_reason:T.reason},{err:m=>T.err=m,ok:r=>{M.ti=null;render();toast(r.over>0?`Đã lưu. Xe quá tải ${t2(r.over)} t: chuyển bớt phần hàng sang xe khác`:'Đã lưu thông tin xe');}});},
  editAl:d=>{const a=S.allocs.find(x=>x.id===d.id);const tot=r2(allocsOf(a.bk).filter(x=>x.truck===a.truck).reduce((s,x)=>s+x.tons,0));V.modal={type:'editAl',id:d.id,mode:'adjust',tons:tot,target:'',mtons:tot,reason:'',err:''};render();},
  eaSave:()=>{const M=V.modal;const a=S.allocs.find(x=>x.id===M.id);if(!a){V.modal=null;return render();}const t=truckByCode(a.truck);
   if(!M.reason.trim()){M.err='Nhập lý do sửa.';return render();}
@@ -1046,6 +1065,7 @@ document.addEventListener('change',e=>{const el=e.target;const a=el.dataset.a;
  if(f==='un'){V.modal.f[el.dataset.k]=el.value;if(el.dataset.k==='role')render();return;}
  if(f==='cn'){V.modal.f[el.dataset.k]=el.value;if(['segment','province'].includes(el.dataset.k)){if(el.dataset.k==='segment')V.modal.f.salesId='';if(el.dataset.k==='province'){const c=S.regions.filter(r=>r.active&&r.newProvince===el.value);V.modal.f.region=c.length===1?c[0].id:'';}render();}return;}
  if(f==='hol'){V.hol=el.value;return;}
+ if(f==='ti'){V.modal.ti[el.dataset.k]=el.value;if(el.dataset.k==='cap')render();return;}
  if(f==='regE'){V.regEdit[el.dataset.k]=el.value;return;}
  if(f==='regENb'){const s2=new Set(V.regEdit.nb);el.checked?s2.add(el.value):s2.delete(el.value);V.regEdit.nb=[...s2];return;}
  if(f==='ce'){V.modal.f[el.dataset.k]=el.value;if(el.dataset.k==='segment'){V.modal.f.salesId='';}if(['segment','salesId'].includes(el.dataset.k))render();return;}
@@ -1070,6 +1090,7 @@ document.addEventListener('input',e=>{const el=e.target;const f=el.dataset.f;if(
  if(f==='cat'){const[k,fld]=el.dataset.k.split('.');V.cat={...(V.cat||{}),[k]:{...((V.cat||{})[k]||{}),[fld]:el.value}};return;}
  if(f==='catE'){V.catEdit[el.dataset.k]=el.value;return;}
  if(f==='un'||f==='cn'||f==='ce'){V.modal.f[el.dataset.k]=el.value;return;}
+ if(f==='ti'){V.modal.ti[el.dataset.k]=el.value;return;}
  if(f==='regE'){V.regEdit[el.dataset.k]=el.value;return;}
  if(f==='ad'&&el.tagName==='INPUT'){V.modal.addr[el.dataset.k]=el.value;return;}
  if(f==='pf'){me()[el.dataset.k]=el.value;return;}

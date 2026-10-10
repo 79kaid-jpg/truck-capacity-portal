@@ -5,7 +5,8 @@
 
 insert into app.settings (key, value) values
   ('near', '80'), ('capDK', '30'), ('capCN', '15'), ('split', '15'), ('sla', '60'),
-  ('maxStops', '3'), ('fillMin', '70'), ('suggestOn', 'true'), ('sundayOff', 'true'), ('holidays', '[]')
+  ('maxStops', '3'), ('fillMin', '70'), ('suggestOn', 'true'), ('sundayOff', 'true'), ('holidays', '[]'),
+  ('capDKMin', '15'), ('capDKMax', '35'), ('capCNMin', '5'), ('capCNMax', '20')
 on conflict (key) do nothing;
 
 insert into app.warehouses (code, name, full_name) values

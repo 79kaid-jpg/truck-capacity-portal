@@ -154,6 +154,20 @@ await session('log@demo.vn', async p => {
   const longAn = await p.locator('tr', { hasText: 'Long An' }).first().innerText(); log('Long An neighbors now include renamed:', longAn.includes('Đồng Nai (Biên Hòa)'));
   const dna = await p.locator('tr', { hasText: 'Đồng Nai (Biên Hòa)' }).first().innerText(); log('renamed row:', dna.replace(/\s+/g, ' ').slice(0, 120));
 });
+await session('log@demo.vn', async p => {
+  S('truckCap'); await p.waitForSelector('.cal'); await p.locator('[data-a="openDay"]').first().click(); await p.waitForTimeout(200);
+  const availBefore = await p.locator('.foot').innerText();
+  await p.locator('.tcard', { hasText: 'DK-01' }).first().click(); await p.waitForTimeout(200);
+  await p.fill('#ti-c', '25'); await p.locator('#ti-c').dispatchEvent('change'); await p.waitForTimeout(100);
+  log('over warning:', await p.locator('.tinfo .warnlist').innerText().catch(() => '(none)'));
+  await clr(p); await p.click('[data-a="tiSave"]'); await p.waitForTimeout(300); log('no reason ->', await p.locator('.tinfo .err').innerText().catch(() => '(none)'));
+  await type(p, '#ti-r', 'Xe NCC chỉ chở 25 t'); await type(p, '#ti-p', '51C-123.45'); await type(p, '#ti-d', 'Anh Tư');
+  await clr(p); await p.click('[data-a="tiSave"]'); log('save truck ->', await toast(p)); await shot(p, '14-truck-info');
+  await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+  log('card chip:', await p.locator('.tcard', { hasText: 'DK-01' }).first().locator('.capchip').innerText().catch(() => '(none)'), '| plate on card:', (await p.locator('.tcard', { hasText: 'DK-01' }).first().innerText()).includes('51C-123.45'));
+  log('foot before/after:', availBefore.match(/Có thể đặt: [\d.,]+/)?.[0], '→', (await p.locator('.foot').innerText()).match(/Có thể đặt: [\d.,]+/)?.[0]);
+  await shot(p, '14b-day-after');
+});
 await session('new@demo.vn', async p => { S('granted'); log('new user after grant sees calendar:', await p.locator('.cal').count() > 0); });
 await session('kh@demo.vn', async p => { S('mobile'); await p.waitForSelector('.cal'); await shot(p, '7-customer-mobile'); }, { width: 390, height: 844 });
 { // forgot password + recovery link (no login)

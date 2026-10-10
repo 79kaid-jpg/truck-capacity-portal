@@ -136,6 +136,22 @@ create table if not exists app.daily_fleet (
   primary key (warehouse_code, day)
 );
 
+-- Thông tin từng xe trong ngày (xe thuê ngoài: thông số chỉ biết khi xe đến bốc)
+-- cap = tải trọng đã chỉnh cho riêng xe này hôm đó (null = theo mặc định loại xe)
+create table if not exists app.truck_days (
+  truck_code     text primary key,
+  warehouse_code text not null references app.warehouses(code),
+  day            date not null,
+  cap            numeric(6,2),
+  plate          text not null default '',
+  driver         text not null default '',
+  phone          text not null default '',
+  reason         text not null default '',
+  updated_by     uuid,
+  updated_at     timestamptz not null default now()
+);
+create index if not exists truck_days_wh_day on app.truck_days (warehouse_code, day);
+
 create table if not exists app.booking_seq (
   warehouse_code text not null,
   day            date not null,
@@ -356,13 +372,17 @@ $$;
 create or replace function app.trucks(p_wh text, p_day date)
 returns table (code text, type text, seq int, cap numeric)
 language sql stable security definer set search_path = '' as $$
-  select app.truck_code(p_wh, p_day, 'DK', g), 'DK', g, app.setn('capDK')
-    from app.daily_fleet f, generate_series(1, f.dk_count) g
-   where f.warehouse_code = p_wh and f.day = p_day and not app.is_holiday(p_wh, p_day)
-  union all
-  select app.truck_code(p_wh, p_day, 'CN', g), 'CN', g, app.setn('capCN')
-    from app.daily_fleet f, generate_series(1, f.cn_count) g
-   where f.warehouse_code = p_wh and f.day = p_day and not app.is_holiday(p_wh, p_day)
+  select t.code, t.type, t.seq, coalesce(td.cap, t.defcap)
+    from (
+      select app.truck_code(p_wh, p_day, 'DK', g) as code, 'DK' as type, g as seq, app.setn('capDK') as defcap
+        from app.daily_fleet f, generate_series(1, f.dk_count) g
+       where f.warehouse_code = p_wh and f.day = p_day and not app.is_holiday(p_wh, p_day)
+      union all
+      select app.truck_code(p_wh, p_day, 'CN', g), 'CN', g, app.setn('capCN')
+        from app.daily_fleet f, generate_series(1, f.cn_count) g
+       where f.warehouse_code = p_wh and f.day = p_day and not app.is_holiday(p_wh, p_day)
+    ) t
+    left join app.truck_days td on td.truck_code = t.code
 $$;
 
 create or replace function app.bk_total(p_id text) returns numeric
@@ -587,6 +607,10 @@ begin
                                   from app.customer_addresses a where a.customer_id = c.id)) order by c.name), '[]')
                   from app.customers c
                  where me.role <> 'sales' or c.sales_user_id = me.user_id),
+    'truckInfo', (select coalesce(jsonb_agg(jsonb_build_object('code', td.truck_code, 'cap', td.cap, 'plate', td.plate, 'driver', td.driver, 'phone', td.phone,
+                   'reason', td.reason, 'by', coalesce((select p.full_name from app.profiles p where p.user_id = td.updated_by), ''),
+                   'at', to_char(td.updated_at at time zone 'Asia/Ho_Chi_Minh', 'DD/MM HH24:MI'))), '[]')
+                  from app.truck_days td where td.day between p_from and p_to),
     'fleet', (select coalesce(jsonb_agg(jsonb_build_object('wh', f.warehouse_code, 'date', f.day, 'dk', f.dk_count, 'cn', f.cn_count, 'reason', f.reason,
                 'by', coalesce((select p.full_name from app.profiles p where p.user_id = f.updated_by), 'Hệ thống'),
                 'at', to_char(f.updated_at at time zone 'Asia/Ho_Chi_Minh', 'DD/MM HH24:MI'))), '[]')
@@ -1047,6 +1071,8 @@ begin
     values (p_wh, v_day, v_dk, v_cn, v_reason, me.user_id, now())
     on conflict (warehouse_code, day) do update set dk_count = excluded.dk_count, cn_count = excluded.cn_count, reason = excluded.reason,
       updated_by = excluded.updated_by, updated_at = now();
+    delete from app.truck_days td where td.warehouse_code = p_wh and td.day = v_day
+       and td.truck_code not in (select t.code from app.trucks(p_wh, v_day) t);
     v_txt := 'Kho ' || p_wh || ' ngày ' || app.dm(v_day) || ': ' || coalesce(f.dk_count::text || ' → ', '') || v_dk || ' đầu kéo, '
              || coalesce(f.cn_count::text || ' → ', '') || v_cn || ' container' || case when v_reason <> '' then '. Lý do: ' || v_reason else '' end;
     perform app.audit('fleet', v_txt);
@@ -1055,6 +1081,58 @@ begin
     n := n + 1;
   end loop;
   return n;
+end $$;
+
+-- Thông tin một xe trong ngày: tải trọng riêng (null = mặc định), biển số, tài xế, SĐT.
+-- Được hạ dưới số tấn đã xếp (xe đến mới biết chở ít hơn) → xe thành Quá tải, Logistics chuyển bớt hàng.
+create or replace function public.set_truck_info(p_code text, p_cap numeric, p_plate text, p_driver text, p_phone text, p_reason text) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare
+  me app.profiles; v_wh text := split_part(p_code, '-', 1); v_day date; t record; old app.truck_days;
+  v_def numeric; v_min numeric; v_max numeric; v_cap numeric; v_load numeric; v_old_cap numeric; v_txt text; v_short text;
+begin
+  select * into me from app.profiles p where p.user_id = app.uid() and p.active;
+  if not found or not (app.role_has(me.role, 'fleet.manage') or app.role_has(me.role, 'alloc.assign')) then
+    raise exception 'Vai trò của bạn chưa được cấp quyền khai báo xe hoặc gán xe.' using errcode = '42501';
+  end if;
+  begin v_day := to_date(split_part(p_code, '-', 2), 'DDMMYY'); exception when others then raise exception 'Mã xe không hợp lệ.'; end;
+  if v_day < app.today() then raise exception 'Ngày đã qua, không thay đổi được (BR-12).'; end if;
+  perform app.lock_day(v_wh, v_day);
+  select * into t from app.trucks(v_wh, v_day) x where x.code = p_code;
+  if not found then raise exception 'Xe % không có trong khai báo ngày % của kho %.', p_code, app.dm(v_day), v_wh; end if;
+  v_def := app.setn(case when t.type = 'DK' then 'capDK' else 'capCN' end);
+  v_min := coalesce(app.setn(case when t.type = 'DK' then 'capDKMin' else 'capCNMin' end), case when t.type = 'DK' then 15 else 5 end);
+  v_max := coalesce(app.setn(case when t.type = 'DK' then 'capDKMax' else 'capCNMax' end), case when t.type = 'DK' then 35 else 20 end);
+  v_cap := case when p_cap is null or abs(p_cap - v_def) < 0.005 then null else round(p_cap, 2) end;
+  if v_cap is not null and (v_cap < v_min or v_cap > v_max) then
+    raise exception 'Tải trọng xe % phải trong khoảng % – % tấn (chỉnh giới hạn ở Configuration).', t.type, app.fmt(v_min), app.fmt(v_max);
+  end if;
+  select * into old from app.truck_days where truck_code = p_code;
+  v_old_cap := coalesce(old.cap, v_def);
+  if v_cap is not null and v_cap <> v_old_cap and coalesce(trim(p_reason), '') = '' then
+    raise exception 'Nhập lý do khi đổi tải trọng xe.';
+  end if;
+  v_short := t.type || '-' || lpad(t.seq::text, 2, '0');
+  if v_cap is null and coalesce(trim(p_plate), '') = '' and coalesce(trim(p_driver), '') = '' and coalesce(trim(p_phone), '') = '' then
+    delete from app.truck_days where truck_code = p_code;
+  else
+    insert into app.truck_days (truck_code, warehouse_code, day, cap, plate, driver, phone, reason, updated_by, updated_at)
+    values (p_code, v_wh, v_day, v_cap, coalesce(trim(p_plate), ''), coalesce(trim(p_driver), ''), coalesce(trim(p_phone), ''),
+            case when v_cap is null then '' else coalesce(trim(p_reason), old.reason, '') end, me.user_id, now())
+    on conflict (truck_code) do update set cap = excluded.cap, plate = excluded.plate, driver = excluded.driver, phone = excluded.phone,
+      reason = case when excluded.cap is distinct from app.truck_days.cap then excluded.reason else app.truck_days.reason end,
+      updated_by = excluded.updated_by, updated_at = now();
+  end if;
+  v_load := app.truck_load(p_code);
+  if coalesce(v_cap, v_def) <> v_old_cap then
+    v_txt := 'Kho ' || v_wh || ' ngày ' || app.dm(v_day) || ': xe ' || v_short || ' tải trọng ' || app.fmt(v_old_cap) || ' → ' || app.fmt(coalesce(v_cap, v_def)) || ' t. ' || case when v_cap is null then 'Về tải trọng chuẩn.' else 'Lý do: ' || trim(p_reason) end;
+    perform app.audit('fleet', v_txt);
+    perform app.notify(array_remove(app.role_users(array['cs','sales']) || app.logistics_of(v_wh), me.user_id), 'Capacity', v_txt,
+                       jsonb_build_object('day', v_day, 'wh', v_wh));
+  elsif coalesce(old.plate, '') <> coalesce(trim(p_plate), '') or coalesce(old.driver, '') <> coalesce(trim(p_driver), '') then
+    perform app.audit('fleet', 'Xe ' || v_short || ' ngày ' || app.dm(v_day) || ': biển số ' || coalesce(nullif(trim(p_plate), ''), '–') || ', tài xế ' || coalesce(nullif(trim(p_driver), ''), '–'));
+  end if;
+  return jsonb_build_object('cap', coalesce(v_cap, v_def), 'load', v_load, 'over', greatest(0, round(v_load - coalesce(v_cap, v_def), 2)));
 end $$;
 
 -- ---------------------------------------------------------------------
@@ -1066,10 +1144,10 @@ declare me app.profiles; k text;
 begin
   me := app.require_perm('config.general');
   for k in select jsonb_object_keys(p) loop
-    if k not in ('near','capDK','capCN','split','sla','maxStops','fillMin','suggestOn','sundayOff','holidays') then
+    if k not in ('near','capDK','capCN','split','sla','maxStops','fillMin','suggestOn','sundayOff','holidays','capDKMin','capDKMax','capCNMin','capCNMax') then
       raise exception 'Cấu hình % không hợp lệ.', k;
     end if;
-    if k in ('near','capDK','capCN','split','sla','maxStops','fillMin') and not ((p->>k)::numeric > 0) then
+    if k in ('near','capDK','capCN','split','sla','maxStops','fillMin','capDKMin','capDKMax','capCNMin','capCNMax') and not ((p->>k)::numeric > 0) then
       raise exception 'Giá trị % phải lớn hơn 0.', k;
     end if;
     insert into app.settings values (k, p->k) on conflict (key) do update set value = excluded.value;
@@ -1453,7 +1531,7 @@ begin
        'admin_upsert_profile','admin_toggle_user','admin_add_customer','update_my_profile','mark_notifs_read',
        'save_role_permissions','reset_role_permissions',
        'admin_update_customer','admin_toggle_customer','admin_save_address','admin_delete_address',
-       'impersonate_start','impersonate_stop','update_region')
+       'impersonate_start','impersonate_stop','update_region','set_truck_info')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);
