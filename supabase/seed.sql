@@ -97,6 +97,7 @@ insert into app.permissions (code, grp, name, descr, sort, def_roles) values
   ('users.manage',    'Quản trị',   'Quản lý tài khoản',                   'Cấp quyền, sửa, khóa tài khoản người dùng', 190, '{admin}'),
   ('customers.manage','Quản trị',   'Quản lý khách hàng',                  'Thêm khách hàng, địa chỉ, Sales phụ trách', 200, '{admin}'),
   ('users.impersonate','Quản trị',  'Login as người dùng khác',            'Xem và thao tác với tư cách một tài khoản khác tối đa 60 phút; mọi thao tác ghi nhật ký', 205, '{admin}'),
+  ('auth.mfa',        'Bảo mật',    'Bắt buộc xác thực 2 lớp (MFA)',       'Đăng nhập phải nhập thêm mã 6 số từ ứng dụng Google / Microsoft Authenticator. Admin luôn bắt buộc', 220, '{logistics,cs,admin}'),
   ('perms.manage',    'Quản trị',   'Phân quyền vai trò',                  'Màn hình này. Admin luôn giữ quyền này', 210, '{admin}')
 on conflict (code) do update set grp = excluded.grp, name = excluded.name, descr = excluded.descr, sort = excluded.sort, def_roles = excluded.def_roles;
 

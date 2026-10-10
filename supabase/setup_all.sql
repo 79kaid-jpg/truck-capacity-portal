@@ -299,6 +299,31 @@ language sql stable security definer set search_path = '' as $$
 $$;
 
 -- Người dùng hiệu lực: người được "Login as" nếu Admin đang có phiên hợp lệ, ngược lại chính người đăng nhập
+-- Xác thực 2 lớp (MFA, TOTP): vai trò có quyền 'auth.mfa' (Admin luôn có) hoặc người đã tự bật MFA
+-- phải đăng nhập đủ 2 lớp (aal2). Chưa đủ thì app.real_uid() = null: mọi hàm coi như chưa đăng nhập.
+create or replace function app.mfa_needed(p_uid uuid) returns boolean
+language plpgsql stable security definer set search_path = '' as $$
+declare v_role text;
+begin
+  if p_uid is null then return false; end if;
+  select role into v_role from app.profiles where user_id = p_uid and active;
+  return (v_role is not null and app.role_has(v_role, 'auth.mfa'))
+      or exists (select 1 from auth.mfa_factors f where f.user_id = p_uid and f.status::text = 'verified');
+end $$;
+
+create or replace function app.aal() returns text
+language sql stable security definer set search_path = '' as $$ select coalesce(nullif(auth.jwt() ->> 'aal', ''), 'aal1') $$;
+
+create or replace function app.mfa_ok() returns boolean
+language sql stable security definer set search_path = '' as $$ select app.aal() = 'aal2' or not app.mfa_needed(auth.uid()) $$;
+
+create or replace function app.real_uid() returns uuid
+language sql stable security definer set search_path = '' as $$ select case when app.mfa_ok() then auth.uid() end $$;
+
+create or replace function app.has_mfa(p_uid uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from auth.mfa_factors f where f.user_id = p_uid and f.status::text = 'verified') $$;
+
 create or replace function app.uid() returns uuid
 language plpgsql stable security definer set search_path = '' as $$
 declare v uuid;
@@ -306,12 +331,12 @@ begin
   select i.target_id into v from app.impersonations i
     join app.profiles a on a.user_id = i.admin_id and a.active
     join app.profiles t on t.user_id = i.target_id and t.active
-   where i.admin_id = auth.uid() and i.expires_at > now() and app.role_has(a.role, 'users.impersonate');
-  return coalesce(v, auth.uid());
+   where i.admin_id = app.real_uid() and i.expires_at > now() and app.role_has(a.role, 'users.impersonate');
+  return coalesce(v, app.real_uid());
 end $$;
 
 create or replace function app.impersonating() returns boolean
-language sql stable security definer set search_path = '' as $$ select app.uid() is distinct from auth.uid() $$;
+language sql stable security definer set search_path = '' as $$ select app.uid() is distinct from app.real_uid() $$;
 
 create or replace function app.me() returns app.profiles
 language sql stable security definer set search_path = '' as $$
@@ -324,6 +349,9 @@ declare m app.profiles;
 begin
   select * into m from app.profiles p where p.user_id = app.uid() and p.active;
   if not found then
+    if auth.uid() is not null and not app.mfa_ok() then
+      raise exception 'Cần xác thực 2 lớp: tải lại trang và nhập mã từ ứng dụng xác thực.' using errcode = '42501';
+    end if;
     raise exception 'Tài khoản chưa được cấp quyền hoặc đã bị khóa.' using errcode = '42501';
   end if;
   if not (m.role = any(roles)) then
@@ -337,7 +365,7 @@ end $$;
 create or replace function app.role_has(p_role text, p_perm text) returns boolean
 language sql stable security definer set search_path = '' as $$
   select p_role <> 'customer' and (
-    (p_role = 'admin' and p_perm = 'perms.manage')
+    (p_role = 'admin' and p_perm in ('perms.manage', 'auth.mfa'))
     or exists (select 1 from app.role_permissions rp where rp.role = p_role and rp.perm = p_perm and rp.allowed))
 $$;
 
@@ -357,6 +385,9 @@ declare m app.profiles; v_name text;
 begin
   select * into m from app.profiles p where p.user_id = app.uid() and p.active;
   if not found then
+    if auth.uid() is not null and not app.mfa_ok() then
+      raise exception 'Cần xác thực 2 lớp: tải lại trang và nhập mã từ ứng dụng xác thực.' using errcode = '42501';
+    end if;
     raise exception 'Tài khoản chưa được cấp quyền hoặc đã bị khóa.' using errcode = '42501';
   end if;
   if not app.role_has(m.role, p_perm) then
@@ -478,7 +509,7 @@ end $$;
 create or replace function app.audit(p_entity text, p_detail text) returns void
 language sql security definer set search_path = '' as $$
   insert into app.audit_log (entity_id, detail, actor)
-  values (p_entity, p_detail || case when app.impersonating() then ' · ' || coalesce((select full_name from app.profiles where user_id = auth.uid()), 'Admin') || ' thao tác thay (Login as)' else '' end, app.uid())
+  values (p_entity, p_detail || case when app.impersonating() then ' · ' || coalesce((select full_name from app.profiles where user_id = app.real_uid()), 'Admin') || ' thao tác thay (Login as)' else '' end, app.uid())
 $$;
 
 create or replace function app.status_change(p_id text, p_from text, p_to text, p_reason text default null, p_note text default null) returns void
@@ -600,6 +631,9 @@ declare
 begin
   select * into me from app.profiles p where p.user_id = app.uid() and p.active;
   if not found then
+    if auth.uid() is not null and not app.mfa_ok() then
+      return jsonb_build_object('me', null, 'today', app.today(), 'error', 'mfa_required', 'enrolled', app.has_mfa(auth.uid()));
+    end if;
     return jsonb_build_object('me', null, 'today', app.today(), 'error', 'no_profile');
   end if;
   v_internal := me.role <> 'customer';
@@ -610,11 +644,12 @@ begin
     'now', extract(epoch from now()),
     'me', jsonb_build_object('id', me.user_id, 'name', me.full_name, 'email', me.email, 'phone', me.phone, 'role', me.role,
                              'segment', me.segment, 'customerId', me.customer_id, 'wh', me.default_warehouse, 'whs', me.warehouses,
-                             'awayFrom', me.away_from, 'awayTo', me.away_to, 'delegateId', me.delegate_id),
+                             'awayFrom', me.away_from, 'awayTo', me.away_to, 'delegateId', me.delegate_id,
+                             'mfa', app.has_mfa(me.user_id), 'mfaReq', app.role_has(me.role, 'auth.mfa')),
     'cfg', v_cfg,
     'perms', to_jsonb(app.my_perms(me.role)),
     'imp', case when app.impersonating() then (select jsonb_build_object('by', a.full_name, 'expiresAt', extract(epoch from i.expires_at))
-                from app.impersonations i join app.profiles a on a.user_id = i.admin_id where i.admin_id = auth.uid()) end,
+                from app.impersonations i join app.profiles a on a.user_id = i.admin_id where i.admin_id = app.real_uid()) end,
     'warehouses', (select jsonb_agg(jsonb_build_object('id', code, 'name', name, 'full', full_name) order by code) from app.warehouses where active),
     'notifs', (select coalesce(jsonb_agg(jsonb_build_object('id', n.id, 'type', n.type, 'text', n.text, 'link', n.link,
                  'at', extract(epoch from n.created_at), 'read', n.read_at is not null) order by n.created_at desc), '[]')
@@ -662,6 +697,7 @@ begin
     'users', (select coalesce(jsonb_agg(jsonb_build_object('id', p.user_id, 'name', p.full_name, 'email', p.email, 'phone', p.phone, 'role', p.role,
                 'segment', p.segment, 'customerId', p.customer_id, 'wh', p.default_warehouse, 'whs', p.warehouses, 'active', p.active,
                 'awayFrom', p.away_from, 'awayTo', p.away_to, 'delegateId', p.delegate_id,
+                'mfa', app.has_mfa(p.user_id), 'mfaReq', app.role_has(p.role, 'auth.mfa'),
                 'last', (select (u.last_sign_in_at at time zone 'Asia/Ho_Chi_Minh')::date from auth.users u where u.id = p.user_id)) order by p.full_name), '[]')
               from app.profiles p),
     'customers', (select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'code', c.code, 'name', c.name, 'segment', c.segment, 'salesId', c.sales_user_id, 'csId', c.cs_user_id, 'active', c.active,
@@ -1414,7 +1450,7 @@ declare me app.profiles; t app.profiles; d app.profiles;
 begin
   if p_user is null then
     if app.impersonating() then raise exception 'Đang Login as: đặt nghỉ phép cho người này ở màn hình Người dùng.'; end if;
-    select * into me from app.profiles where user_id = auth.uid() and active;
+    select * into me from app.profiles where user_id = app.real_uid() and active;
     if not found then raise exception 'Tài khoản chưa được cấp quyền.'; end if;
     t := me;
   else
@@ -1556,7 +1592,7 @@ create or replace function public.impersonate_start(p_user uuid) returns jsonb
 language plpgsql volatile security definer set search_path = '' as $$
 declare a app.profiles; t app.profiles; v_min int := 60;
 begin
-  select * into a from app.profiles where user_id = auth.uid() and active;
+  select * into a from app.profiles where user_id = app.real_uid() and active;
   if not found or not app.role_has(a.role, 'users.impersonate') then
     raise exception 'Vai trò của bạn chưa được cấp quyền "Login as".' using errcode = '42501';
   end if;
@@ -1574,7 +1610,7 @@ create or replace function public.impersonate_stop() returns void
 language plpgsql volatile security definer set search_path = '' as $$
 declare i app.impersonations; v_a text; v_t text;
 begin
-  delete from app.impersonations where admin_id = auth.uid() returning * into i;
+  delete from app.impersonations where admin_id = app.real_uid() returning * into i;
   if found then
     select full_name into v_a from app.profiles where user_id = i.admin_id;
     select full_name into v_t from app.profiles where user_id = i.target_id;
@@ -1592,7 +1628,7 @@ begin
     continue when not (p ? r);
     v_old := app.my_perms(r);
     insert into app.role_permissions (role, perm, allowed)
-    select r, pm.code, pm.code in (select jsonb_array_elements_text(p->r)) or (r = 'admin' and pm.code = 'perms.manage')
+    select r, pm.code, pm.code in (select jsonb_array_elements_text(p->r)) or (r = 'admin' and pm.code in ('perms.manage', 'auth.mfa'))
       from app.permissions pm
     on conflict (role, perm) do update set allowed = excluded.allowed;
     v_new := app.my_perms(r);
@@ -1714,13 +1750,13 @@ language plpgsql volatile security definer set search_path = '' as $$
 begin
   if app.impersonating() then raise exception 'Đang Login as người dùng khác: không sửa hồ sơ của họ.'; end if;
   if coalesce(trim(p_name), '') = '' then raise exception 'Nhập họ tên.'; end if;
-  update app.profiles set full_name = trim(p_name), phone = nullif(trim(p_phone), '') where user_id = auth.uid() and active;
+  update app.profiles set full_name = trim(p_name), phone = nullif(trim(p_phone), '') where user_id = app.real_uid() and active;
 end $$;
 
 create or replace function public.mark_notifs_read(p_ids bigint[] default null) returns void
 language sql volatile security definer set search_path = '' as $$
   update app.notifications set read_at = now()
-   where user_id = auth.uid() and read_at is null and (p_ids is null or id = any(p_ids)) and not app.impersonating()
+   where user_id = app.real_uid() and read_at is null and (p_ids is null or id = any(p_ids)) and not app.impersonating()
 $$;
 
 -- Tạo Admin đầu tiên (chạy trong SQL Editor với quyền postgres, không gọi được từ trình duyệt)
@@ -1734,6 +1770,24 @@ begin
   values (v_uid, p_name, lower(p_email), 'admin', 'PMY')
   on conflict (user_id) do update set role = 'admin', active = true;
   return v_uid;
+end $$;
+
+-- Admin gỡ thiết bị xác thực của một người (mất điện thoại, đổi máy). Lần đăng nhập sau họ đăng ký lại.
+create or replace function public.admin_reset_mfa(p_user uuid) returns int
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; t app.profiles; n int;
+begin
+  me := app.require_perm('users.manage');
+  select * into t from app.profiles where user_id = p_user;
+  if not found then raise exception 'Không tìm thấy người dùng.'; end if;
+  begin
+    delete from auth.mfa_factors where user_id = p_user;
+    get diagnostics n = row_count;
+  exception when insufficient_privilege then
+    raise exception 'Supabase không cho xóa trực tiếp. Vào Supabase → Authentication → Users → % → xóa MFA factor.', t.email;
+  end;
+  perform app.audit('user', 'Gỡ xác thực 2 lớp của ' || t.full_name || ' (' || n || ' thiết bị)');
+  return n;
 end $$;
 
 -- ---------------------------------------------------------------------
@@ -1752,7 +1806,7 @@ begin
        'admin_upsert_profile','admin_toggle_user','admin_add_customer','update_my_profile','mark_notifs_read',
        'save_role_permissions','reset_role_permissions',
        'admin_update_customer','admin_toggle_customer','admin_save_address','admin_delete_address',
-       'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search')
+       'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);
@@ -2043,6 +2097,7 @@ insert into app.permissions (code, grp, name, descr, sort, def_roles) values
   ('users.manage',    'Quản trị',   'Quản lý tài khoản',                   'Cấp quyền, sửa, khóa tài khoản người dùng', 190, '{admin}'),
   ('customers.manage','Quản trị',   'Quản lý khách hàng',                  'Thêm khách hàng, địa chỉ, Sales phụ trách', 200, '{admin}'),
   ('users.impersonate','Quản trị',  'Login as người dùng khác',            'Xem và thao tác với tư cách một tài khoản khác tối đa 60 phút; mọi thao tác ghi nhật ký', 205, '{admin}'),
+  ('auth.mfa',        'Bảo mật',    'Bắt buộc xác thực 2 lớp (MFA)',       'Đăng nhập phải nhập thêm mã 6 số từ ứng dụng Google / Microsoft Authenticator. Admin luôn bắt buộc', 220, '{logistics,cs,admin}'),
   ('perms.manage',    'Quản trị',   'Phân quyền vai trò',                  'Màn hình này. Admin luôn giữ quyền này', 210, '{admin}')
 on conflict (code) do update set grp = excluded.grp, name = excluded.name, descr = excluded.descr, sort = excluded.sort, def_roles = excluded.def_roles;
 

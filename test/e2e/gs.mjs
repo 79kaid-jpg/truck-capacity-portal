@@ -9,7 +9,7 @@ async function login(email, vp = { width: 1440, height: 1000 }) { const c = awai
   await p.route('**/config.js', r => r.fulfill({ contentType: 'text/javascript', body: "window.APP_CONFIG={SUPABASE_URL:'http://127.0.0.1:8787',SUPABASE_ANON_KEY:'t'}" }));
   await p.route('**/fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
   p.on('pageerror', e => errs.push(`[${email} ${step}] ${e.message}`)); p.on('console', m => { if (m.type() === 'error' && !/400/.test(m.text())) errs.push(`[${email} ${step}] console ${m.text()}`); });
-  await p.goto('http://127.0.0.1:8787/'); await p.fill('#lg-e', email); await p.fill('#lg-p', 'Test@1234'); await p.click('#login button'); await p.waitForTimeout(800); return p; }
+  await p.goto('http://127.0.0.1:8787/'); await p.fill('#lg-e', email); await p.fill('#lg-p', 'Test@1234'); await p.click('#login button'); await p.waitForTimeout(800); if (await p.locator('#mfe-code').count()) { await p.waitForSelector('#mfe button:not([disabled])'); await p.fill('#mfe-code', '123456'); await p.click('#mfe button'); await p.waitForTimeout(800); } else if (await p.locator('#mfc-code').count()) { await p.fill('#mfc-code', '123456'); await p.click('#mfc button'); await p.waitForTimeout(800); } return p; }
 const toast = async p => (await p.locator('.toast').last().textContent({ timeout: 4000 }).catch(() => '')) || '(no toast)';
 const clr = p => p.evaluate(() => { V.toast = ''; document.querySelectorAll('.toast').forEach(e => e.remove()); });
 async function search(p, q, wait = 700) { await p.evaluate(() => gsClose()); await p.keyboard.press('Control+k'); await p.waitForSelector('#gs-q'); await p.fill('#gs-q', q); await p.waitForTimeout(wait);

@@ -473,7 +473,7 @@ function vUsers(){const UT=[['users','Người dùng','users.manage'],['customer
  if(!UT.some(t=>t[0]===V.uTab))V.uTab=UT[0][0];const T=V.uTab;
  return `<div class="panel"><div class="pagehead"><h2>SETTING USER ACCOUNT</h2>${T==='users'?'<button class="btn" data-a="userNew">Cấp quyền tài khoản</button>':T==='customers'?'<button class="btn" data-a="custNew">Thêm khách hàng</button>':''}</div>
  <div class="tabs">${UT.map(([k,l])=>`<button class="${T===k?'on':''}" data-a="uTab" data-t="${k}">${l}</button>`).join('')}</div>
- ${T==='perms'?vPerms():T==='users'?`<div class="tbl-wrap"><table><thead><tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Segment</th><th>Kho mặc định</th><th>Công ty</th><th>Trạng thái</th><th></th></tr></thead><tbody>${S.users.map(u=>`<tr><td><b>${esc(u.name)}</b></td><td>${esc(u.email)}</td><td>${ROLE_LABEL[u.role]}</td><td>${u.segment?SEG_LABEL[u.segment]:u.customerId?SEG_LABEL[cust(u.customerId).segment]:'–'}</td><td>${u.wh}</td><td>${u.customerId?esc(cust(u.customerId).name):'–'}</td><td>${u.active?'<span class="st st-ok">Hoạt động</span>':'<span class="st st-cancelled">Khóa</span>'}${awayTag(u)}</td><td class="r" style="white-space:nowrap">${can('users.impersonate')&&u.id!==V.me&&u.active?`<button class="btn ghost sm" data-a="loginAs" data-id="${u.id}" title="Xem và thao tác với tư cách ${esc(u.name)}">Login as</button> `:''}<button class="btn ghost sm" data-a="userEdit" data-id="${u.id}">Sửa</button> ${u.id!==V.me?`<button class="btn ghost sm" data-a="userToggle" data-id="${u.id}">${u.active?'Khóa':'Mở khóa'}</button>`:''}</td></tr>`).join('')}</tbody></table></div>${V.userErr?`<div class="err" style="margin-top:8px">${esc(V.userErr)}</div>`:''}`
+ ${T==='perms'?vPerms():T==='users'?`<div class="tbl-wrap"><table><thead><tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Segment</th><th>Kho mặc định</th><th>Công ty</th><th>Trạng thái</th><th></th></tr></thead><tbody>${S.users.map(u=>`<tr><td><b>${esc(u.name)}</b></td><td>${esc(u.email)}</td><td>${ROLE_LABEL[u.role]}</td><td>${u.segment?SEG_LABEL[u.segment]:u.customerId?SEG_LABEL[cust(u.customerId).segment]:'–'}</td><td>${u.wh}</td><td>${u.customerId?esc(cust(u.customerId).name):'–'}</td><td>${u.active?'<span class="st st-ok">Hoạt động</span>':'<span class="st st-cancelled">Khóa</span>'}${awayTag(u)}${u.mfa?' <span class="chip" title="Đã bật xác thực 2 lớp">MFA</span>':u.mfaReq&&u.active?' <span class="chip warn" title="Vai trò bắt buộc MFA, người này chưa đăng ký thiết bị">Chưa đăng ký MFA</span>':''}</td><td class="r" style="white-space:nowrap">${u.mfa&&u.id!==V.me&&can('users.manage')?`<button class="btn ghost sm" data-a="mfaReset" data-id="${u.id}" title="Gỡ thiết bị xác thực (mất / đổi điện thoại)">${V.mfaResetAsk===u.id?'Bấm lần nữa để gỡ MFA':'Gỡ MFA'}</button> `:''}${can('users.impersonate')&&u.id!==V.me&&u.active?`<button class="btn ghost sm" data-a="loginAs" data-id="${u.id}" title="Xem và thao tác với tư cách ${esc(u.name)}">Login as</button> `:''}<button class="btn ghost sm" data-a="userEdit" data-id="${u.id}">Sửa</button> ${u.id!==V.me?`<button class="btn ghost sm" data-a="userToggle" data-id="${u.id}">${u.active?'Khóa':'Mở khóa'}</button>`:''}</td></tr>`).join('')}</tbody></table></div>${V.userErr?`<div class="err" style="margin-top:8px">${esc(V.userErr)}</div>`:''}`
  :`<div class="tbl-wrap"><table><thead><tr><th>Mã KH</th><th>Tên công ty</th><th>Segment</th><th>Sales phụ trách</th><th>CS phụ trách</th><th>Địa chỉ giao · khu vực</th><th class="r">Tài khoản</th><th>Trạng thái</th><th></th></tr></thead><tbody>${S.customers.map(c=>`<tr style="${c.active===false?'opacity:.6':''}"><td>${c.code}</td><td><b>${esc(c.name)}</b></td><td>${SEG_LABEL[c.segment]}</td><td>${esc(user(c.salesId).name)}</td><td>${c.csId?esc(user(c.csId).name)+awayTag(user(c.csId)):'<span class="muted small">Chưa gán</span>'}</td><td class="small">${c.addresses.map(a=>`${esc(a.label)}, ${esc(a.ward)}, ${esc(a.province)} · <b>${Object.values(a.regions).map(regName).map(esc).join(', ')||'Chưa phân khu vực'}</b>`).join('<br>')}</td><td class="r">${S.users.filter(u=>u.customerId===c.id).length}</td><td>${c.active===false?'<span class="st st-cancelled">Ngừng dùng</span>':'<span class="st st-ok">Đang dùng</span>'}</td>
  <td class="r" style="white-space:nowrap"><button class="btn ghost sm" data-a="custEdit" data-id="${c.id}">Sửa</button> <button class="btn ghost sm" data-a="custToggle" data-id="${c.id}">${c.active===false?'Dùng lại':'Ngừng dùng'}</button></td></tr>`).join('')}</tbody></table></div>`}</div>`;
 }
@@ -490,7 +490,7 @@ function vPerms(){
  let body='',last='';
  for(const p of cat){
   if(p.grp!==last){body+=`<tr class="pgrp"><td colspan="${PROLES.length+1}">${esc(p.grp)}</td></tr>`;last=p.grp;}
-  body+=`<tr><td><b>${esc(p.name)}</b><div class="small muted">${esc(p.descr)}</div></td>${PROLES.map(([r,l])=>{const on=(M[r]||[]).includes(p.code);const lock=r==='admin'&&p.code==='perms.manage';const chg=on!==(S.roleMatrix[r]||[]).includes(p.code);const def=(p.def||[]).includes(r);
+  body+=`<tr><td><b>${esc(p.name)}</b><div class="small muted">${esc(p.descr)}</div></td>${PROLES.map(([r,l])=>{const on=(M[r]||[]).includes(p.code);const lock=r==='admin'&&(p.code==='perms.manage'||p.code==='auth.mfa');const chg=on!==(S.roleMatrix[r]||[]).includes(p.code);const def=(p.def||[]).includes(r);
    return `<td class="c ${chg?'chg':''}"><label class="pmcell" title="${lock?'Admin luôn giữ quyền này':def?'Mặc định: bật':'Mặc định: tắt'}"><input type="checkbox" data-f="pm" data-r="${r}" data-p="${p.code}" ${on?'checked':''} ${lock?'disabled':''} aria-label="${esc(l)} – ${esc(p.name)}"></label></td>`;}).join('')}</tr>`;}
  return `<div class="hint" style="margin-bottom:12px"><b>Quyền tính năng</b> quyết định ai được làm gì; máy chủ kiểm tra mọi thao tác nên tắt quyền là chặn thật, không chỉ ẩn nút.
   <b>Phạm vi dữ liệu cố định theo vai trò</b> để bảo mật: Sales chỉ thấy tên và thao tác trên khách mình phụ trách; Khách hàng chỉ xem số tấn còn đặt được và đơn của mình (không cấu hình). Lịch, Thông báo, Hồ sơ luôn có cho mọi người.</div>
@@ -612,6 +612,47 @@ function awayForm(u,mode){if(!V.aw||V.aw.uid!==u.id)V.aw={uid:u.id,from:u.awayFr
  <div class="field" style="grid-column:1/-1"><label for="aw-d">Người nhận thay</label><select id="aw-d" class="inp" data-f="aw" data-k="del"><option value="">Không chọn: gửi cho tất cả CS</option>${cands.map(x=>`<option value="${x.id}" ${W.del===x.id?'selected':''}>${esc(x.name)} · ${ROLE_LABEL[x.role]}${isAway(x)?' (đang nghỉ)':''}</option>`).join('')}</select></div></div>
  ${W.err?`<div class="err">${esc(W.err)}</div>`:''}
  <div class="mfoot">${u.awayFrom?`<button class="btn ghost" data-a="awClear" data-m="${mode}">Tắt nghỉ phép</button>`:''}<button class="btn ghost" data-a="awSave" data-m="${mode}">Lưu nghỉ phép</button></div>`;}
+/* ---- Xác thực 2 lớp (MFA, TOTP) ---- */
+function mfaBox(E,prefix){return `<ol class="small" style="padding-left:18px;margin:8px 0">
+ <li>Cài <b>Google Authenticator</b> hoặc <b>Microsoft Authenticator</b> trên điện thoại.</li>
+ <li>Trong ứng dụng chọn thêm tài khoản → quét mã QR dưới đây.</li>
+ <li>Nhập mã 6 số ứng dụng hiện ra.</li></ol>
+ <div class="mfaqr">${E.qr?`<img src="${E.qr}" alt="Mã QR đăng ký xác thực 2 lớp" width="180" height="180">`:'<span class="muted small">Đang tạo mã…</span>'}</div>
+ ${E.secret?`<p class="small muted" style="text-align:center">Không quét được? Nhập khóa thủ công:<br><code class="mfasecret">${esc(E.secret.replace(/(.{4})/g,'$1 ').trim())}</code></p>`:''}
+ <div class="field"><label for="${prefix}-code">Mã 6 số</label><input id="${prefix}-code" class="inp mfacode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000"></div>
+ ${E.err?`<div class="err">${esc(E.err)}</div>`:''}`;}
+async function mfaCheck(){try{const{data}=await sb.auth.mfa.getAuthenticatorAssuranceLevel();return !!(data&&data.currentLevel==='aal1'&&data.nextLevel==='aal2');}catch(e){return false;}}
+async function mfaStartEnroll(){
+ try{const{data:l}=await sb.auth.mfa.listFactors();for(const x of((l&&l.all)||[]).filter(x=>x.status!=='verified')){try{await sb.auth.mfa.unenroll({factorId:x.id});}catch(e){}}}catch(e){}
+ const{data,error}=await sb.auth.mfa.enroll({factorType:'totp',friendlyName:'Đặt Xe '+new Date().toISOString().slice(0,16).replace('T',' ')});
+ if(error)throw new Error(error.message);return{id:data.id,qr:data.totp.qr_code,secret:data.totp.secret,err:''};}
+async function mfaVerify(factorId,code){code=String(code||'').replace(/\D/g,'');if(code.length!==6)return 'Nhập đủ 6 số.';
+ const{error}=await sb.auth.mfa.challengeAndVerify({factorId,code});return error?(/invalid|expired|code/i.test(error.message)?'Mã không đúng hoặc đã hết hạn. Đợi mã mới rồi nhập lại.':error.message):'';}
+function mfaFoot(){return '<p class="small muted">Mất hoặc đổi điện thoại? Liên hệ Admin để gỡ thiết bị cũ.</p><p class="small"><button class="linkbtn" type="button" data-a="logout">Đăng xuất</button></p>';}
+async function showMfaEnroll(){
+ const E={qr:'',secret:'',err:''};
+ const draw=()=>{app.innerHTML=screen('Bật xác thực 2 lớp',`<p class="small" style="margin-top:0">Vai trò của bạn bắt buộc xác thực 2 lớp: mỗi lần đăng nhập, ngoài mật khẩu bạn nhập thêm mã 6 số trên điện thoại. Chỉ cần cài đặt một lần.</p>
+  <form id="mfe" class="fgrid" style="grid-template-columns:1fr">${mfaBox(E,'mfe')}<button class="btn" type="submit" ${E.id?'':'disabled'}>Xác nhận và vào ứng dụng</button></form>`,mfaFoot());
+  const f=document.getElementById('mfe');const c=document.getElementById('mfe-code');if(E.id)c.focus();
+  f.addEventListener('submit',async e=>{e.preventDefault();const b=f.querySelector('button');b.disabled=true;b.textContent='Đang kiểm tra…';const err=await mfaVerify(E.id,c.value);if(err){E.err=err;return draw();}startApp();});};
+ draw();
+ try{Object.assign(E,await mfaStartEnroll());}catch(e){E.err='Không tạo được mã đăng ký: '+e.message;}
+ draw();}
+async function showMfaChallenge(err,next){
+ app.innerHTML=screen('Xác thực 2 lớp',`<p class="small" style="margin-top:0">Mở ứng dụng Google / Microsoft Authenticator và nhập mã 6 số của <b>Đặt Xe</b>.</p>
+  <form id="mfc" class="fgrid" style="grid-template-columns:1fr"><div class="field"><label for="mfc-code">Mã 6 số</label><input id="mfc-code" class="inp mfacode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000" required></div>
+  ${err?`<div class="err">${esc(err)}</div>`:''}<button class="btn" type="submit">Xác nhận</button></form>`,mfaFoot());
+ const c=document.getElementById('mfc-code');c.focus();
+ document.getElementById('mfc').addEventListener('submit',async e=>{e.preventDefault();const b=e.target.querySelector('button');b.disabled=true;b.textContent='Đang kiểm tra…';
+  let fid=null;try{const{data}=await sb.auth.mfa.listFactors();const v=((data&&data.all)||[]).filter(x=>x.status==='verified');fid=v.length?v[v.length-1].id:null;}catch(x){}
+  if(!fid)return showMfaEnroll();
+  const er=await mfaVerify(fid,c.value);if(er)return showMfaChallenge(er,next);(next||startApp)();});}
+function mfaProfile(u){if(S.imp)return '';const E=V.mfaNew;
+ const status=u.mfa?'<span class="st st-ok">Đang bật</span>':u.mfaReq?'<span class="st st-hold">Bắt buộc</span>':'<span class="st st-draft">Chưa bật</span>';
+ return `<h3 style="margin-top:18px;font-size:15px">XÁC THỰC 2 LỚP (MFA) ${status}</h3>
+ <p class="small muted" style="margin:4px 0 8px">${u.mfaReq?'Bắt buộc với vai trò của bạn. ':'Không bắt buộc với vai trò của bạn, nhưng nên bật để bảo vệ tài khoản. '}Mỗi lần đăng nhập nhập thêm mã 6 số từ ứng dụng xác thực trên điện thoại.</p>
+ ${E?`<div class="panel" style="background:var(--sand);max-width:360px">${mfaBox(E,'mfp')}<div class="mfoot"><button class="btn ghost sm" data-a="mfaCancel">Hủy</button><button class="btn sm" data-a="mfaConfirm" ${E.id?'':'disabled'}>Xác nhận</button></div></div>`
+ :`<div class="mfoot" style="justify-content:flex-start">${u.mfa?`<button class="btn ghost sm" data-a="mfaNew">Đổi sang điện thoại khác</button>${u.mfaReq?'':` <button class="btn ghost sm" data-a="mfaOff">${V.mfaOffAsk?'Bấm lần nữa để tắt':'Tắt xác thực 2 lớp'}</button>`}`:`<button class="btn sm" data-a="mfaNew">Bật xác thực 2 lớp</button>`}</div>`}`;}
 function vProfile(){const u=me();
  return `<div class="panel" style="max-width:640px"><div class="pagehead"><h2>HỒ SƠ CÁ NHÂN</h2></div><div class="fgrid">
  <div class="field"><label for="pf-n">Họ tên hiển thị</label><input id="pf-n" class="inp" data-f="pf" data-k="name" value="${esc(u.name)}"></div>
@@ -622,6 +663,7 @@ function vProfile(){const u=me();
  <div class="field"><label>Kho mặc định</label><div>${(WH.find(w=>w.id===u.wh)||{full:u.wh}).full}</div></div></div>
  ${S.imp?'<p class="small muted" style="margin-top:12px">Đang Login as: không sửa hồ sơ và mật khẩu của người này.</p>':`<div class="mfoot"><button class="btn" data-a="pfSave">Lưu</button></div>
  ${u.role!=='customer'?awayForm(u,'self'):''}
+ ${mfaProfile(u)}
  <h3 style="margin-top:18px;font-size:15px">ĐỔI MẬT KHẨU</h3><div class="fgrid"><div class="field"><label for="pw1">Mật khẩu mới</label><input id="pw1" type="password" class="inp" autocomplete="new-password" data-f="pw" data-k="pw" value="${esc(V.pw||'')}"></div><div class="field"><label for="pw2">Nhập lại</label><input id="pw2" type="password" class="inp" autocomplete="new-password" data-f="pw" data-k="pw2" value="${esc(V.pw2||'')}"></div></div>${V.pwErr?`<div class="err">${esc(V.pwErr)}</div>`:''}<div class="mfoot"><button class="btn ghost" data-a="pwSave">Đổi mật khẩu</button></div>`}</div>`;}
 
 /* ===================== modals ===================== */
@@ -814,7 +856,7 @@ async function reload(){
  const[y,m]=V.ym;const ms=iso(y,m,1),me_=iso(y,m,dim(y,m));
  const from=addDays(ms<TODAY?ms:TODAY,-7),to=addDays(me_>TODAY?me_:TODAY,21);
  const st=await rpc('get_state',{p_from:from,p_to:to});
- if(!st||!st.me){S=null;V.noProfile=true;return;}
+ if(!st||!st.me){S=null;V.noProfile=true;V.authErr=st&&st.error;V.authEnrolled=!!(st&&st.enrolled);return;}
  TODAY=st.today;S=adopt(st);V.me=st.me.id;V.stats=null;RANGE.from=from;RANGE.to=to;
 }
 function goMonth(date){const[y,m]=parts(date);const changed=y!==V.ym[0]||m!==V.ym[1];V.ym=[y,m];return changed||date<RANGE.from||date>RANGE.to;}
@@ -920,6 +962,16 @@ const A={
  // permissions
  pmAll:d=>{const r=d.r;const cat=S.permCatalog.map(p=>p.code);const all=cat.every(c=>(V.pm[r]||[]).includes(c));V.pm[r]=all?(r==='admin'?['perms.manage']:[]):cat.slice();render();},
  pmUndo:()=>{V.pm=null;V.pmErr='';render();},
+ mfaNew:async()=>{V.mfaOffAsk=false;V.mfaNew={qr:'',secret:'',err:''};render();try{V.mfaNew=await mfaStartEnroll();}catch(e){if(V.mfaNew)V.mfaNew.err='Không tạo được mã đăng ký: '+e.message;}render();},
+ mfaCancel:async()=>{const E=V.mfaNew;V.mfaNew=null;render();if(E&&E.id){try{await sb.auth.mfa.unenroll({factorId:E.id});}catch(e){}}},
+ mfaConfirm:async()=>{const E=V.mfaNew;const c=document.getElementById('mfp-code');setBusy(true);const err=await mfaVerify(E.id,c&&c.value);
+  if(err){setBusy(false);E.err=err;return render();}
+  try{const{data}=await sb.auth.mfa.listFactors();for(const x of((data&&data.all)||[]).filter(x=>x.id!==E.id)){await sb.auth.mfa.unenroll({factorId:x.id});}}catch(e){}
+  V.mfaNew=null;await reload().catch(()=>{});setBusy(false);render();toast('Đã bật xác thực 2 lớp');},
+ mfaOff:async()=>{if(!V.mfaOffAsk){V.mfaOffAsk=true;return render();}V.mfaOffAsk=false;setBusy(true);
+  try{const{data}=await sb.auth.mfa.listFactors();for(const x of((data&&data.all)||[])){const{error}=await sb.auth.mfa.unenroll({factorId:x.id});if(error)throw new Error(error.message);}
+   await sb.auth.refreshSession();await reload();toast('Đã tắt xác thực 2 lớp');}catch(e){toast(e.message);}setBusy(false);render();},
+ mfaReset:d=>{if(V.mfaResetAsk!==d.id){V.mfaResetAsk=d.id;return render();}V.mfaResetAsk=null;mutate('admin_reset_mfa',{p_user:d.id},{ok:n=>toast(n?'Đã gỡ thiết bị. Lần đăng nhập sau người này đăng ký lại.':'Người này chưa có thiết bị nào.')});},
  pmSave:()=>mutate('save_role_permissions',{p:V.pm},{err:m=>V.pmErr=m,ok:n=>{V.pm=null;V.pmErr='';toast(n?`Đã lưu phân quyền cho ${n} vai trò`:'Không có thay đổi');}}),
  pmResetOn:()=>{V.pmReset=true;render();},pmResetOff:()=>{V.pmReset=false;render();},
  pmResetGo:()=>mutate('reset_role_permissions',{},{ok:()=>{V.pm=null;V.pmReset=false;toast('Đã khôi phục phân quyền mặc định');}}),
@@ -1143,7 +1195,9 @@ function showSetPassword(){
   startApp();});
 }
 async function startApp(){
+ if(await mfaCheck())return showMfaChallenge();
  try{await reload();}catch(e){app.innerHTML=screen('Không tải được dữ liệu',`<p>${esc(e.message)}</p>`,'<button class="btn" data-a="logout">Đăng xuất</button>');return;}
+ if(!S&&V.authErr==='mfa_required')return V.authEnrolled?showMfaChallenge():showMfaEnroll();
  if(!S){const{data}=await sb.auth.getUser();app.innerHTML=screen('Chưa được cấp quyền',`<p>Tài khoản <b>${esc(data?.user?.email||'')}</b> đã đăng nhập nhưng chưa được Admin gán vai trò, hoặc đã bị khóa.</p><p class="small muted">Nhờ Admin vào Setting user account → Tạo tài khoản, nhập đúng email này.</p>`,'<button class="btn" data-a="logout">Đăng xuất</button>');return;}
  const u=me();V.wh=u.wh||'PMY';const[y,m]=parts(TODAY);if(y!==V.ym[0]||m!==V.ym[1]){V.ym=[y,m];await reload();}
  render();
@@ -1161,7 +1215,7 @@ async function boot(){
  if(location.hash)history.replaceState(null,'',location.pathname+location.search);
  if(linkErr)return showLogin(/expired|invalid/i.test(linkErr)?'Link đã hết hạn hoặc đã được dùng. Bấm "Quên mật khẩu?" để nhận link mới.':linkErr);
  if(!data.session)return showLogin();
- if(recovery)return showSetPassword();
+ if(recovery)return (await mfaCheck())?showMfaChallenge('',showSetPassword):showSetPassword();
  startApp();
 }
 

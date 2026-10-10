@@ -6,7 +6,7 @@ async function login(email) { const c = await b.newContext({ viewport: { width: 
   await p.route('**/cdn.jsdelivr.net/**', r => r.fulfill({ contentType: 'text/javascript', body: mock }));
   await p.route('**/config.js', r => r.fulfill({ contentType: 'text/javascript', body: "window.APP_CONFIG={SUPABASE_URL:'http://127.0.0.1:8787',SUPABASE_ANON_KEY:'t'}" }));
   await p.route('**/fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
-  p.on('pageerror', e => errs.push(e.message)); await p.goto('http://127.0.0.1:8787/'); await p.fill('#lg-e', email); await p.fill('#lg-p', 'Test@1234'); await p.click('#login button'); await p.waitForTimeout(800); return p; }
+  p.on('pageerror', e => errs.push(e.message)); await p.goto('http://127.0.0.1:8787/'); await p.fill('#lg-e', email); await p.fill('#lg-p', 'Test@1234'); await p.click('#login button'); await p.waitForTimeout(800); if (await p.locator('#mfe-code').count()) { await p.waitForSelector('#mfe button:not([disabled])'); await p.fill('#mfe-code', '123456'); await p.click('#mfe button'); await p.waitForTimeout(800); } else if (await p.locator('#mfc-code').count()) { await p.fill('#mfc-code', '123456'); await p.click('#mfc button'); await p.waitForTimeout(800); } return p; }
 let p = await login('log@demo.vn');
 await p.click('[data-a="go"][data-v="approvals"]'); console.log('overdue marks:', await p.locator('.err', { hasText: 'Quá ngày bốc' }).count());
 await p.locator('tr.click', { hasText: 'Quá ngày bốc' }).first().click(); await p.waitForTimeout(200);

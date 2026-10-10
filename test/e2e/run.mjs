@@ -16,6 +16,8 @@ async function session(email, fn, viewport = { width: 1440, height: 1000 }) {
   await page.goto('http://127.0.0.1:8787/');
   await page.fill('#lg-e', email); await page.fill('#lg-p', 'Test@1234'); await page.click('#login button');
   await page.waitForTimeout(800);
+  if (await page.locator('#mfe-code').count()) { await page.waitForSelector('#mfe button:not([disabled])'); await page.fill('#mfe-code', '123456'); await page.click('#mfe button'); await page.waitForTimeout(800); }
+  else if (await page.locator('#mfc-code').count()) { await page.fill('#mfc-code', '123456'); await page.click('#mfc button'); await page.waitForTimeout(800); }
   try { await fn(page); } catch (e) { errors.push(`[${email} ${step}] FAIL: ${e.message.split('\n')[0]}`); await page.screenshot({ path: `${OUT}/FAIL-${email}-${step}.png` }); }
   await ctx.close();
 }
@@ -79,7 +81,7 @@ await session('admin@demo.vn', async p => {
   await type(p, '#un-n', 'Người Mới'); await type(p, '#un-e', 'new@demo.vn');
   await clr(p); await p.click('[data-a="unSave"]'); log('grant ->', await toast(p), await p.locator('.modal .err').textContent().catch(() => '')); await shot(p, '6-admin-users');
   S('dash6'); await p.click('[data-a="go"][data-v="dash"]'); await p.click('[data-a="dashTab"][data-t="DB-06"]'); await p.waitForTimeout(600); await shot(p, '6b-admin-dash');
-  S('testEmail'); await clr(p); await p.click('[data-a="testEmail"]'); log('test email ->', await toast(p));
+  S('testEmail'); if (await p.locator('[data-a="testEmail"]').count()) { await clr(p); await p.click('[data-a="testEmail"]'); log('test email ->', await toast(p)); } else log('test email: email đang tắt trong DB test');
   S('cust'); await p.click('[data-a="go"][data-v="users"]'); await p.click('[data-a="uTab"][data-t="customers"]'); await shot(p, '6c-admin-customers');
 });
 await session('admin@demo.vn', async p => {
@@ -182,7 +184,9 @@ await session('kh@demo.vn', async p => { S('mobile'); await p.waitForSelector('.
   S('expired'); await p.goto('about:blank'); await p.goto('http://127.0.0.1:8787/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired'); await p.waitForTimeout(400);
   log('expired link ->', await p.locator('.err').innerText().catch(() => '(none)'));
   S('recovery'); await p.goto('about:blank'); await p.goto('http://127.0.0.1:8787/#access_token=x&type=recovery&mock_uid=00000000-0000-0000-0000-0000000000c1&mock_email=cs@demo.vn'); await p.waitForTimeout(500);
-  log('recovery screen ->', await p.locator('h1').innerText(), '| hash cleared:', await p.evaluate(() => location.hash === ''));
+  log('recovery (CS có MFA) ->', await p.locator('h1').innerText(), '| hash cleared:', await p.evaluate(() => location.hash === ''));
+  if (await p.locator('#mfc-code').count()) { await p.fill('#mfc-code', '123456'); await p.click('#mfc button'); await p.waitForTimeout(500); }
+  log('recovery screen ->', await p.locator('h1').innerText());
   await shot(p, '9-set-password');
   await p.fill('#sp1', 'abc'); await p.fill('#sp2', 'abc'); await p.click('#sp button'); log('short pw ->', await p.locator('#sp-err').innerText());
   await p.fill('#sp1', 'MatKhauMoi1'); await p.fill('#sp2', 'MatKhauMoi1'); await p.click('#sp button'); await p.waitForTimeout(800);

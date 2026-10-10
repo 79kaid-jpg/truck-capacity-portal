@@ -26,4 +26,5 @@ insert into app.profiles (user_id,full_name,email,phone,role,segment,default_war
 select app.load_demo();
 insert into app.profiles (user_id,full_name,email,role,customer_id) select '00000000-0000-0000-0000-0000000000e1','Văn Phú','kh@demo.vn','customer',id from app.customers where code='KH0102';
 SQL
+psql -h /tmp -U postgres -q -d postgres -c "alter database t set request.jwt.claim.aal = 'aal2'"
 echo reset-ok

@@ -20,6 +20,21 @@ class H(http.server.SimpleHTTPRequestHandler):
                     if not r or body.get('password') != 'Test@1234': raise Exception('Invalid login credentials')
                     c.execute("update auth.users set last_sign_in_at=now() where id=%s", (r[0],))
                 out = {'id': r[0], 'email': body['email']}
+            elif s.path.startswith('/auth/mfa/'):
+                act = s.path.split('/')[-1]; uid = body.get('uid')
+                with conn.cursor() as c:
+                    if act == 'list':
+                        c.execute("select id::text, status, factor_type from auth.mfa_factors where user_id=%s order by created_at", (uid,))
+                        out = [{'id': r[0], 'status': r[1], 'factor_type': r[2]} for r in c.fetchall()]
+                    elif act == 'enroll':
+                        c.execute("insert into auth.mfa_factors (user_id, status, friendly_name) values (%s, 'unverified', %s) returning id::text", (uid, body.get('name')))
+                        svg = "<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><rect width='180' height='180' fill='white'/><rect x='20' y='20' width='40' height='40'/><rect x='120' y='20' width='40' height='40'/><rect x='20' y='120' width='40' height='40'/></svg>"
+                        out = {'id': c.fetchone()[0], 'totp': {'qr_code': 'data:image/svg+xml;utf-8,' + svg, 'secret': 'JBSWY3DPEHPK3PXP'}}
+                    elif act == 'verify':
+                        if body.get('code') != '123456': raise Exception('Invalid TOTP code entered')
+                        c.execute("update auth.mfa_factors set status='verified' where id=%s and user_id=%s", (body.get('factorId'), uid)); out = {'aal': 'aal2'}
+                    elif act == 'unenroll':
+                        c.execute("delete from auth.mfa_factors where id=%s and user_id=%s", (body.get('factorId'), uid)); out = {}
             else:
                 fn = s.path.split('/')[-1]; names, types = sig(fn); args = body.get('args') or {}
                 parts, vals = [], []
@@ -36,6 +51,7 @@ class H(http.server.SimpleHTTPRequestHandler):
                     c.execute("begin")
                     try:
                         c.execute("select set_config('request.jwt.claim.sub', %s, true)", (body.get('uid') or '',))
+                        c.execute("select set_config('request.jwt.claim.aal', %s, true)", (body.get('aal') or 'aal1',))
                         c.execute("set local role authenticated")
                         c.execute(f"select to_jsonb(public.{fn}({', '.join(parts)}))", vals)
                         out = c.fetchone()[0]; c.execute("commit")
