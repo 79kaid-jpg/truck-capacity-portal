@@ -297,7 +297,7 @@ language sql stable security definer set search_path = '' as $$
 $$;
 
 -- Người dùng hiệu lực: người được "Login as" nếu Admin đang có phiên hợp lệ, ngược lại chính người đăng nhập
--- Xác thực 2 lớp (MFA, TOTP): vai trò có quyền 'auth.mfa' (Admin luôn có) hoặc người đã tự bật MFA
+-- Xác thực 2 lớp (MFA, TOTP): vai trò có quyền 'auth.mfa' (mặc định Logistics, CS, Admin) hoặc người đã tự bật MFA
 -- phải đăng nhập đủ 2 lớp (aal2). Chưa đủ thì app.real_uid() = null: mọi hàm coi như chưa đăng nhập.
 create or replace function app.mfa_needed(p_uid uuid) returns boolean
 language plpgsql stable security definer set search_path = '' as $$
@@ -363,7 +363,7 @@ end $$;
 create or replace function app.role_has(p_role text, p_perm text) returns boolean
 language sql stable security definer set search_path = '' as $$
   select p_role <> 'customer' and (
-    (p_role = 'admin' and p_perm in ('perms.manage', 'auth.mfa'))
+    (p_role = 'admin' and p_perm = 'perms.manage')
     or exists (select 1 from app.role_permissions rp where rp.role = p_role and rp.perm = p_perm and rp.allowed))
 $$;
 
@@ -1669,7 +1669,7 @@ begin
     continue when not (p ? r);
     v_old := app.my_perms(r);
     insert into app.role_permissions (role, perm, allowed)
-    select r, pm.code, pm.code in (select jsonb_array_elements_text(p->r)) or (r = 'admin' and pm.code in ('perms.manage', 'auth.mfa'))
+    select r, pm.code, pm.code in (select jsonb_array_elements_text(p->r)) or (r = 'admin' and pm.code = 'perms.manage')
       from app.permissions pm
     on conflict (role, perm) do update set allowed = excluded.allowed;
     v_new := app.my_perms(r);

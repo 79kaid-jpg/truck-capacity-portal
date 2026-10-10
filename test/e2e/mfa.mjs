@@ -76,7 +76,7 @@ await rb.click(); await p.waitForTimeout(100); check('reset asks confirm', /Bấ
 await rb.click(); await p.waitForTimeout(800);
 check('reset toast', /Đã gỡ thiết bị/.test(await p.locator('.toast').textContent().catch(() => '')));
 await p.evaluate(() => { V.view = 'users'; V.uTab = 'perms'; render(); }); await p.waitForTimeout(300);
-check('perms matrix has MFA row, admin locked', (await p.locator('input[data-p="auth.mfa"][data-r="admin"][disabled]').count()) === 1 && (await p.locator('input[data-p="auth.mfa"][data-r="cs"]:checked').count()) === 1 && (await p.locator('input[data-p="auth.mfa"][data-r="sales"]:not(:checked)').count()) === 1);
+check('perms matrix has MFA row, admin on by default and editable', (await p.locator('input[data-p="auth.mfa"][data-r="admin"]:checked:not([disabled])').count()) === 1 && (await p.locator('input[data-p="auth.mfa"][data-r="cs"]:checked').count()) === 1 && (await p.locator('input[data-p="auth.mfa"][data-r="sales"]:not(:checked)').count()) === 1);
 await shot(p, 'mfa-5-perms');
 await p.context().close();
 
@@ -94,6 +94,20 @@ await p.fill('#mfc-code', '123456'); await p.click('#mfc button'); await p.waitF
 check('then set-password screen', (await h1(p)) === 'Đặt mật khẩu mới');
 await p.fill('#sp1', 'Moi@12345'); await p.fill('#sp2', 'Moi@12345'); await p.click('#sp button'); await p.waitForTimeout(900);
 check('password updated at aal2 and app opens', (await p.evaluate(() => window.__pwUpdatedAal)) === 'aal2' && (await p.locator('.cal').count()) === 1);
+await p.context().close();
+
+// 8. Giai đoạn POV: Admin tự bỏ bắt buộc MFA cho Admin rồi tắt thiết bị -> đăng nhập không cần mã
+p = await open('admin@demo.vn');
+if (await p.locator('#mfc-code').count()) { await p.fill('#mfc-code', '123456'); await p.click('#mfc button'); await p.waitForTimeout(900); }
+await p.evaluate(() => { V.view = 'users'; V.uTab = 'perms'; render(); }); await p.waitForTimeout(300);
+await p.locator('input[data-p="auth.mfa"][data-r="admin"]').uncheck(); await p.waitForTimeout(150);
+await p.click('[data-a="pmSave"]'); await p.waitForTimeout(800);
+await p.evaluate(() => { V.view = 'profile'; render(); }); await p.waitForTimeout(300);
+check('admin profile now offers turn-off', (await p.locator('[data-a="mfaOff"]').count()) === 1);
+await p.click('[data-a="mfaOff"]'); await p.waitForTimeout(150); await p.click('[data-a="mfaOff"]'); await p.waitForTimeout(800);
+await p.context().close();
+p = await open('admin@demo.vn');
+check('admin logs in without MFA after opting out', (await p.locator('.cal').count()) === 1);
 await p.context().close();
 
 await browser.close();

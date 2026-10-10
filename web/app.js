@@ -553,7 +553,7 @@ function vPerms(){
  let body='',last='';
  for(const p of cat){
   if(p.grp!==last){body+=`<tr class="pgrp"><td colspan="${PROLES.length+1}">${esc(p.grp)}</td></tr>`;last=p.grp;}
-  body+=`<tr><td><b>${esc(p.name)}</b><div class="small muted">${esc(p.descr)}</div></td>${PROLES.map(([r,l])=>{const on=(M[r]||[]).includes(p.code);const lock=r==='admin'&&(p.code==='perms.manage'||p.code==='auth.mfa');const chg=on!==(S.roleMatrix[r]||[]).includes(p.code);const def=(p.def||[]).includes(r);
+  body+=`<tr><td><b>${esc(p.name)}</b><div class="small muted">${esc(p.descr)}</div></td>${PROLES.map(([r,l])=>{const on=(M[r]||[]).includes(p.code);const lock=r==='admin'&&p.code==='perms.manage';const chg=on!==(S.roleMatrix[r]||[]).includes(p.code);const def=(p.def||[]).includes(r);
    return `<td class="c ${chg?'chg':''}"><label class="pmcell" title="${lock?'Admin luôn giữ quyền này':def?'Mặc định: bật':'Mặc định: tắt'}"><input type="checkbox" data-f="pm" data-r="${r}" data-p="${p.code}" ${on?'checked':''} ${lock?'disabled':''} aria-label="${esc(l)} – ${esc(p.name)}"></label></td>`;}).join('')}</tr>`;}
  return `<div class="hint" style="margin-bottom:12px"><b>Quyền tính năng</b> quyết định ai được làm gì; máy chủ kiểm tra mọi thao tác nên tắt quyền là chặn thật, không chỉ ẩn nút.
   <b>Phạm vi dữ liệu cố định theo vai trò</b> để bảo mật: Sales chỉ thấy tên và thao tác trên khách mình phụ trách; Khách hàng chỉ xem số tấn còn đặt được và đơn của mình (không cấu hình). Lịch, Thông báo, Hồ sơ luôn có cho mọi người.</div>

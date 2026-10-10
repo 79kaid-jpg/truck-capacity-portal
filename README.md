@@ -141,11 +141,12 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 Ô **Tìm kiếm** trên thanh trên cùng, hoặc phím **Ctrl+K** hay **/**. Gõ mã booking, số SO, tên khách (không dấu cũng được), ngày (`15/10`, `mai`, `thứ 6`), số tấn (`28t`, `28t 15/10`), mã xe (`DK-03 mai`), biển số, tài xế, trạng thái (`quá hạn`, `nháp`, `đổi ngày`, `quá tải`) hoặc tên màn hình. Kết quả theo đúng phạm vi dữ liệu của vai trò.
 
 ## Xác thực 2 lớp (MFA)
-- Mặc định **bắt buộc với Logistics, CS và Admin**. Sales và Khách hàng tự bật nếu muốn (Hồ sơ cá nhân → Xác thực 2 lớp). Admin đổi vai trò bắt buộc ở **Phân quyền → Bảo mật → Bắt buộc xác thực 2 lớp**; Admin luôn bắt buộc.
+- Mặc định **bắt buộc với Logistics, CS và Admin**. Sales và Khách hàng tự bật nếu muốn (Hồ sơ cá nhân → Xác thực 2 lớp). Admin đổi vai trò bắt buộc ở **Phân quyền → Bảo mật → Bắt buộc xác thực 2 lớp**. Giai đoạn POV có thể bỏ tick ô Admin cho nhanh; khi chạy thật nên bật lại.
 - Lần đầu đăng nhập sau khi bật, người dùng quét mã QR bằng **Google Authenticator** hoặc **Microsoft Authenticator** rồi nhập mã 6 số. Các lần sau chỉ nhập mã 6 số sau mật khẩu.
 - Máy chủ chặn thật: phiên chưa nhập mã thì mọi hàm coi như chưa đăng nhập, không chỉ ẩn màn hình.
 - Mất hoặc đổi điện thoại: tự đổi trong Hồ sơ cá nhân (khi còn máy cũ), hoặc Admin bấm **Gỡ MFA** ở danh sách người dùng; lần đăng nhập sau người đó đăng ký lại.
 - **Cài đặt trên Supabase:** vào **Authentication → Multi-Factor** (hoặc Sign In / Providers → Multi-Factor Authentication), kiểm tra **TOTP (App Authenticator)** đang **Enabled** (mặc định là bật). Không cần trả phí. Sau đó chạy lại `setup_all.sql`.
+- **Tạm tắt MFA cho Admin:** Phân quyền → bỏ tick Admin ở dòng "Bắt buộc xác thực 2 lớp" → Lưu; rồi Hồ sơ cá nhân → Tắt xác thực 2 lớp (nếu đã đăng ký thiết bị).
 - **Admin duy nhất bị mất điện thoại:** chạy trong SQL Editor:
   `delete from auth.mfa_factors where user_id = (select id from auth.users where email = 'email-admin@...');`
 

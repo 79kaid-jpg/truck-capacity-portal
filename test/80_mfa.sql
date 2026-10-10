@@ -46,7 +46,7 @@ select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000e1'
 set local role authenticated;
 select public.get_state(current_date, current_date+7) -> 'me' ->> 'role' as kh_aal1;
 rollback;
-\echo --- Admin bỏ MFA cho Logistics -> Logistics aal1 vào được; không bỏ được cho Admin
+\echo --- Admin bỏ MFA cho Logistics và Admin -> cả hai vào được bằng aal1 (giai đoạn POV)
 begin;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-00000000000a',true), set_config('request.jwt.claim.aal','aal2',true);
 set local role authenticated;
@@ -54,7 +54,7 @@ select public.save_role_permissions(jsonb_build_object('logistics', :'logp'::jso
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000b1',true), set_config('request.jwt.claim.aal','aal1',true);
 select public.get_state(current_date, current_date+7) -> 'me' ->> 'role' as log_after_off;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-00000000000a',true), set_config('request.jwt.claim.aal','aal1',true);
-select public.get_state(current_date, current_date+7) ->> 'error' as admin_still_required;
+select coalesce(public.get_state(current_date, current_date+7) ->> 'error', 'ok: ' || (public.get_state(current_date, current_date+7) -> 'me' ->> 'role')) as admin_after_off;
 rollback;
 \echo --- Danh sách người dùng có cờ mfa; Admin gỡ thiết bị
 begin;
