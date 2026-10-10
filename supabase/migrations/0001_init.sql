@@ -730,7 +730,8 @@ begin
                    end), '[]')
                  from app.bookings b join app.customers c on c.id = b.customer_id
                 where (b.day between p_from and p_to or b.status in ('hold','resched'))
-                  and (b.status <> 'draft' or b.cs_user_id = me.user_id)),
+                  -- Nháp: người tạo; Sales thấy nháp của khách mình (chỉ để thống kê, không sửa được)
+                  and (b.status <> 'draft' or b.cs_user_id = me.user_id or (me.role = 'sales' and c.sales_user_id = me.user_id))),
     'allocs', (select coalesce(jsonb_agg(jsonb_build_object('id', a.id, 'bk', a.booking_id, 'truck', a.truck_code, 'tons', a.tons,
                  'override', a.override, 'reason', a.override_reason)), '[]')
                from app.allocations a join app.bookings b on b.id = a.booking_id

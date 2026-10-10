@@ -274,6 +274,29 @@ function dayCell(date){
   ${holds.length?`<div class="pendbox num">${holds.length} booking giữ chỗ (~${t2(ht)} t)</div>`:''}${draftLine(V.wh,date)}
   <div class="cacts">${can('day.view')?`<button class="btn sm" data-a="openDay" data-d="${date}">Chi tiết</button>`:''}${can('booking.create')&&!past?`<button class="btn ghost sm" data-a="newBk" data-d="${date}">+ Đặt hàng</button>`:''}</div></div>`;
 }
+// Thống kê cho Sales: khách mình phụ trách, tháng đang xem; theo kho đang xem hoặc tất cả kho
+function salesStats(y,m){
+ const all=V.ssAll!==false;const mp=`${y}-${pad(m)}`;const ms=iso(y,m,1),me_=iso(y,m,dim(y,m));
+ const mine=S.bookings.filter(b=>b.customerId!=='__other'&&cust(b.customerId)&&cust(b.customerId).salesId===V.me&&b.date.startsWith(mp)&&(all||b.wh===V.wh)&&['ok','hold','resched','draft'].includes(b.status));
+ const T=l=>l.reduce((s,b)=>s+bkTotal(b),0);
+ const ok=mine.filter(b=>b.status==='ok'),hold=mine.filter(b=>b.status==='hold'),rs=mine.filter(b=>b.status==='resched'),dr=mine.filter(b=>b.status==='draft');
+ const yest=addDays(TODAY,-1);const toD=yest<me_?yest:me_;const okPast=toD<ms?[]:ok.filter(b=>b.date<=toD);
+ const h1=mine.filter(b=>+b.date.slice(8)<=15),h2=mine.filter(b=>+b.date.slice(8)>15);
+ const byC={};mine.forEach(b=>{byC[b.customerId]=(byC[b.customerId]||0)+bkTotal(b);});
+ const rank=Object.entries(byC).sort((a,b)=>b[1]-a[1]);const top=rank.slice(0,3);const low=rank.length>3?rank.slice(-3).reverse().filter(r=>!top.includes(r)):[];
+ const noBk=S.customers.filter(c=>c.salesId===V.me&&c.active!==false&&!byC[c.id]);
+ const row=(l,t,n,cls='')=>`<div class="sst-row ${cls}"><span>${l}</span><span class="num"><b>${t2(t)} t</b>${n!==undefined?` <span class="muted small">· ${n}</span>`:''}</span></div>`;
+ const cl=r=>`<div class="sst-row"><span class="sst-name" title="${esc(cust(r[0]).name)}">${esc(cust(r[0]).name)}</span><span class="num"><b>${t2(r[1])} t</b></span></div>`;
+ return `<aside class="stats sst"><h3>THỐNG KÊ KHÁCH CỦA BẠN</h3>
+  <div class="seg sst-seg" role="group" aria-label="Phạm vi kho"><button class="${all?'on':''}" data-a="ssWh" data-v="all">Tất cả kho</button><button class="${all?'':'on'}" data-a="ssWh" data-v="cur">${esc((WH.find(w=>w.id===V.wh)||{}).name||V.wh)}</button></div>
+  <div class="bignum num"><small>TỔNG ĐÃ ĐẶT THÁNG ${pad(m)}</small>${t2(T(mine))}</div>
+  <div class="sst-box">${row('<span class="st st-ok">Đã xác nhận</span>',T(ok),ok.length+' đơn')}${row('<span class="st st-hold">Chờ xếp xe</span>',T(hold),hold.length+' đơn')}${rs.length?row('<span class="st st-resched">Đề nghị đổi ngày</span>',T(rs),rs.length+' đơn'):''}${row('<span class="st st-draft">Đang lưu tạm</span>',T(dr),dr.length+' đơn')}</div>
+  <div><div class="lbl">Đã xác nhận đến hôm qua</div>${toD<ms?`<div class="muted small">Tháng chưa bắt đầu</div>`:`<div class="sst-big num">${t2(T(okPast))} t</div><div class="muted small">${dm(ms)} – ${dm(toD)} · ${okPast.length} đơn</div>`}</div>
+  <div><div class="lbl">Theo nửa tháng</div><div class="sst-box">${row(`Ngày 1 – 15`,T(h1),h1.length+' đơn')}${row(`Ngày 16 – ${dim(y,m)}`,T(h2),h2.length+' đơn')}</div></div>
+  <div><div class="lbl">Khách đặt nhiều nhất</div>${top.length?`<div class="sst-box">${top.map(cl).join('')}</div>`:'<div class="muted small">Chưa có đơn trong tháng</div>'}</div>
+  ${low.length?`<div><div class="lbl">Khách đặt ít nhất</div><div class="sst-box">${low.map(cl).join('')}</div></div>`:''}
+  ${noBk.length?`<div class="small"><span class="lbl">Chưa đặt tháng này:</span> <span title="${esc(noBk.map(c=>c.name).join(', '))}">${noBk.length} khách</span> <span class="muted">(${esc(noBk.slice(0,3).map(c=>c.name).join(', '))}${noBk.length>3?'…':''})</span></div>`:''}
+  <div class="muted small">Tính theo ngày bốc; không gồm đơn bị từ chối, đã hủy.</div></aside>`;}
 function statsPanel(){
  const[y,m]=V.ym;const n=dim(y,m);let tDK=0,tCN=0,uDK=0,uCN=0,tons=0,cap=0;
  for(let d=1;d<=n;d++){const mm=dayM(V.wh,iso(y,m,d));tDK+=mm.nDK;tCN+=mm.nCN;uDK+=mm.uDK;uCN+=mm.uCN;tons+=mm.loaded;cap+=mm.cap;}
@@ -288,6 +311,7 @@ function statsPanel(){
   <div class="cstat">${rows.map(r=>`<div class="cstat-row"><span class="st st-${r.k}">${r.l}</span><span class="num"><b>${t2(r.t)} t</b> <span class="muted small">· ${r.n} đơn</span></span></div>`).join('')}</div>
   ${mine.length?`<div><div class="lbl">Đơn trong tháng</div><div class="cbklist">${mine.map(b=>`<button type="button" class="cbk" data-a="custDay" data-d="${b.date}" title="Xem đơn ngày ${dmy(b.date)}"><span class="num">${dm(b.date)}</span><span class="num">${t2(bkTotal(b))} t</span><span class="st st-${b.status}">${ST_CUST[b.status]}</span></button>`).join('')}</div><div class="small muted" style="margin-top:4px">Không tính đơn đã hủy.</div></div>`:''}
   <div><div class="lbl">Sales phụ trách</div><div>${esc(sp.name)}</div><div class="muted small">${esc(sp.phone||'')} · ${esc(sp.email)}</div></div></aside>`;}
+ if(role()==='sales')return salesStats(y,m);
  return `<aside class="stats"><h3>THỐNG KÊ</h3>
   <div><div class="lbl">Tổng lượt xe</div><div class="line num">${DK_SVG()} ${tDK}</div><div class="line num">${CN_SVG()} ${tCN}</div></div>
   <div><div class="lbl">Đã dùng</div><div class="line num">${DK_SVG()} ${uDK}/${tDK}</div><div class="line num">${CN_SVG()} ${uCN}/${tCN}</div></div>
@@ -968,6 +992,7 @@ const A={
  groupConfirm:()=>{const ids=V.modal.ids;mutate('confirm_group',{p_ids:ids},{ok:n=>{V.modal=null;toast(`Đã xác nhận ${n} booking${ids.length-n?`, ${ids.length-n} booking chưa gán đủ tấn`:''}`);}});},
  openBk:d=>openBooking(d.id),
  blTab:d=>{V.blTab=d.t;render();},
+ ssWh:d=>{V.ssAll=d.v==='all';render();},
  blReset:()=>{V.blF={wh:'all',region:'all',q:'',cust:'all',per:'month'};blSave();render();},
  openBkAny:d=>{if(bkById(d.id))return openBooking(d.id);gsOpenBooking({id:d.id,wh:d.w,date:d.d});},
  back:()=>{V.view=V.prev&&V.prev!=='booking'?V.prev:'calendar';V.asg=null;render();},

@@ -73,7 +73,7 @@ await session('cs@demo.vn', async p => {
 await session('s1@demo.vn', async p => {
   S('cal'); await p.waitForSelector('.cal'); await p.locator('[data-a="openDay"]').first().click(); await p.waitForTimeout(200); await shot(p, '4-sales-day');
   log('sales sees "Khách khác":', (await p.locator('.main').innerText()).includes('Khách khác'));
-  await p.click('[data-a="go"][data-v="bookings"]'); log('sales booking rows', await p.locator('tr.click').count());
+  await p.click('[data-a="go"][data-v="bookings"]'); await p.waitForTimeout(600); log('sales booking rows', await p.locator('tr.click').count());
 });
 await session('new@demo.vn', async p => { S('noprofile'); await shot(p, '5-noprofile'); log('noprofile:', await p.locator('h1').innerText()); });
 await session('admin@demo.vn', async p => {

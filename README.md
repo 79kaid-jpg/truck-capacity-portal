@@ -131,6 +131,14 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - **Booking bị từ chối:** CS mở chi tiết booking → **Đặt lại ngày khác** → chọn ngày còn chỗ → **Đặt lại (giữ chỗ)**. Mã booking và lịch sử từ chối được giữ; Logistics nhận lại yêu cầu giữ chỗ, khách nhận thông báo.
 - **Khách hàng** thấy thống kê tháng tách theo trạng thái (Đã xác nhận, Chờ xếp xe, Đề nghị đổi ngày, Bị từ chối) và danh sách từng đơn; ô lịch hiện cả số tấn bị từ chối hoặc đề nghị đổi ngày.
 
+## Thống kê cho Sales (cột phải màn hình Lịch)
+Chỉ tính khách Sales phụ trách, theo tháng đang xem, chọn **Tất cả kho** hoặc kho đang xem:
+- **Tổng đã đặt** = Đã xác nhận + Chờ xếp xe (+ Đề nghị đổi ngày nếu có) + Đang lưu tạm (nháp CS đã lưu cho khách), kèm số đơn.
+- **Đã xác nhận đến hôm qua**: từ ngày 1 đến hôm qua.
+- **Theo nửa tháng**: ngày 1–15 và ngày 16–cuối tháng.
+- **Khách đặt nhiều nhất / ít nhất** (3 khách mỗi bên) và số khách chưa đặt trong tháng.
+Tính theo ngày bốc; không gồm đơn bị từ chối, đã hủy. Sales chỉ thấy số liệu nháp, không mở hay sửa được nháp của CS.
+
 ## Danh sách booking – bộ lọc
 - **Khách hàng**: Tất cả, **Khách tôi phụ trách** (CS: khách được gán cho mình và khách của CS đang nghỉ mà mình nhận thay; Sales: khách của mình), hoặc một khách cụ thể.
 - **Ngày bốc**: Hôm nay, Tuần này (Thứ 2 – Chủ nhật), Tuần sau, **Tháng này** (mặc định), Tháng trước, Tháng sau, 30 ngày qua, 3 tháng gần đây, Tùy chọn (từ ngày – đến ngày, tối đa ~13 tháng). Dữ liệu tháng cũ được tải từ máy chủ khi chọn.
