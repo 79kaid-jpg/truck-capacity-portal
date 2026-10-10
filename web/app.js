@@ -236,6 +236,9 @@ function vCalendar(){
 function custExtra(mine){const rs=mine.filter(b=>b.status==='resched'),rj=mine.filter(b=>b.status==='rejected');
  return (rs.length?`<div class="small" style="color:var(--warn,#9A5B00);font-weight:600">Đề nghị đổi ngày: ${t2(rs.reduce((s,b)=>s+bkTotal(b),0))} t${rs[0].proposedDate?' → '+dm(rs[0].proposedDate):''}</div>`:'')
   +(rj.length?`<div class="small" style="color:var(--bad);font-weight:600">Bị từ chối: ${t2(rj.reduce((s,b)=>s+bkTotal(b),0))} t</div>`:'');}
+// Nháp của chính người đang xem trong một ngày (nháp không trừ sức chứa nên trước đây không hiện ở đâu trên lịch)
+const myDrafts=(wh,date)=>S.bookings.filter(b=>b.wh===wh&&b.date===date&&b.status==='draft'&&b.csId===V.me);
+function draftLine(wh,date){const d=myDrafts(wh,date);return d.length?`<div class="draftbox num" title="Nháp chưa giữ chỗ, chưa trừ sức chứa">✎ ${d.length} nháp của bạn (${t2(d.reduce((s,b)=>s+bkTotal(b),0))} t)</div>`:'';}
 function dayCell(date){
  const m=dayM(V.wh,date);const d=parts(date)[2];const past=date<TODAY;const isC=role()==='customer';const today=date===TODAY;
  const head=`<div class="ctop"><span class="dnum ${m.declared&&!m.off?'':'lite'}">${d}</span><span class="wdmobile small muted">${WDS[dow(date)]} · ${dm(date)}</span>${m.declared&&!m.off?(isC&&false?'':pill(m.status)):''}</div>`;
@@ -248,10 +251,10 @@ function dayCell(date){
     ${ok.length?`<div class="minebox num">Bạn đã đặt: ${t2(ok.reduce((s,b)=>s+bkTotal(b),0))} t</div>`:''}
     ${pend.length?`<div class="small" style="color:var(--blue);font-weight:600">Đang chờ xác nhận: ${t2(pend.reduce((s,b)=>s+bkTotal(b),0))} t</div>`:''}${custExtra(mine)}
     ${mine.length?`<div class="cacts"><button class="btn sm" data-a="custDay" data-d="${date}">Chi tiết</button></div>`:''}</div>`;}
-  const act=S.bookings.filter(b=>b.wh===V.wh&&b.date===date&&['ok','hold'].includes(b.status)&&ownsCust(b.customerId));
+  const act=S.bookings.filter(b=>b.wh===V.wh&&b.date===date&&['ok','hold','resched'].includes(b.status)&&ownsCust(b.customerId));const nd=myDrafts(V.wh,date).length;
   return `<div class="cell ${past?'past':''} ${today?'today':''}">${head}<div class="kv">${lbl}</div>
-   ${act.length?`<div class="err small" style="margin-top:4px">⚠ ${act.length} booking (${t2(act.reduce((s,b)=>s+bkTotal(b),0))} t) trong ngày này: cần đổi ngày</div>`:''}
-   <div class="cacts">${act.length&&can('day.view')?`<button class="btn sm" data-a="openDay" data-d="${date}">Chi tiết</button>`:''}${!m.off&&can('fleet.manage')&&!past?`<button class="btn ghost sm" data-a="go" data-v="fleet">Khai báo xe</button>`:''}</div></div>`;
+   ${act.length?`<div class="err small" style="margin-top:4px">⚠ ${act.length} booking (${t2(act.reduce((s,b)=>s+bkTotal(b),0))} t) trong ngày này: cần đổi ngày</div>`:''}${draftLine(V.wh,date)}
+   <div class="cacts">${(act.length||nd)&&can('day.view')?`<button class="btn sm" data-a="openDay" data-d="${date}">Chi tiết</button>`:''}${!m.off&&can('fleet.manage')&&!past?`<button class="btn ghost sm" data-a="go" data-v="fleet">Khai báo xe</button>`:''}</div></div>`;
  }
  if(isC){
   const mine=S.bookings.filter(b=>b.wh===V.wh&&b.date===date&&b.customerId===me().customerId);
@@ -268,7 +271,7 @@ function dayCell(date){
   <div class="kv num">Đã đặt: <b>${t2(m.loaded)} t</b></div>
   <div class="kv num">Có thể đặt: <b>${t2(m.avail)} t</b></div>
   <div class="tk num"><span>${DK_SVG()}${m.uDK}/${m.nDK}</span><span>${CN_SVG()}${m.uCN}/${m.nCN}</span></div>
-  ${holds.length?`<div class="pendbox num">${holds.length} booking giữ chỗ (~${t2(ht)} t)</div>`:''}
+  ${holds.length?`<div class="pendbox num">${holds.length} booking giữ chỗ (~${t2(ht)} t)</div>`:''}${draftLine(V.wh,date)}
   <div class="cacts">${can('day.view')?`<button class="btn sm" data-a="openDay" data-d="${date}">Chi tiết</button>`:''}${can('booking.create')&&!past?`<button class="btn ghost sm" data-a="newBk" data-d="${date}">+ Đặt hàng</button>`:''}</div></div>`;
 }
 function statsPanel(){
@@ -294,6 +297,9 @@ function statsPanel(){
 
 /* ---------- SCR-03 day ---------- */
 // Ngày nghỉ / chưa khai báo xe mà vẫn còn booking: liệt kê để xử lý (đổi ngày, từ chối) thay vì để trống
+function draftList(date){const d=myDrafts(V.wh,date);if(!d.length)return '';
+ return `<div class="panel" style="background:var(--sand);margin:10px 0"><b>✎ Nháp của bạn ngày ${dmy(date)}</b> <span class="small muted">· chưa giữ chỗ, chưa trừ sức chứa; mở nháp rồi bấm Giữ chỗ khi ngày đã mở lịch xe</span>
+ <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Mã</th><th>Khách hàng</th><th class="r">Số tấn</th><th></th></tr></thead><tbody>${d.map(b=>`<tr class="click" data-a="openBk" data-id="${b.id}"><td><b>${b.id}</b><div class="small muted">${esc(b.ref||'')}</div></td><td>${esc(cust(b.customerId).name)}</td><td class="r num">${t2(bkTotal(b))}</td><td class="r"><button class="btn ghost sm" data-a="openBk" data-id="${b.id}">Mở nháp</button></td></tr>`).join('')}</tbody></table></div></div>`;}
 function offDayList(date,m){const list=S.bookings.filter(b=>b.wh===V.wh&&b.date===date&&['hold','ok','resched'].includes(b.status)&&ownsCust(b.customerId)&&visibleBk(b));
  if(!list.length)return '';const tot=list.reduce((s,b)=>s+bkTotal(b),0);
  return `<div class="warnlist" style="margin-top:12px"><b>${list.length} booking (${t2(tot)} t) đang nằm trong ngày ${m.off?'nghỉ':'chưa khai báo xe'} ${dmy(date)}</b> nên không bốc hàng được. Cách xử lý:
@@ -315,7 +321,7 @@ function vDay(){
  const part=m.trucks.filter(t=>truckState(t,loadOf(t.code))==='part').length;
  return `<div class="panel">
  <div class="crumb"><button class="linkbtn" data-a="go" data-v="calendar">← Lịch tháng ${pad(parts(date)[1])}</button><span class="muted">/</span><b>${dmy(date)}</b><span class="grow"></span><button class="navbtn" data-a="dayNav" data-d="-1" aria-label="Ngày trước">‹</button><button class="navbtn" data-a="dayNav" data-d="1" aria-label="Ngày sau">›</button></div>
- <div class="dayhead"><h2>DANH SÁCH ĐỘI XE & TÌNH TRẠNG XẾP HÀNG – ${WH.find(w=>w.id===V.wh).full.toUpperCase()} | Ngày: ${dmy(date)}</h2>${m.declared&&!m.off?pill(m.status):''}</div>
+ <div class="dayhead"><h2>DANH SÁCH ĐỘI XE & TÌNH TRẠNG XẾP HÀNG – ${WH.find(w=>w.id===V.wh).full.toUpperCase()} | Ngày: ${dmy(date)}</h2>${m.declared&&!m.off?pill(m.status):''}</div>${draftList(date)}
  ${past?`<div class="note">Ngày đã qua: chỉ xem, không thay đổi (BR-12).</div>`:''}
  ${m.reason?`<div class="note"><b>Ghi chú ngày:</b> ${esc(m.reason)}</div>`:''}
  ${!m.declared||m.off?`<div class="empty">${m.off?'Ngày nghỉ – không bốc hàng.':'Chưa khai báo xe cho ngày này.'} ${isLog&&!m.off?'<button class="btn sm" data-a="go" data-v="fleet">Khai báo xe</button>':''}</div>${offDayList(date,m)}`:`
@@ -366,13 +372,13 @@ function suggCard(g,past){
 function vBookings(){
  const tabs=[...(can('booking.create')||can('booking.edit')?[['todo','Cần xử lý']]:[]),['all','Tất cả'],['draft','Nháp'],['hold','Chờ xếp xe'],['ok','Đã xác nhận'],['resched','Đề nghị đổi ngày'],['closed','Từ chối / Đã hủy']].filter(t=>t[0]!=='draft'||can('booking.create'));
  const f=V.blF;const q=f.q.trim().toLowerCase();
- const todo=b=>(b.status==='resched'||b.status==='hold'&&b.date<TODAY||b.status==='rejected'&&b.date>=addDays(TODAY,-7))&&(V.blAll||myCsCust(cust(b.customerId)));
+ const todo=b=>b.status==='draft'&&b.csId===V.me||(b.status==='resched'||b.status==='hold'&&b.date<TODAY||b.status==='rejected'&&b.date>=addDays(TODAY,-7))&&(V.blAll||myCsCust(cust(b.customerId)));
  let list=S.bookings.filter(visibleBk).filter(b=>V.blTab==='todo'?todo(b):V.blTab==='all'?true:V.blTab==='closed'?['rejected','cancelled'].includes(b.status):b.status===V.blTab)
   .filter(b=>f.wh==='all'||b.wh===f.wh).filter(b=>f.region==='all'||b.region===f.region)
   .filter(b=>!q||(b.id+' '+b.ref+' '+cust(b.customerId).name).toLowerCase().includes(q)).sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id));
  return `<div class="panel"><div class="pagehead"><h2>DANH SÁCH BOOKING</h2>${can('booking.create')?`<button class="btn" data-a="newBk" data-d="${TODAY}">Đặt hàng mới</button>`:''}</div>
- <div class="tabs">${tabs.map(([k,l])=>`<button class="${V.blTab===k?'on':''}" data-a="blTab" data-t="${k}">${l}${k==='todo'?` <span class="cnt">${S.bookings.filter(visibleBk).filter(b=>(b.status==='resched'||b.status==='hold'&&b.date<TODAY||b.status==='rejected'&&b.date>=addDays(TODAY,-7))&&myCsCust(cust(b.customerId))).length}</span>`:''}</button>`).join('')}</div>
- ${V.blTab==='todo'?`<div class="hint" style="margin-bottom:10px">Đề nghị đổi ngày, bị từ chối, chờ xếp xe quá ngày bốc của khách bạn phụ trách, khách của CS đang nghỉ mà bạn nhận thay, và khách chưa gán CS. <label class="row" style="display:inline-flex;margin-left:8px"><input type="checkbox" data-f="blAll" ${V.blAll?'checked':''}> Xem của tất cả CS</label></div>`:''}
+ <div class="tabs">${tabs.map(([k,l])=>`<button class="${V.blTab===k?'on':''}" data-a="blTab" data-t="${k}">${l}${k==='todo'?` <span class="cnt">${S.bookings.filter(visibleBk).filter(b=>b.status==='draft'&&b.csId===V.me||(b.status==='resched'||b.status==='hold'&&b.date<TODAY||b.status==='rejected'&&b.date>=addDays(TODAY,-7))&&myCsCust(cust(b.customerId))).length}</span>`:''}</button>`).join('')}</div>
+ ${V.blTab==='todo'?`<div class="hint" style="margin-bottom:10px">Nháp của bạn; đề nghị đổi ngày, bị từ chối, chờ xếp xe quá ngày bốc của khách bạn phụ trách, khách của CS đang nghỉ mà bạn nhận thay, và khách chưa gán CS. <label class="row" style="display:inline-flex;margin-left:8px"><input type="checkbox" data-f="blAll" ${V.blAll?'checked':''}> Xem của tất cả CS</label></div>`:''}
  <div class="filters"><div class="field"><label for="bl-wh">Kho</label><select id="bl-wh" class="inp" data-a="blF" data-k="wh"><option value="all">Tất cả kho</option>${WH.map(w=>`<option value="${w.id}" ${f.wh===w.id?'selected':''}>${w.name}</option>`).join('')}</select></div>
  <div class="field"><label for="bl-rg">Khu vực</label><select id="bl-rg" class="inp" data-a="blF" data-k="region"><option value="all">Tất cả</option>${S.regions.filter(r=>f.wh==='all'||r.wh===f.wh).map(r=>`<option value="${r.id}" ${f.region===r.id?'selected':''}>${esc(r.name)} (${r.wh})</option>`).join('')}</select></div>
  <div class="field grow"><label for="bl-q">Tìm mã booking, ref, khách</label><input id="bl-q" class="inp" data-f="blq" value="${esc(f.q)}" placeholder="Ví dụ: Lysaght, SO-45…"></div></div>
@@ -1077,7 +1083,7 @@ function saveBF(kind){const M=V.modal;const f=M.f;M.err='';const tot=bfTotal(f);
  const p={id:M.id||null,mode:kind,wh:f.wh,day:f.date,delivery:f.delivery||'',customer_id:f.customerId,ref:f.ref,address_id:isNew?'new':f.addrId,
   province:f.province,ward:f.ward,street:f.addrText,save_addr:!!f.saveAddr,region:f.region||'',note:f.note||'',
   lines:f.lines.map(l=>({p:l.p,c:l.c,th:String(l.th??'').replace(',','.'),w:String(l.w??''),t:String(l.t??'').replace(',','.')}))};
- mutate('save_booking',{p},{err:m=>M.err=m,ok:id=>{V.modal=null;V.asg=null;toast(kind==='draft'?`Đã lưu nháp ${id}`:M.rebook?`Đã đặt lại ${id} ngày ${dm(f.date)}, chờ Logistics xếp xe`:M.id?`Đã lưu ${id}`:`Đã giữ chỗ ${id}, trừ tạm ${t2(tot)} t`);}});}
+ mutate('save_booking',{p},{err:m=>M.err=m,ok:id=>{V.modal=null;V.asg=null;toast(kind==='draft'?`Đã lưu nháp ${id} (chưa giữ chỗ). Xem ở ô lịch ngày ${dm(f.date)} hoặc Danh sách booking → Cần xử lý / Nháp`:M.rebook?`Đã đặt lại ${id} ngày ${dm(f.date)}, chờ Logistics xếp xe`:M.id?`Đã lưu ${id}`:`Đã giữ chỗ ${id}, trừ tạm ${t2(tot)} t`);}});}
 
 /* ===================== Global Search ===================== */
 const GS={open:false,q:'',items:[],sel:0,seq:0,t:null,loading:false,res:null};
