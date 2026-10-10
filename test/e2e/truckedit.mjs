@@ -1,0 +1,26 @@
+// E2E: từ popup xe, CS mở / sửa booking đã xác nhận (UAT S08). Test-only. Tham số: ngày có xe đã xếp hàng
+import { chromium } from '/opt/npm-tools/node_modules/playwright/index.mjs';
+import fs from 'fs';
+const mock = fs.readFileSync(new URL('./mock-supabase.js', import.meta.url), 'utf8');
+const D = process.argv[2]; const browser = await chromium.launch(); const errs = [];
+const check = (n, ok, x = '') => { console.log((ok ? 'OK  ' : 'FAIL') + ' ' + n + (x ? ' | ' + x : '')); if (!ok) errs.push(n); };
+const ctx = await browser.newContext({ viewport: { width: 1440, height: 1100 } }); const p = await ctx.newPage();
+await p.route('**/cdn.jsdelivr.net/**', r => r.fulfill({ contentType: 'text/javascript', body: mock }));
+await p.route('**/config.js', r => r.fulfill({ contentType: 'text/javascript', body: "window.APP_CONFIG={SUPABASE_URL:'http://127.0.0.1:8787',SUPABASE_ANON_KEY:'t'}" }));
+await p.route('**/fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
+p.on('pageerror', e => errs.push(e.message));
+await p.goto('http://127.0.0.1:8787/'); await p.fill('#lg-e', 'cs@demo.vn'); await p.fill('#lg-p', 'Test@1234'); await p.click('#login button'); await p.waitForTimeout(800);
+if (await p.locator('#mfc-code').count()) { await p.fill('#mfc-code', '123456'); await p.click('#mfc button'); } else { await p.waitForSelector('#mfe button:not([disabled])'); await p.fill('#mfe-code', '123456'); await p.click('#mfe button'); } await p.waitForTimeout(800);
+await p.evaluate(d => { V.view = 'day'; V.day = d; render(); }, D); await p.waitForTimeout(200);
+await p.locator('.tcard', { hasText: 'DK-01' }).first().click(); await p.waitForTimeout(200);
+check('truck popup has Mở booking + Sửa booking', (await p.locator('.modal [data-a="openBk"]').count()) > 0 && (await p.locator('.modal [data-a="editBk"]').count()) > 0);
+await p.screenshot({ path: '/tmp/e2e-shots/te-1-popup.png' });
+const id = await p.locator('.modal [data-a="editBk"]').first().getAttribute('data-id');
+await p.locator('.modal [data-a="editBk"]').first().click(); await p.waitForTimeout(200);
+check('edit form opens', /SỬA BOOKING/.test(await p.locator('.modal').innerText()));
+const t = p.locator('input[data-f="bfl"][data-k="t"]').first(); const v = +(await t.inputValue()).replace(',', '.');
+await t.fill(String(v - 1)); await t.dispatchEvent('input');
+await p.click('.modal [data-a="bfHold"]'); await p.waitForTimeout(600);
+const st = await p.evaluate(x => { const b = bkById(x); return [b.status, bkTotal(b), allocSum(b.id)]; }, id);
+check('confirmed booking edited -> Chờ xếp xe, xe gỡ (BR-11)', st[0] === 'hold' && st[2] === 0, JSON.stringify(st));
+await browser.close(); console.log(errs.length ? 'ERRORS: ' + errs.join(' | ') : 'ALL TRUCKEDIT CHECKS PASSED');
