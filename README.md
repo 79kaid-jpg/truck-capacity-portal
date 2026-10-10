@@ -131,13 +131,15 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - **Booking bị từ chối:** CS mở chi tiết booking → **Đặt lại ngày khác** → chọn ngày còn chỗ → **Đặt lại (giữ chỗ)**. Mã booking và lịch sử từ chối được giữ; Logistics nhận lại yêu cầu giữ chỗ, khách nhận thông báo.
 - **Khách hàng** thấy thống kê tháng tách theo trạng thái (Đã xác nhận, Chờ xếp xe, Đề nghị đổi ngày, Bị từ chối) và danh sách từng đơn; ô lịch hiện cả số tấn bị từ chối hoặc đề nghị đổi ngày.
 
-## Thống kê cho Sales (cột phải màn hình Lịch)
-Chỉ tính khách Sales phụ trách, theo tháng đang xem, chọn **Tất cả kho** hoặc kho đang xem:
-- **Tổng đã đặt** = Đã xác nhận + Chờ xếp xe (+ Đề nghị đổi ngày nếu có) + Đang lưu tạm (nháp CS đã lưu cho khách), kèm số đơn.
-- **Đã xác nhận đến hôm qua**: từ ngày 1 đến hôm qua.
-- **Theo nửa tháng**: ngày 1–15 và ngày 16–cuối tháng.
-- **Khách đặt nhiều nhất / ít nhất** (3 khách mỗi bên) và số khách chưa đặt trong tháng.
-Tính theo ngày bốc; không gồm đơn bị từ chối, đã hủy. Sales chỉ thấy số liệu nháp, không mở hay sửa được nháp của CS.
+## Thống kê khách hàng (cột Khách trên Lịch, Dashboard DB-05)
+- **Sales**: cột phải màn hình Lịch luôn là thống kê khách. **Admin, Logistics, CS**: bấm nút **Xe | Khách** ở đầu cột thống kê (lựa chọn được nhớ trên máy).
+- Số liệu theo tháng đang xem, theo ngày bốc, chọn **Tất cả kho** hoặc kho đang xem; khi phạm vi là tất cả khách thì chọn thêm **Tất cả / Dân dụng / Dự án**:
+  - **Tổng đã đặt** = Đã xác nhận + Chờ xếp xe (+ Đề nghị đổi ngày) + Đang lưu tạm, kèm số đơn.
+  - **Đã xác nhận đến hôm qua**; **Theo nửa tháng** (1–15, 16–cuối tháng); **Bị từ chối** (nhu cầu bị mất).
+  - **Khách đặt nhiều nhất / ít nhất** (3 khách) và số khách chưa đặt.
+- **Dashboard DB-05 Khách hàng và Sales** (quyền "Dashboard khách hàng và Sales"): chuyển tháng, segment, kho; 4 chỉ số chính (tổng đặt, xác nhận đến hôm qua, sắp tới, bị từ chối); bảng theo segment, theo tuần, theo Sales, theo khách (sắp xếp, % tỷ trọng), lý do từ chối.
+- **Phạm vi thống kê** (Admin đặt trong form tài khoản): *Khách bạn phụ trách* (mặc định Sales), *Toàn bộ khách Dân dụng*, *Toàn bộ khách Dự án*, *Tất cả khách* (mặc định Admin/Logistics/CS). Ví dụ VP Sales Retail: vai trò Sales + phạm vi Dân dụng. Phạm vi chỉ đổi **số liệu tổng hợp**; xem chi tiết và sửa booking vẫn theo quyền vai trò. Muốn CS Manager xem DB-05 thì cấp quyền "Dashboard khách hàng và Sales" cho vai trò CS trong Phân quyền.
+- Không gồm đơn đã hủy; đơn bị từ chối rồi đặt lại chỉ tính một lần theo trạng thái mới.
 
 ## Danh sách booking – bộ lọc
 - **Khách hàng**: Tất cả, **Khách tôi phụ trách** (CS: khách được gán cho mình và khách của CS đang nghỉ mà mình nhận thay; Sales: khách của mình), hoặc một khách cụ thể.

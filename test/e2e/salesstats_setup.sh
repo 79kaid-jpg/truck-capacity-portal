@@ -1,0 +1,5 @@
+cd /home/claude/truck-capacity-portal
+psql -h /tmp -U postgres -d t -qc "insert into app.bookings (id, warehouse_code, day, customer_id, ref, address_text, province, status, cs_user_id) select 'BK-PMY-DRAFT-01','PMY',app.today()+3,c.id,'','Nháp test','TP. Hồ Chí Minh','draft','00000000-0000-0000-0000-0000000000c1' from app.customers c where c.sales_user_id='00000000-0000-0000-0000-0000000000d1' limit 1; insert into app.booking_lines (booking_id, product, color, thickness_mm, width_mm, tons) values ('BK-PMY-DRAFT-01','Hoa Cương','Xám Trắng',0.45,1200,12)"
+Q="from app.bookings b join app.customers c on c.id=b.customer_id where b.status in ('ok','hold','resched','draft') and b.day between date_trunc('month',app.today())::date and (date_trunc('month',app.today())+interval '1 month -1 day')::date"
+f(){ psql -h /tmp -U postgres -d t -Atc "select replace(to_char(coalesce(sum(app.bk_total(b.id)),0),'FM999990.00'),'.',',') $Q $1"; }
+echo "$(f "and c.sales_user_id='00000000-0000-0000-0000-0000000000d1'") $(f "and c.segment='DD'") $(f "and c.segment='DA'")"

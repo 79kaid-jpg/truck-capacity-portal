@@ -274,29 +274,55 @@ function dayCell(date){
   ${holds.length?`<div class="pendbox num">${holds.length} booking giữ chỗ (~${t2(ht)} t)</div>`:''}${draftLine(V.wh,date)}
   <div class="cacts">${can('day.view')?`<button class="btn sm" data-a="openDay" data-d="${date}">Chi tiết</button>`:''}${can('booking.create')&&!past?`<button class="btn ghost sm" data-a="newBk" data-d="${date}">+ Đặt hàng</button>`:''}</div></div>`;
 }
-// Thống kê cho Sales: khách mình phụ trách, tháng đang xem; theo kho đang xem hoặc tất cả kho
-function salesStats(y,m){
- const all=V.ssAll!==false;const mp=`${y}-${pad(m)}`;const ms=iso(y,m,1),me_=iso(y,m,dim(y,m));
- const mine=S.bookings.filter(b=>b.customerId!=='__other'&&cust(b.customerId)&&cust(b.customerId).salesId===V.me&&b.date.startsWith(mp)&&(all||b.wh===V.wh)&&['ok','hold','resched','draft'].includes(b.status));
- const T=l=>l.reduce((s,b)=>s+bkTotal(b),0);
- const ok=mine.filter(b=>b.status==='ok'),hold=mine.filter(b=>b.status==='hold'),rs=mine.filter(b=>b.status==='resched'),dr=mine.filter(b=>b.status==='draft');
- const yest=addDays(TODAY,-1);const toD=yest<me_?yest:me_;const okPast=toD<ms?[]:ok.filter(b=>b.date<=toD);
- const h1=mine.filter(b=>+b.date.slice(8)<=15),h2=mine.filter(b=>+b.date.slice(8)>15);
- const byC={};mine.forEach(b=>{byC[b.customerId]=(byC[b.customerId]||0)+bkTotal(b);});
- const rank=Object.entries(byC).sort((a,b)=>b[1]-a[1]);const top=rank.slice(0,3);const low=rank.length>3?rank.slice(-3).reverse().filter(r=>!top.includes(r)):[];
- const noBk=S.customers.filter(c=>c.salesId===V.me&&c.active!==false&&!byC[c.id]);
- const row=(l,t,n,cls='')=>`<div class="sst-row ${cls}"><span>${l}</span><span class="num"><b>${t2(t)} t</b>${n!==undefined?` <span class="muted small">· ${n}</span>`:''}</span></div>`;
- const cl=r=>`<div class="sst-row"><span class="sst-name" title="${esc(cust(r[0]).name)}">${esc(cust(r[0]).name)}</span><span class="num"><b>${t2(r[1])} t</b></span></div>`;
- return `<aside class="stats sst"><h3>THỐNG KÊ KHÁCH CỦA BẠN</h3>
-  <div class="seg sst-seg" role="group" aria-label="Phạm vi kho"><button class="${all?'on':''}" data-a="ssWh" data-v="all">Tất cả kho</button><button class="${all?'':'on'}" data-a="ssWh" data-v="cur">${esc((WH.find(w=>w.id===V.wh)||{}).name||V.wh)}</button></div>
-  <div class="bignum num"><small>TỔNG ĐÃ ĐẶT THÁNG ${pad(m)}</small>${t2(T(mine))}</div>
-  <div class="sst-box">${row('<span class="st st-ok">Đã xác nhận</span>',T(ok),ok.length+' đơn')}${row('<span class="st st-hold">Chờ xếp xe</span>',T(hold),hold.length+' đơn')}${rs.length?row('<span class="st st-resched">Đề nghị đổi ngày</span>',T(rs),rs.length+' đơn'):''}${row('<span class="st st-draft">Đang lưu tạm</span>',T(dr),dr.length+' đơn')}</div>
-  <div><div class="lbl">Đã xác nhận đến hôm qua</div>${toD<ms?`<div class="muted small">Tháng chưa bắt đầu</div>`:`<div class="sst-big num">${t2(T(okPast))} t</div><div class="muted small">${dm(ms)} – ${dm(toD)} · ${okPast.length} đơn</div>`}</div>
-  <div><div class="lbl">Theo nửa tháng</div><div class="sst-box">${row(`Ngày 1 – 15`,T(h1),h1.length+' đơn')}${row(`Ngày 16 – ${dim(y,m)}`,T(h2),h2.length+' đơn')}</div></div>
-  <div><div class="lbl">Khách đặt nhiều nhất</div>${top.length?`<div class="sst-box">${top.map(cl).join('')}</div>`:'<div class="muted small">Chưa có đơn trong tháng</div>'}</div>
-  ${low.length?`<div><div class="lbl">Khách đặt ít nhất</div><div class="sst-box">${low.map(cl).join('')}</div></div>`:''}
-  ${noBk.length?`<div class="small"><span class="lbl">Chưa đặt tháng này:</span> <span title="${esc(noBk.map(c=>c.name).join(', '))}">${noBk.length} khách</span> <span class="muted">(${esc(noBk.slice(0,3).map(c=>c.name).join(', '))}${noBk.length>3?'…':''})</span></div>`:''}
-  <div class="muted small">Tính theo ngày bốc; không gồm đơn bị từ chối, đã hủy.</div></aside>`;}
+/* ---------- Thống kê đặt hàng theo khách (cột "Khách" trên lịch, DB-05) ---------- */
+const SCOPE_LABEL={own:'Khách bạn phụ trách',DD:'Toàn bộ khách Dân dụng',DA:'Toàn bộ khách Dự án',all:'Tất cả khách hàng'};
+// Tải số liệu tổng hợp theo khoảng ngày (máy chủ áp phạm vi thống kê của người dùng); cache theo khoảng + phiên bản dữ liệu
+function csData(from,to){const key=from+'|'+to+'|'+S.ver;if(V.cs&&V.cs.key===key)return V.cs.data;
+ if(V.csLoading!==key){V.csLoading=key;rpc('booking_stats',{p_from:from,p_to:to}).then(d=>{V.cs={key,data:d};V.csLoading=null;render();}).catch(e=>{V.cs={key,data:{err:e.message,rows:[],customers:[],scope:'own'}};V.csLoading=null;render();});}
+ return V.cs&&V.cs.data&&V.cs.key.split('|').slice(0,2).join('|')===from+'|'+to?V.cs.data:null;}
+// Gom số liệu: o = {seg:'all'|'DD'|'DA', wh:'all'|mã kho, from, to}
+function csCompute(d,o){const C={};(d.customers||[]).forEach(c=>C[c.id]=c);
+ const rows=(d.rows||[]).map(r=>({c:r[0],wh:r[1],date:r[2],st:r[3],rc:r[4],t:+r[5],n:+r[6]})).filter(r=>C[r.c]&&(o.seg==='all'||C[r.c].segment===o.seg)&&(o.wh==='all'||r.wh===o.wh)&&r.date>=o.from&&r.date<=o.to);
+ const act=rows.filter(r=>r.st!=='rejected'),rej=rows.filter(r=>r.st==='rejected');
+ const sum=(l,f)=>l.filter(f||(()=>true)).reduce((a,r)=>({t:a.t+r.t,n:a.n+r.n}),{t:0,n:0});
+ const by=(l,k)=>{const m={};l.forEach(r=>{const x=k(r);(m[x]=m[x]||{t:0,n:0,ok:0,hold:0,resched:0,draft:0,rej:0});m[x].t+=r.st==='rejected'?0:r.t;m[x].n+=r.st==='rejected'?0:r.n;m[x][r.st==='rejected'?'rej':r.st]+=r.t;});return m;};
+ const yest=addDays(TODAY,-1);const custs=Object.values(C).filter(c=>o.seg==='all'||c.segment===o.seg);
+ const byC=by(rows,r=>r.c);const ranked=Object.entries(byC).filter(([,v])=>v.t>0).sort((a,b)=>b[1].t-a[1].t);
+ return{C,rows,total:sum(act),ok:sum(act,r=>r.st==='ok'),hold:sum(act,r=>r.st==='hold'),resched:sum(act,r=>r.st==='resched'),draft:sum(act,r=>r.st==='draft'),
+  okPast:sum(act,r=>r.st==='ok'&&r.date<=yest),ahead:sum(act,r=>r.date>=TODAY),rej:sum(rej),
+  h1:sum(act,r=>+r.date.slice(8)<=15),h2:sum(act,r=>+r.date.slice(8)>15),
+  bySeg:by(rows,r=>C[r.c].segment),bySales:by(rows,r=>C[r.c].salesId||'-'),byC,ranked,
+  byReason:by(rej,r=>r.rc||'OTHER'),noBk:custs.filter(c=>c.active!==false&&!(byC[c.id]&&byC[c.id].t>0)),
+  byWeek:by(act,r=>Math.min(4,Math.floor((+r.date.slice(8)-1)/7))),custCount:custs.length};}
+function csSegChips(scope,cur,action){if(scope!=='all')return '';const o=[['all','Tất cả'],['DD','Dân dụng'],['DA','Dự án']];
+ return `<div class="seg sst-seg" role="group" aria-label="Segment">${o.map(([k,l])=>`<button class="${cur===k?'on':''}" data-a="${action}" data-v="${k}">${l}</button>`).join('')}</div>`;}
+const csSeg=scope=>scope==='DD'||scope==='DA'?scope:scope==='own'?'all':(V.csSeg||'all');
+// Cột thống kê khách trên lịch (Sales mặc định; vai trò khác khi chọn "Khách")
+function custStatsPanel(y,m,head){
+ const ms=iso(y,m,1),me_=iso(y,m,dim(y,m));const d=csData(ms,me_);const all=V.ssAll!==false;
+ const scope=(d&&d.scope)||me().statScope||(role()==='sales'?'own':'all');const seg=csSeg(scope);
+ const top=`${head||''}<h3>${scope==='own'?'THỐNG KÊ KHÁCH CỦA BẠN':'THỐNG KÊ KHÁCH HÀNG'}</h3><div class="muted small" style="text-align:center;margin-top:-8px">${SCOPE_LABEL[scope]}</div>
+  ${csSegChips(scope,seg,'csSeg')}
+  <div class="seg sst-seg" role="group" aria-label="Phạm vi kho"><button class="${all?'on':''}" data-a="ssWh" data-v="all">Tất cả kho</button><button class="${all?'':'on'}" data-a="ssWh" data-v="cur">${esc((WH.find(w=>w.id===V.wh)||{}).name||V.wh)}</button></div>`;
+ if(!d)return `<aside class="stats sst">${top}<div class="muted small">Đang tải…</div></aside>`;
+ if(d.err)return `<aside class="stats sst">${top}<div class="err small">${esc(d.err)}</div></aside>`;
+ const R=csCompute(d,{seg,wh:all?'all':V.wh,from:ms,to:me_});
+ const yest=addDays(TODAY,-1);const toD=yest<me_?yest:me_;
+ const row=(l,v,n)=>`<div class="sst-row"><span>${l}</span><span class="num"><b>${t2(v.t)} t</b>${n!==false?` <span class="muted small">· ${v.n} đơn</span>`:''}</span></div>`;
+ const cl=([id,v])=>`<div class="sst-row"><span class="sst-name" title="${esc(R.C[id].name)}">${esc(R.C[id].name)}</span><span class="num"><b>${t2(v.t)} t</b></span></div>`;
+ const top3=R.ranked.slice(0,3),low3=R.ranked.length>3?R.ranked.slice(-3).reverse().filter(x=>!top3.includes(x)):[];
+ return `<aside class="stats sst">${top}
+  <div class="bignum num"><small>TỔNG ĐÃ ĐẶT THÁNG ${pad(m)}</small>${t2(R.total.t)}</div>
+  <div class="sst-box">${row('<span class="st st-ok">Đã xác nhận</span>',R.ok)}${row('<span class="st st-hold">Chờ xếp xe</span>',R.hold)}${R.resched.n?row('<span class="st st-resched">Đề nghị đổi ngày</span>',R.resched):''}${row('<span class="st st-draft">Đang lưu tạm</span>',R.draft)}</div>
+  <div><div class="lbl">Đã xác nhận đến hôm qua</div>${toD<ms?`<div class="muted small">Tháng chưa bắt đầu</div>`:`<div class="sst-big num">${t2(R.okPast.t)} t</div><div class="muted small">${dm(ms)} – ${dm(toD)} · ${R.okPast.n} đơn</div>`}</div>
+  <div><div class="lbl">Theo nửa tháng</div><div class="sst-box">${row('Ngày 1 – 15',R.h1)}${row(`Ngày 16 – ${dim(y,m)}`,R.h2)}</div></div>
+  ${R.rej.n?`<div><div class="lbl">Bị từ chối (nhu cầu bị mất)</div><div class="sst-box">${row('<span class="st st-rejected">Từ chối</span>',R.rej)}</div></div>`:''}
+  <div><div class="lbl">Khách đặt nhiều nhất</div>${top3.length?`<div class="sst-box">${top3.map(cl).join('')}</div>`:'<div class="muted small">Chưa có đơn trong tháng</div>'}</div>
+  ${low3.length?`<div><div class="lbl">Khách đặt ít nhất</div><div class="sst-box">${low3.map(cl).join('')}</div></div>`:''}
+  ${R.noBk.length?`<div class="small"><span class="lbl">Chưa đặt tháng này:</span> <span title="${esc(R.noBk.map(c=>c.name).join(', '))}">${R.noBk.length}/${R.custCount} khách</span> <span class="muted">(${esc(R.noBk.slice(0,3).map(c=>c.name).join(', '))}${R.noBk.length>3?'…':''})</span></div>`:''}
+  ${can('dash.sales')?`<button class="linkbtn small" data-a="goDb5">Xem chi tiết ở Dashboard DB-05 →</button>`:''}
+  <div class="muted small">Tính theo ngày bốc; không gồm đơn đã hủy.</div></aside>`;}
+const statModeHead=()=>`<div class="seg sst-seg sst-mode" role="group" aria-label="Loại thống kê"><button class="${V.statMode==='cust'?'':'on'}" data-a="statMode" data-v="truck">Xe</button><button class="${V.statMode==='cust'?'on':''}" data-a="statMode" data-v="cust">Khách</button></div>`;
 function statsPanel(){
  const[y,m]=V.ym;const n=dim(y,m);let tDK=0,tCN=0,uDK=0,uCN=0,tons=0,cap=0;
  for(let d=1;d<=n;d++){const mm=dayM(V.wh,iso(y,m,d));tDK+=mm.nDK;tCN+=mm.nCN;uDK+=mm.uDK;uCN+=mm.uCN;tons+=mm.loaded;cap+=mm.cap;}
@@ -311,8 +337,9 @@ function statsPanel(){
   <div class="cstat">${rows.map(r=>`<div class="cstat-row"><span class="st st-${r.k}">${r.l}</span><span class="num"><b>${t2(r.t)} t</b> <span class="muted small">· ${r.n} đơn</span></span></div>`).join('')}</div>
   ${mine.length?`<div><div class="lbl">Đơn trong tháng</div><div class="cbklist">${mine.map(b=>`<button type="button" class="cbk" data-a="custDay" data-d="${b.date}" title="Xem đơn ngày ${dmy(b.date)}"><span class="num">${dm(b.date)}</span><span class="num">${t2(bkTotal(b))} t</span><span class="st st-${b.status}">${ST_CUST[b.status]}</span></button>`).join('')}</div><div class="small muted" style="margin-top:4px">Không tính đơn đã hủy.</div></div>`:''}
   <div><div class="lbl">Sales phụ trách</div><div>${esc(sp.name)}</div><div class="muted small">${esc(sp.phone||'')} · ${esc(sp.email)}</div></div></aside>`;}
- if(role()==='sales')return salesStats(y,m);
- return `<aside class="stats"><h3>THỐNG KÊ</h3>
+ if(role()==='sales')return custStatsPanel(y,m);
+ if(V.statMode==='cust')return custStatsPanel(y,m,statModeHead());
+ return `<aside class="stats">${statModeHead()}<h3>THỐNG KÊ</h3>
   <div><div class="lbl">Tổng lượt xe</div><div class="line num">${DK_SVG()} ${tDK}</div><div class="line num">${CN_SVG()} ${tCN}</div></div>
   <div><div class="lbl">Đã dùng</div><div class="line num">${DK_SVG()} ${uDK}/${tDK}</div><div class="line num">${CN_SVG()} ${uCN}/${tCN}</div></div>
   <div class="bignum num"><small>TỔNG SỐ TẤN</small>${Math.round(tons).toLocaleString('vi-VN')}</div>
@@ -402,6 +429,7 @@ function blRange(f){const per=f.per||'month';const[y,m]=parts(TODAY);const mon=a
   case'custom':{const a=f.from||mr(y,m).from,b=f.to||mr(y,m).to;return a<=b?{from:a,to:b}:{from:b,to:a};}default:return mr(y,m);}}
 // Nhớ bộ lọc Danh sách booking trên máy này (không bắt buộc; lỗi bộ nhớ trình duyệt thì bỏ qua)
 function blSave(){try{const{q,...k}=V.blF;localStorage.setItem('dx-blF',JSON.stringify(k));}catch(e){}}
+try{const sm=localStorage.getItem('dx-statMode');if(sm==='cust')V.statMode='cust';}catch(e){}
 try{const k=JSON.parse(localStorage.getItem('dx-blF')||'null');if(k&&typeof k==='object'){if(BL_PER.some(x=>x[0]===k.per))V.blF.per=k.per;if(k.per==='custom'){V.blF.from=k.from;V.blF.to=k.to;}if(k.cust==='mine')V.blF.cust='mine';}}catch(e){}
 const blFiltered=f=>f.wh!=='all'||f.region!=='all'||(f.cust||'all')!=='all'||(f.per||'month')!=='month'||!!f.q;
 function vBookings(){
@@ -600,13 +628,45 @@ const DASH={
  'DB-02':{t:'Hiệu quả sử dụng xe',perm:'dash.ops',built:true},
  'DB-03':{t:'Chất lượng phục vụ',perm:'dash.service',built:false,d:'Thời gian giữ chỗ → xác nhận (trung vị, P90, % trong 60 phút); tỷ lệ từ chối, đổi ngày, hủy theo mã lý do; nháp quá 2 ngày; số ngày khách đặt trước.'},
  'DB-04':{t:'Gộp xe và khu vực',perm:'dash.ops',built:false,d:'Số xe tiết kiệm nhờ gộp; % nhóm gợi ý được áp dụng; tỷ lệ lấp đầy theo khu vực; nhu cầu tấn theo khu vực × tuần; số xe 2–3 điểm giao.'},
- 'DB-05':{t:'Khách hàng và Sales',perm:'dash.sales',built:false,d:'Tấn theo khách, segment, Sales; top 10 khách và mức phụ thuộc; khách bị từ chối / đổi ngày từ 2 lần trong 30 ngày.'},
+ 'DB-05':{t:'Khách hàng và Sales',perm:'dash.sales',built:true,d:'Tấn theo khách, segment, Sales; top 10 khách và mức phụ thuộc; khách bị từ chối / đổi ngày từ 2 lần trong 30 ngày.'},
  'DB-06':{t:'Sức khỏe hệ thống',perm:'dash.system',built:true},
 };
 function vDash(){const keys=Object.keys(DASH).filter(k=>can(DASH[k].perm));if(!V.dashTab||!keys.includes(V.dashTab))V.dashTab=keys[0];const k=V.dashTab;const D=DASH[k];
- const body=!D.built?`<div class="dcard"><h3>${k} · ${D.t.toUpperCase()}</h3><p class="cap">Theo đặc tả mục 9.1. Dashboard này cần khoảng một tháng dữ liệu (mốc thời gian trạng thái, mã lý do, nhật ký gợi ý gộp) nên chưa dựng trong prototype.</p><p>${D.d}</p></div>`:k==='DB-01'?dashToday():k==='DB-02'?dashUtil():dashSystem();
- return `<div class="panel"><div class="pagehead"><h2>DASHBOARD</h2>${k!=='DB-06'?`<label class="whsel"><span>Kho:</span><select data-a="wh" aria-label="Chọn kho">${WH.map(w=>`<option value="${w.id}" ${w.id===V.wh?'selected':''}>${w.name}</option>`).join('')}</select></label>`:''}<span class="muted small">Cập nhật ${clockStr(S.clock)} · ${dmy(TODAY)}</span></div>
+ const body=!D.built?`<div class="dcard"><h3>${k} · ${D.t.toUpperCase()}</h3><p class="cap">Theo đặc tả mục 9.1. Dashboard này cần khoảng một tháng dữ liệu (mốc thời gian trạng thái, mã lý do, nhật ký gợi ý gộp) nên chưa dựng trong prototype.</p><p>${D.d}</p></div>`:k==='DB-01'?dashToday():k==='DB-02'?dashUtil():k==='DB-05'?dashCust():dashSystem();
+ return `<div class="panel"><div class="pagehead"><h2>DASHBOARD</h2>${k!=='DB-06'&&k!=='DB-05'?`<label class="whsel"><span>Kho:</span><select data-a="wh" aria-label="Chọn kho">${WH.map(w=>`<option value="${w.id}" ${w.id===V.wh?'selected':''}>${w.name}</option>`).join('')}</select></label>`:''}<span class="muted small">Cập nhật ${clockStr(S.clock)} · ${dmy(TODAY)}</span></div>
  <div class="tabs">${keys.map(x=>`<button class="${x===k?'on':''}" data-a="dashTab" data-t="${x}">${x} · ${DASH[x].t}${DASH[x].built?'':' (sau)'}</button>`).join('')}</div>${body}</div>`;}
+function dashCust(){
+ const[y,m]=V.ym;const ms=iso(y,m,1),me_=iso(y,m,dim(y,m));const d=csData(ms,me_);
+ const whSel=`<label class="whsel"><span>Kho:</span><select data-a="db5Wh" aria-label="Kho"><option value="all" ${V.ssAll!==false?'selected':''}>Tất cả kho</option>${WH.map(w=>`<option value="${w.id}" ${V.ssAll===false&&V.wh===w.id?'selected':''}>${w.name}</option>`).join('')}</select></label>`;
+ const scope=(d&&d.scope)||me().statScope||'all';const seg=csSeg(scope);
+ const bar=`<div class="row db5bar" style="gap:10px;flex-wrap:wrap;margin-bottom:12px"><div class="monthnav sm"><button class="navbtn" data-a="dbMonth" data-d="-1" aria-label="Tháng trước">‹</button><b>THÁNG ${pad(m)}/${y}</b><button class="navbtn" data-a="dbMonth" data-d="1" aria-label="Tháng sau">›</button></div>${csSegChips(scope,seg,'csSeg')}${whSel}<span class="muted small">${SCOPE_LABEL[scope]} · theo ngày bốc · không gồm đơn đã hủy</span></div>`;
+ if(!d)return bar+'<div class="empty">Đang tải…</div>';if(d.err)return bar+`<div class="err">${esc(d.err)}</div>`;
+ const R=csCompute(d,{seg,wh:V.ssAll!==false?'all':V.wh,from:ms,to:me_});const yest=addDays(TODAY,-1);const toD=yest<me_?yest:me_;
+ const tile=(l,v,sub,cls='')=>`<div class="tile ${cls}"><span class="lbl">${l}</span><span class="val num">${t2(v.t)} t</span><span class="sub">${sub}</span></div>`;
+ const kpi=`<div class="kpis">${tile('Tổng đã đặt',R.total,`${R.total.n} đơn · xác nhận + chờ + đổi ngày + lưu tạm`)}${tile('Đã xác nhận đến hôm qua',R.okPast,toD<ms?'Tháng chưa bắt đầu':`${dm(ms)} – ${dm(toD)} · ${R.okPast.n} đơn`)}${tile('Sắp tới (từ hôm nay)',R.ahead,`${R.ahead.n} đơn chưa bốc`)}${tile('Bị từ chối',R.rej,`${R.rej.n} đơn · nhu cầu bị mất`,R.rej.n?'crit':'')}</div>`;
+ const cols=['ok','hold','resched','draft'];const CL={ok:'Đã xác nhận',hold:'Chờ xếp xe',resched:'Đổi ngày',draft:'Lưu tạm'};
+ const segRows=['DD','DA'].filter(k=>seg==='all'||k===seg).map(k=>({k,v:R.bySeg[k]||{t:0,n:0,ok:0,hold:0,resched:0,draft:0,rej:0}}));
+ const segT=`<div class="dcard"><h3>THEO SEGMENT</h3><p class="cap">Tấn theo trạng thái</p><div class="tbl-wrap"><table><thead><tr><th>Segment</th>${cols.map(c=>`<th class="r">${CL[c]}</th>`).join('')}<th class="r">Tổng đặt</th><th class="r">Từ chối</th></tr></thead><tbody>
+  ${segRows.map(({k,v})=>`<tr><td><b>${SEG_LABEL[k]}</b></td>${cols.map(c=>`<td class="r num">${t2(v[c])}</td>`).join('')}<td class="r num"><b>${t2(v.t)}</b></td><td class="r num">${t2(v.rej)}</td></tr>`).join('')}
+  ${segRows.length>1?`<tr class="tot"><td><b>Tổng</b></td>${cols.map(c=>`<td class="r num"><b>${t2(segRows.reduce((s,x)=>s+x.v[c],0))}</b></td>`).join('')}<td class="r num"><b>${t2(R.total.t)}</b></td><td class="r num"><b>${t2(R.rej.t)}</b></td></tr>`:''}</tbody></table></div></div>`;
+ const wk=[0,1,2,3,4].filter(i=>i*7+1<=dim(y,m)).map(i=>({i,l:`${pad(i*7+1)}–${pad(Math.min(dim(y,m),i===4?dim(y,m):i*7+7))}/${pad(m)}`,v:R.byWeek[i]||{t:0,ok:0,hold:0,resched:0,draft:0}}));const wmax=Math.max(1,...wk.map(w=>w.v.t));
+ const COL={ok:'var(--ok)',hold:'var(--warn)',resched:'var(--s2)',draft:'var(--muted)'};
+ const wkT=`<div class="dcard"><h3>THEO TUẦN TRONG THÁNG</h3><p class="cap">Tổng đã đặt theo ngày bốc, chia theo trạng thái</p>${wk.map(w=>`<div class="hbar" data-tip="Ngày ${w.l}\n${cols.map(c=>`${CL[c]}: ${t2(w.v[c])} t`).join('\n')}"><span class="num">${w.l}</span><div class="trk" style="display:flex">${cols.map(c=>w.v[c]?`<div class="fil" style="width:${w.v[c]/wmax*100}%;background:${COL[c]};border-radius:0"></div>`:'').join('')}</div><b class="num">${t2(w.v.t)}</b></div>`).join('')}
+  <div class="lgd">${cols.map(c=>`<span><i style="background:${COL[c]}"></i>${CL[c]}</span>`).join('')}</div></div>`;
+ const sales=Object.entries(R.bySales).filter(([,v])=>v.t>0||v.rej>0).sort((a,b)=>b[1].t-a[1].t);
+ const nCustOf=sid=>Object.values(R.C).filter(c=>(c.salesId||'-')===sid&&(seg==='all'||c.segment===seg)).length;
+ const nBookedOf=sid=>R.ranked.filter(([id])=>(R.C[id].salesId||'-')===sid).length;
+ const salesT=`<div class="dcard"><h3>THEO SALES</h3><p class="cap">Khách đã đặt / khách phụ trách</p><div class="tbl-wrap"><table><thead><tr><th>Sales</th><th class="r">Khách đặt</th><th class="r">Tổng đặt</th><th class="r">Đã xác nhận</th><th class="r">Từ chối</th></tr></thead><tbody>
+  ${sales.map(([sid,v])=>{const c=Object.values(R.C).find(x=>(x.salesId||'-')===sid);return `<tr><td>${esc(c&&c.salesName||'Chưa gán')}</td><td class="r num">${nBookedOf(sid)}/${nCustOf(sid)}</td><td class="r num"><b>${t2(v.t)}</b></td><td class="r num">${t2(v.ok)}</td><td class="r num">${t2(v.rej)}</td></tr>`;}).join('')||'<tr><td colspan="5" class="muted">Chưa có đơn.</td></tr>'}</tbody></table></div></div>`;
+ const sk=V.db5Sort||'t';const custRows=Object.entries(R.byC).filter(([,v])=>v.t>0||v.rej>0).sort((a,b)=>b[1][sk]-a[1][sk]);
+ const th=(k,l)=>`<th class="r"><button class="linkbtn small" data-a="db5Sort" data-k="${k}">${l}${sk===k?' ▼':''}</button></th>`;
+ const custT=`<div class="dcard span2"><h3>THEO KHÁCH HÀNG</h3><p class="cap">% = tỷ trọng trong tổng đã đặt (mức phụ thuộc); bấm tiêu đề cột để sắp xếp</p><div class="tbl-wrap"><table><thead><tr><th>Khách hàng</th><th>Segment</th><th>Sales</th>${th('t','Tổng đặt')}<th class="r">%</th>${th('ok','Đã xác nhận')}${th('hold','Chờ xếp xe')}${th('draft','Lưu tạm')}${th('rej','Từ chối')}</tr></thead><tbody>
+  ${custRows.map(([id,v])=>{const c=R.C[id];return `<tr><td><b>${esc(c.name)}</b><div class="small muted">${esc(c.code)}</div></td><td>${SEG_LABEL[c.segment]}</td><td>${esc(c.salesName||'–')}</td><td class="r num"><b>${t2(v.t)}</b></td><td class="r num">${R.total.t?pct(v.t/R.total.t):'–'}</td><td class="r num">${t2(v.ok)}</td><td class="r num">${t2(v.hold+v.resched)}</td><td class="r num">${t2(v.draft)}</td><td class="r num">${v.rej?`<span style="color:var(--bad)">${t2(v.rej)}</span>`:'0,00'}</td></tr>`;}).join('')||'<tr><td colspan="9" class="muted">Chưa có đơn trong tháng.</td></tr>'}</tbody></table></div>
+  ${R.noBk.length?`<p class="small" style="margin-top:8px"><b>Chưa đặt trong tháng (${R.noBk.length}/${R.custCount}):</b> ${R.noBk.map(c=>esc(c.name)).join(', ')}</p>`:''}</div>`;
+ const rname=c=>((S.reasons||[]).find(r=>r.kind==='reject'&&r.code===c)||{name:c}).name;
+ const rr=Object.entries(R.byReason).sort((a,b)=>b[1].rej-a[1].rej);
+ const rejT=`<div class="dcard"><h3>LÝ DO TỪ CHỐI</h3><p class="cap">Số tấn khách muốn đặt nhưng không nhận được</p><div class="tbl-wrap"><table><thead><tr><th>Lý do</th><th class="r">Tấn</th><th class="r">Đơn</th></tr></thead><tbody>${rr.map(([k,v])=>`<tr><td>${esc(rname(k))}</td><td class="r num">${t2(v.rej)}</td><td class="r num">${R.rows.filter(r=>r.st==='rejected'&&(r.rc||'OTHER')===k).reduce((s,r)=>s+r.n,0)}</td></tr>`).join('')||'<tr><td colspan="3" class="muted">Không có đơn bị từ chối.</td></tr>'}</tbody></table></div></div>`;
+ return bar+kpi+`<div class="dgrid">${segT}${wkT}${salesT}${rejT}${custT}</div>`;}
 function dayStats(wh,date){const m=dayM(wh,date);let usedCap=0;m.trucks.forEach(t=>{if(loadOf(t.code)>0.001)usedCap+=t.cap;});return Object.assign(m,{usedCap,fill:usedCap?m.loaded/usedCap:0,util:m.cap?m.loaded/m.cap:0});}
 function dashToday(){
  const days=[...Array(7)].map((_,i)=>addDays(TODAY,i));
@@ -914,6 +974,7 @@ function mUserNew(){const M=V.modal;const f=M.f;
  <div class="field"><label for="un-p">Số điện thoại ${f.role==='sales'?'<span class="req">*</span>':''}</label><input id="un-p" class="inp" data-f="un" data-k="phone" value="${esc(f.phone)}"></div>
  ${f.role==='sales'?`<div class="field"><label for="un-s">Segment <span class="req">*</span></label><select id="un-s" class="inp" data-f="un" data-k="segment"><option value="DD" ${f.segment==='DD'?'selected':''}>Dân dụng</option><option value="DA" ${f.segment==='DA'?'selected':''}>Dự án</option></select></div>`:''}
  ${f.role==='customer'?`<div class="field"><label for="un-c">Công ty khách hàng <span class="req">*</span></label><select id="un-c" class="inp" data-f="un" data-k="customerId"><option value="">Chọn</option>${S.customers.map(c=>`<option value="${c.id}" ${f.customerId===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>`:''}
+ ${f.role!=='customer'?`<div class="field"><label for="un-sc">Phạm vi thống kê</label><select id="un-sc" class="inp" data-f="un" data-k="statScope"><option value="">Mặc định (${f.role==='sales'?'khách mình phụ trách':'tất cả khách'})</option>${Object.entries(SCOPE_LABEL).filter(([k])=>k!=='own'||f.role==='sales').map(([k,l])=>`<option value="${k}" ${f.statScope===k?'selected':''}>${l}</option>`).join('')}</select><span class="small muted">Chỉ đổi số liệu thống kê (cột Khách trên lịch, DB-05); không mở quyền xem chi tiết hay sửa booking.</span></div>`:''}
  <div class="field"><label for="un-w">Kho mặc định <span class="req">*</span></label><select id="un-w" class="inp" data-f="un" data-k="wh">${WH.map(w=>`<option value="${w.id}" ${f.wh===w.id?'selected':''}>${w.name}</option>`).join('')}</select></div></div>
  ${M.err?`<div class="err" style="margin-top:8px">${esc(M.err)}</div>`:''}<p class="small muted">Gửi email và mật khẩu tạm cho người dùng; họ tự đổi mật khẩu trong Hồ sơ cá nhân.</p>${M.edit&&f.role==='cs'&&S.users.find(x=>x.email===f.email)?awayForm(S.users.find(x=>x.email===f.email),'admin'):''}
  <div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button><button class="btn" data-a="unSave">${M.edit?'Lưu':'Cấp quyền'}</button></div>`;}
@@ -993,6 +1054,11 @@ const A={
  openBk:d=>openBooking(d.id),
  blTab:d=>{V.blTab=d.t;render();},
  ssWh:d=>{V.ssAll=d.v==='all';render();},
+ csSeg:d=>{V.csSeg=d.v;render();},
+ goDb5:()=>{V.dashTab='DB-05';go('dash');},
+ statMode:d=>{V.statMode=d.v;try{localStorage.setItem('dx-statMode',d.v);}catch(e){}render();},
+ dbMonth:d=>{const[y,m]=V.ym;let nm=m+(+d.d),ny=y;if(nm<1){nm=12;ny--;}if(nm>12){nm=1;ny++;}V.ym=[ny,nm];reload().then(render).catch(e=>toast(e.message));},
+ db5Sort:d=>{V.db5Sort=d.k;render();},
  blReset:()=>{V.blF={wh:'all',region:'all',q:'',cust:'all',per:'month'};blSave();render();},
  openBkAny:d=>{if(bkById(d.id))return openBooking(d.id);gsOpenBooking({id:d.id,wh:d.w,date:d.d});},
  back:()=>{V.view=V.prev&&V.prev!=='booking'?V.prev:'calendar';V.asg=null;render();},
@@ -1071,11 +1137,11 @@ const A={
  uTab:d=>{V.uTab=d.t;render();},
  userToggle:d=>{V.userErr='';mutate('admin_toggle_user',{p_user:d.id},{err:m=>V.userErr=m,ok:r=>toast(r==='locked'?'Đã khóa tài khoản':'Đã mở khóa tài khoản')});},
  userNew:()=>{V.modal={type:'userNew',f:{name:'',email:'',role:'cs',phone:'',segment:'DD',customerId:'',wh:'PMY'},err:''};render();},
- userEdit:d=>{const u=user(d.id);V.modal={type:'userNew',edit:true,f:{name:u.name,email:u.email,role:u.role,phone:u.phone||'',segment:u.segment||'DD',customerId:u.customerId||'',wh:u.wh||'PMY'},err:''};render();},
+ userEdit:d=>{const u=user(d.id);V.modal={type:'userNew',edit:true,f:{name:u.name,email:u.email,role:u.role,phone:u.phone||'',segment:u.segment||'DD',customerId:u.customerId||'',wh:u.wh||'PMY',statScope:u.statScope||''},err:''};render();},
  unSave:()=>{const M=V.modal;const f=M.f;if(!f.name.trim()||!/^\S+@\S+\.\S+$/.test(f.email)){M.err='Nhập họ tên và email hợp lệ.';return render();}
   if(!M.edit&&S.users.some(u=>u.email.toLowerCase()===f.email.trim().toLowerCase())){M.err='Email này đã có vai trò. Bấm Sửa ở dòng tương ứng để đổi.';return render();}
   if(f.role==='sales'&&!f.phone.trim()){M.err='Sales cần số điện thoại (hiển thị cho khách).';return render();}if(f.role==='customer'&&!f.customerId){M.err='Chọn công ty khách hàng.';return render();}
-  mutate('admin_upsert_profile',{p:{email:f.email.trim(),name:f.name.trim(),role:f.role,phone:f.phone,segment:f.segment,customer_id:f.customerId,wh:f.wh}},
+  mutate('admin_upsert_profile',{p:{email:f.email.trim(),name:f.name.trim(),role:f.role,phone:f.phone,segment:f.segment,customer_id:f.customerId,wh:f.wh,stat_scope:f.statScope||''}},
    {err:m=>M.err=m,ok:()=>{V.modal=null;toast((M.edit?'Đã cập nhật ':'Đã cấp quyền cho ')+f.email.trim());}});},
  loginAs:d=>{const u=user(d.id);mutate('impersonate_start',{p_user:d.id},{ok:r=>{V.view='calendar';V.modal=null;V.asg=null;V.menu=false;V.wh=me().wh||'PMY';V.fleetEdit={};render();window.scrollTo(0,0);toast(`Đang Login as ${r.name} trong ${r.minutes} phút`);}});},
  impStop:()=>mutate('impersonate_stop',{},{ok:()=>{V.view='users';V.uTab='users';V.modal=null;V.asg=null;V.wh=me().wh||'PMY';render();toast('Đã thoát Login as');}}),
@@ -1326,6 +1392,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&V.modal){V.modal=null;render();}if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('tcard')){e.preventDefault();A.truck({c:e.target.dataset.c});}});
 document.addEventListener('change',e=>{const el=e.target;const a=el.dataset.a;
+ if(a==='db5Wh'){if(el.value==='all')V.ssAll=true;else{V.ssAll=false;V.wh=el.value;}render();return;}
  if(a==='wh'){V.wh=el.value;V.fleetEdit={};if(V.view==='day')V.view='calendar';render();return;}
  if(a==='dayFilter'){V.dayFilter[el.dataset.k]=el.value;render();return;}
  if(a==='blF'){setTimeout(blSave,0);if(el.dataset.k==='per'&&el.value==='custom'){const r=blRange(V.blF);V.blF.from=r.from;V.blF.to=r.to;}V.blF[el.dataset.k]=el.value;if(el.dataset.k==='wh')V.blF.region='all';render();return;}

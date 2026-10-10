@@ -77,6 +77,8 @@ alter table app.customers add column if not exists cs_user_id uuid references ap
 alter table app.profiles  add column if not exists away_from date;
 alter table app.profiles  add column if not exists away_to date;
 alter table app.profiles  add column if not exists delegate_id uuid references app.profiles(user_id);
+-- Phạm vi thống kê (chỉ ảnh hưởng số liệu tổng hợp, không mở quyền sửa): own = khách mình phụ trách, DD / DA = toàn segment, all = tất cả
+alter table app.profiles  add column if not exists stat_scope text check (stat_scope in ('own','DD','DA','all'));
 
 create table if not exists app.customer_addresses (
   id          uuid primary key default gen_random_uuid(),
@@ -643,7 +645,7 @@ begin
     'me', jsonb_build_object('id', me.user_id, 'name', me.full_name, 'email', me.email, 'phone', me.phone, 'role', me.role,
                              'segment', me.segment, 'customerId', me.customer_id, 'wh', me.default_warehouse, 'whs', me.warehouses,
                              'awayFrom', me.away_from, 'awayTo', me.away_to, 'delegateId', me.delegate_id,
-                             'mfa', app.has_mfa(me.user_id), 'mfaReq', app.role_has(me.role, 'auth.mfa')),
+                             'mfa', app.has_mfa(me.user_id), 'mfaReq', app.role_has(me.role, 'auth.mfa'), 'statScope', app.stat_scope(me)),
     'cfg', v_cfg,
     'perms', to_jsonb(app.my_perms(me.role)),
     'imp', case when app.impersonating() then (select jsonb_build_object('by', a.full_name, 'expiresAt', extract(epoch from i.expires_at))
@@ -695,7 +697,7 @@ begin
     'users', (select coalesce(jsonb_agg(jsonb_build_object('id', p.user_id, 'name', p.full_name, 'email', p.email, 'phone', p.phone, 'role', p.role,
                 'segment', p.segment, 'customerId', p.customer_id, 'wh', p.default_warehouse, 'whs', p.warehouses, 'active', p.active,
                 'awayFrom', p.away_from, 'awayTo', p.away_to, 'delegateId', p.delegate_id,
-                'mfa', app.has_mfa(p.user_id), 'mfaReq', app.role_has(p.role, 'auth.mfa'),
+                'mfa', app.has_mfa(p.user_id), 'mfaReq', app.role_has(p.role, 'auth.mfa'), 'statScope', p.stat_scope,
                 'last', (select (u.last_sign_in_at at time zone 'Asia/Ho_Chi_Minh')::date from auth.users u where u.id = p.user_id)) order by p.full_name), '[]')
               from app.profiles p),
     'customers', (select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'code', c.code, 'name', c.name, 'segment', c.segment, 'salesId', c.sales_user_id, 'csId', c.cs_user_id, 'active', c.active,
@@ -730,8 +732,7 @@ begin
                    end), '[]')
                  from app.bookings b join app.customers c on c.id = b.customer_id
                 where (b.day between p_from and p_to or b.status in ('hold','resched'))
-                  -- Nháp: người tạo; Sales thấy nháp của khách mình (chỉ để thống kê, không sửa được)
-                  and (b.status <> 'draft' or b.cs_user_id = me.user_id or (me.role = 'sales' and c.sales_user_id = me.user_id))),
+                  and (b.status <> 'draft' or b.cs_user_id = me.user_id)),
     'allocs', (select coalesce(jsonb_agg(jsonb_build_object('id', a.id, 'bk', a.booking_id, 'truck', a.truck_code, 'tons', a.tons,
                  'override', a.override, 'reason', a.override_reason)), '[]')
                from app.allocations a join app.bookings b on b.id = a.booking_id
@@ -1426,13 +1427,16 @@ begin
   if coalesce(trim(p->>'name'), '') = '' then raise exception 'Nhập họ tên.'; end if;
   if v_role = 'sales' and (v_seg is null or coalesce(trim(p->>'phone'), '') = '') then raise exception 'Sales cần segment và số điện thoại.'; end if;
   if v_role = 'customer' and v_cust is null then raise exception 'Chọn công ty khách hàng.'; end if;
-  insert into app.profiles (user_id, full_name, email, phone, role, segment, customer_id, default_warehouse, warehouses, active)
+  if nullif(p->>'stat_scope', '') is not null and p->>'stat_scope' not in ('own','DD','DA','all') then raise exception 'Phạm vi thống kê không hợp lệ.'; end if;
+  insert into app.profiles (user_id, full_name, email, phone, role, segment, customer_id, default_warehouse, warehouses, active, stat_scope)
   values (v_uid, trim(p->>'name'), lower(trim(p->>'email')), nullif(trim(p->>'phone'), ''), v_role,
           case when v_role = 'sales' then v_seg end, case when v_role = 'customer' then v_cust end,
           coalesce(nullif(p->>'wh', ''), 'PMY'),
-          case when v_role = 'logistics' then array[coalesce(nullif(p->>'wh', ''), 'PMY')] else '{}' end, true)
+          case when v_role = 'logistics' then array[coalesce(nullif(p->>'wh', ''), 'PMY')] else '{}' end, true,
+          case when v_role = 'customer' then null else nullif(p->>'stat_scope', '') end)
   on conflict (user_id) do update set full_name = excluded.full_name, phone = excluded.phone, role = excluded.role, segment = excluded.segment,
-    customer_id = excluded.customer_id, default_warehouse = excluded.default_warehouse, warehouses = excluded.warehouses, active = true;
+    customer_id = excluded.customer_id, default_warehouse = excluded.default_warehouse, warehouses = excluded.warehouses, active = true,
+    stat_scope = excluded.stat_scope;
   return v_uid;
 end $$;
 
@@ -1856,6 +1860,35 @@ begin
      order by b.day desc, b.id limit 2000) x);
 end $$;
 
+-- Phạm vi thống kê hiệu lực: mặc định Sales = khách mình, vai trò nội bộ khác = tất cả
+create or replace function app.stat_scope(p app.profiles) returns text
+language sql stable security definer set search_path = '' as $$
+  select coalesce(p.stat_scope, case when p.role = 'sales' then 'own' else 'all' end) $$;
+
+-- Thống kê đặt hàng theo khách (cột "Khách" trên lịch, DB-05). Chỉ trả số liệu tổng hợp theo khách × kho × ngày × trạng thái,
+-- trong phạm vi thống kê của người dùng. Không gồm đơn đã hủy; đơn bị từ chối rồi đặt lại chỉ còn trạng thái mới.
+create or replace function public.booking_stats(p_from date, p_to date) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare me app.profiles; v_scope text;
+begin
+  select * into me from app.profiles p where p.user_id = app.uid() and p.active;
+  if not found or me.role = 'customer' then raise exception 'Tài khoản chưa được cấp quyền.' using errcode = '42501'; end if;
+  if p_from is null or p_to is null or p_to < p_from or p_to - p_from > 400 then raise exception 'Khoảng ngày không hợp lệ.'; end if;
+  v_scope := app.stat_scope(me);
+  return jsonb_build_object('scope', v_scope,
+    'customers', (select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'code', c.code, 'name', c.name, 'segment', c.segment, 'active', c.active,
+                    'salesId', c.sales_user_id, 'salesName', sp.full_name) order by c.name), '[]')
+                  from app.customers c left join app.profiles sp on sp.user_id = c.sales_user_id
+                 where v_scope = 'all' or (v_scope in ('DD','DA') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id)),
+    'rows', (select coalesce(jsonb_agg(jsonb_build_array(x.customer_id, x.warehouse_code, x.day, x.status, x.reason_code, x.tons, x.n)), '[]') from (
+              select b.customer_id, b.warehouse_code, b.day, b.status, case when b.status = 'rejected' then coalesce(b.reason_code, 'OTHER') end as reason_code,
+                     sum(app.bk_total(b.id)) as tons, count(*) as n
+                from app.bookings b join app.customers c on c.id = b.customer_id
+               where b.day between p_from and p_to and b.status in ('ok','hold','resched','draft','rejected')
+                 and (v_scope = 'all' or (v_scope in ('DD','DA') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id))
+               group by 1, 2, 3, 4, 5) x));
+end $$;
+
 -- ---------------------------------------------------------------------
 -- 8. Quyền gọi hàm
 -- ---------------------------------------------------------------------
@@ -1872,7 +1905,7 @@ begin
        'admin_upsert_profile','admin_toggle_user','admin_add_customer','update_my_profile','mark_notifs_read',
        'save_role_permissions','reset_role_permissions',
        'admin_update_customer','admin_toggle_customer','admin_save_address','admin_delete_address',
-       'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa','list_bookings')
+       'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa','list_bookings','booking_stats')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);
