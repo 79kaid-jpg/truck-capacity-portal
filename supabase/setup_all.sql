@@ -850,12 +850,15 @@ begin
     if not found then raise exception 'Không tìm thấy booking %.', v_id; end if;
     perform app.check_scope(me, old.customer_id);
     if old.customer_id <> v_cust then raise exception 'Không đổi được khách hàng của booking đã tạo.'; end if;
-    if old.status in ('rejected','cancelled') then raise exception 'Booking đã đóng, không sửa được.'; end if;
+    if old.status = 'cancelled' then raise exception 'Booking đã hủy, không sửa được.'; end if;
+    -- Booking bị từ chối: CS đặt lại sang ngày khác (giữ nguyên mã booking, lịch sử từ chối vẫn còn)
+    if old.status = 'rejected' and v_mode <> 'hold' then raise exception 'Booking bị từ chối: chọn ngày mới rồi bấm Đặt lại để giữ chỗ.'; end if;
     if old.status = 'draft' and old.cs_user_id <> me.user_id then raise exception 'Chỉ CS tạo nháp mới sửa được nháp này.'; end if;
     v_changed := old.day <> v_day or abs(app.bk_total(v_id) - v_total) > 0.005;
     v_status := old.status;
     if old.status = 'draft' and v_mode = 'hold' then v_status := 'hold';
     elsif old.status = 'resched' then v_status := 'hold'; delete from app.allocations where booking_id = v_id;
+    elsif old.status = 'rejected' then v_status := 'hold'; v_changed := true; delete from app.allocations where booking_id = v_id;
     elsif old.status = 'ok' and v_changed then v_status := 'hold'; delete from app.allocations where booking_id = v_id;
     elsif old.status = 'hold' and v_changed then delete from app.allocations where booking_id = v_id;
     end if;
@@ -864,10 +867,14 @@ begin
            status = v_status,
            held_at = case when v_status = 'hold' and (old.status <> 'hold' or v_changed) then now() else held_at end,
            proposed_day = case when old.status = 'resched' then null else proposed_day end,
+           closed_at = case when old.status = 'rejected' then null else closed_at end,
+           reason_code = case when old.status = 'rejected' then null else reason_code end,
+           reason_note = case when old.status = 'rejected' then '' else reason_note end,
            updated_at = now()
      where id = v_id;
     if v_status <> old.status then perform app.status_change(v_id, old.status, v_status); end if;
-    perform app.audit(v_id, case when v_status <> old.status then 'Chuyển ' || old.status || ' → ' || v_status else 'Cập nhật booking' end
+    perform app.audit(v_id, case when old.status = 'rejected' then 'Đặt lại sau khi bị từ chối: ngày ' || app.dm(v_day) || ', ' || app.fmt(v_total) || ' t'
+                                 when v_status <> old.status then 'Chuyển ' || old.status || ' → ' || v_status else 'Cập nhật booking' end
                             || case when v_changed then ' (đổi ngày/số tấn)' else '' end);
   end if;
 
@@ -882,6 +889,10 @@ begin
       v_id || ' · ' || c.name || ' giữ chỗ ' || app.fmt(v_total) || ' t ngày ' || app.dm(v_day) || ', khu vực ' ||
       coalesce((select r.name from app.regions r where r.id = v_region), 'Chưa phân khu vực'),
       jsonb_build_object('bk', v_id));
+    if old.status = 'rejected' then
+      perform app.notify(app.customer_users(c.id), 'Giữ chỗ',
+        v_id || ' (trước đó bị từ chối) đã được đặt lại sang ngày ' || app.dm(v_day) || ', ' || app.fmt(v_total) || ' t, đang chờ xếp xe.', jsonb_build_object('bk', v_id, 'day', v_day));
+    end if;
     if v_region is null then
       perform app.notify(app.logistics_of(v_wh), 'Chưa phân khu vực',
         v_id || ': địa chỉ tỉnh ' || coalesce(nullif(v_prov, ''), '?') || ' chưa ứng với khu vực nào của kho ' || v_wh, jsonb_build_object('bk', v_id));
@@ -1243,7 +1254,7 @@ end $$;
 -- ---------------------------------------------------------------------
 create or replace function public.update_settings(p jsonb) returns void
 language plpgsql volatile security definer set search_path = '' as $$
-declare me app.profiles; k text;
+declare me app.profiles; k text; v_bad text;
 begin
   me := app.require_perm('config.general');
   for k in select jsonb_object_keys(p) loop
@@ -1252,6 +1263,29 @@ begin
     end if;
     if k in ('near','capDK','capCN','split','sla','maxStops','fillMin','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours') and not ((p->>k)::numeric > 0) then
       raise exception 'Giá trị % phải lớn hơn 0.', k;
+    end if;
+    -- Không đánh dấu nghỉ một ngày đang có booking (khách sẽ không thấy đơn của mình trên lịch)
+    if k = 'holidays' then
+      select string_agg(x.d, '; ') into v_bad from (
+        select app.dm(b.day) || ': ' || string_agg(b.id, ', ' order by b.id) as d
+          from app.bookings b
+         where b.status in ('hold','ok') and b.day >= app.today()
+           and b.day::text in (select jsonb_array_elements_text(p->'holidays'))
+           and b.day::text not in (select jsonb_array_elements_text(coalesce(app.setting('holidays'), '[]'::jsonb)))
+         group by b.day order by b.day) x;
+      if v_bad is not null then
+        raise exception 'Ngày định cho nghỉ đang có booking (%). Đổi ngày hoặc hủy các booking đó trước khi đánh dấu nghỉ.', v_bad;
+      end if;
+    end if;
+    if k = 'sundayOff' and (p->>k)::boolean and not coalesce((app.setting('sundayOff') #>> '{}')::boolean, false) then
+      select string_agg(x.d, '; ') into v_bad from (
+        select app.dm(b.day) || ': ' || string_agg(b.id, ', ' order by b.id) as d
+          from app.bookings b
+         where b.status in ('hold','ok') and b.day >= app.today() and extract(dow from b.day) = 0
+         group by b.day order by b.day limit 5) x;
+      if v_bad is not null then
+        raise exception 'Chủ nhật đang có booking (%). Đổi ngày các booking đó trước khi cho Chủ nhật nghỉ.', v_bad;
+      end if;
     end if;
     insert into app.settings values (k, p->k) on conflict (key) do update set value = excluded.value;
   end loop;

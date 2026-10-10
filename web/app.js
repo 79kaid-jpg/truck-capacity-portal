@@ -41,7 +41,7 @@ const PROVINCES=['TP. Hồ Chí Minh','Đồng Nai','Lâm Đồng','Tây Ninh','
 const ROLE_LABEL={customer:'Khách hàng',sales:'Sales',cs:'CS',logistics:'Logistics',admin:'Admin'};
 const SEG_LABEL={DD:'Dân dụng',DA:'Dự án','':'–'};
 const ST_LABEL={draft:'Nháp',hold:'Chờ xếp xe',ok:'Đã xác nhận',rejected:'Từ chối',resched:'Đề nghị đổi ngày',cancelled:'Đã hủy'};
-const ST_CUST={hold:'Chờ duyệt',ok:'Đã xác nhận',rejected:'Từ chối',resched:'Đề nghị đổi ngày',cancelled:'Đã hủy'};
+const ST_CUST={hold:'Chờ xếp xe',ok:'Đã xác nhận',rejected:'Từ chối',resched:'Đề nghị đổi ngày',cancelled:'Đã hủy'};
 
 /* ===================== server data ===================== */
 // Dữ liệu được nạp từ Supabase qua hàm get_state (đã lọc theo vai trò ở phía máy chủ)
@@ -232,19 +232,35 @@ function vCalendar(){
   <div class="legend">${pill('ok')} ${pill('near')} ${pill('full')} ${isC?`<span><span class="sw" style="background:var(--blue-bg);border:1px solid var(--blue)"></span>Ngày bạn có đơn đã xác nhận</span><span><span class="sw" style="border:2px dashed var(--blue)"></span>Đơn đang chờ xác nhận</span>`:`<span><span class="sw" style="background:var(--pend-bg)"></span>Booking đang giữ chỗ</span><span>${DK_SVG().replace('<svg','<svg width="30" height="13" style="vertical-align:-2px"')} Đầu kéo · ${CN_SVG().replace('<svg','<svg width="30" height="13" style="vertical-align:-2px"')} Container</span>`}</div></div>
   ${statsPanel()}</div></div>`;
 }
+// Ô lịch của khách: hiện cả đơn bị đề nghị đổi ngày / bị từ chối để không "mất" số tấn
+function custExtra(mine){const rs=mine.filter(b=>b.status==='resched'),rj=mine.filter(b=>b.status==='rejected');
+ return (rs.length?`<div class="small" style="color:var(--warn,#9A5B00);font-weight:600">Đề nghị đổi ngày: ${t2(rs.reduce((s,b)=>s+bkTotal(b),0))} t${rs[0].proposedDate?' → '+dm(rs[0].proposedDate):''}</div>`:'')
+  +(rj.length?`<div class="small" style="color:var(--bad);font-weight:600">Bị từ chối: ${t2(rj.reduce((s,b)=>s+bkTotal(b),0))} t</div>`:'');}
 function dayCell(date){
  const m=dayM(V.wh,date);const d=parts(date)[2];const past=date<TODAY;const isC=role()==='customer';const today=date===TODAY;
  const head=`<div class="ctop"><span class="dnum ${m.declared&&!m.off?'':'lite'}">${d}</span><span class="wdmobile small muted">${WDS[dow(date)]} · ${dm(date)}</span>${m.declared&&!m.off?(isC&&false?'':pill(m.status)):''}</div>`;
- if(m.off)return `<div class="cell ${past?'past':''} ${today?'today':''}">${head}<div class="kv">Không bốc hàng</div></div>`;
- if(!m.declared)return `<div class="cell ${past?'past':''} ${today?'today':''}">${head}<div class="kv">Chưa mở lịch xe</div>${can('fleet.manage')&&!past?`<div class="cacts"><button class="btn ghost sm" data-a="go" data-v="fleet">Khai báo xe</button></div>`:''}</div>`;
+ if(m.off||!m.declared){
+  // Ngày nghỉ / chưa khai báo xe nhưng vẫn có booking (ví dụ ngày được đánh dấu nghỉ sau khi đã đặt): vẫn phải hiện để không "mất" đơn
+  const lbl=m.off?'Không bốc hàng':'Chưa mở lịch xe';
+  if(isC){const mine=S.bookings.filter(b=>b.wh===V.wh&&b.date===date&&b.customerId===me().customerId&&['ok','hold','resched','rejected'].includes(b.status));
+   const ok=mine.filter(b=>b.status==='ok'),pend=mine.filter(b=>b.status==='hold');
+   return `<div class="cell ${ok.length?'mine':pend.length?'mine-pend':''} ${past?'past':''} ${today?'today':''}">${head}<div class="kv">${lbl}</div>
+    ${ok.length?`<div class="minebox num">Bạn đã đặt: ${t2(ok.reduce((s,b)=>s+bkTotal(b),0))} t</div>`:''}
+    ${pend.length?`<div class="small" style="color:var(--blue);font-weight:600">Đang chờ xác nhận: ${t2(pend.reduce((s,b)=>s+bkTotal(b),0))} t</div>`:''}${custExtra(mine)}
+    ${mine.length?`<div class="cacts"><button class="btn sm" data-a="custDay" data-d="${date}">Chi tiết</button></div>`:''}</div>`;}
+  const act=S.bookings.filter(b=>b.wh===V.wh&&b.date===date&&['ok','hold'].includes(b.status)&&ownsCust(b.customerId));
+  return `<div class="cell ${past?'past':''} ${today?'today':''}">${head}<div class="kv">${lbl}</div>
+   ${act.length?`<div class="err small" style="margin-top:4px">⚠ ${act.length} booking (${t2(act.reduce((s,b)=>s+bkTotal(b),0))} t) trong ngày này: cần đổi ngày</div>`:''}
+   <div class="cacts">${act.length&&can('day.view')?`<button class="btn sm" data-a="openDay" data-d="${date}">Chi tiết</button>`:''}${!m.off&&can('fleet.manage')&&!past?`<button class="btn ghost sm" data-a="go" data-v="fleet">Khai báo xe</button>`:''}</div></div>`;
+ }
  if(isC){
   const mine=S.bookings.filter(b=>b.wh===V.wh&&b.date===date&&b.customerId===me().customerId);
   const ok=mine.filter(b=>b.status==='ok');const pend=mine.filter(b=>b.status==='hold');
-  const cls=ok.length?'mine':pend.length?'mine-pend':'';
+  const cls=ok.length?'mine':pend.length?'mine-pend':'';const extra=custExtra(mine);
   return `<div class="cell ${cls} ${past?'past':''} ${today?'today':''}">${head}
    <div class="bigavail num">${t2(m.avail)} t<small>Có thể đặt</small></div>
    ${ok.length?`<div class="minebox num">Bạn đã đặt: ${t2(ok.reduce((s,b)=>s+bkTotal(b),0))} t</div>`:''}
-   ${pend.length?`<div class="small" style="color:var(--blue);font-weight:600">Đang chờ xác nhận: ${t2(pend.reduce((s,b)=>s+bkTotal(b),0))} t</div>`:''}
+   ${pend.length?`<div class="small" style="color:var(--blue);font-weight:600">Đang chờ xác nhận: ${t2(pend.reduce((s,b)=>s+bkTotal(b),0))} t</div>`:''}${extra}
    ${mine.filter(b=>b.status!=='draft').length?`<div class="cacts"><button class="btn sm" data-a="custDay" data-d="${date}">Chi tiết</button></div>`:''}</div>`;
  }
  const holds=m.holds.filter(b=>ownsCust(b.customerId));const ht=holds.reduce((s,b)=>s+bkTotal(b)-allocSum(b.id),0);
@@ -258,10 +274,17 @@ function dayCell(date){
 function statsPanel(){
  const[y,m]=V.ym;const n=dim(y,m);let tDK=0,tCN=0,uDK=0,uCN=0,tons=0,cap=0;
  for(let d=1;d<=n;d++){const mm=dayM(V.wh,iso(y,m,d));tDK+=mm.nDK;tCN+=mm.nCN;uDK+=mm.uDK;uCN+=mm.uCN;tons+=mm.loaded;cap+=mm.cap;}
- if(role()==='customer'){const mine=S.bookings.filter(b=>b.wh===V.wh&&b.customerId===me().customerId&&b.date.startsWith(`${y}-${pad(m)}`));const ok=mine.filter(b=>b.status==='ok');
-  return `<aside class="stats"><h3>THỐNG KÊ CỦA BẠN</h3><div class="bignum num"><small>TỔNG SỐ TẤN ĐÃ XÁC NHẬN</small>${t2(ok.reduce((s,b)=>s+bkTotal(b),0))}</div>
-  <div><div class="lbl">Booking trong tháng</div><div class="line">Đã xác nhận: ${ok.length}</div><div class="line">Đang chờ: ${mine.filter(b=>b.status==='hold').length}</div></div>
-  <div><div class="lbl">Sales phụ trách</div><div>${esc(user(cust(me().customerId).salesId).name)}</div><div class="muted small">${esc(user(cust(me().customerId).salesId).phone||'')} · ${esc(user(cust(me().customerId).salesId).email)}</div></div></aside>`;}
+ if(role()==='customer'){
+  // Đã đặt = mọi booking đã gửi trong tháng (trừ nháp, đã hủy), tách theo trạng thái để khách thấy rõ đơn nào được nhận, đơn nào bị từ chối
+  const mine=S.bookings.filter(b=>b.wh===V.wh&&b.customerId===me().customerId&&b.date.startsWith(`${y}-${pad(m)}`)&&['ok','hold','resched','rejected'].includes(b.status)).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  const sum=st=>{const l=mine.filter(b=>b.status===st);return{n:l.length,t:l.reduce((s,b)=>s+bkTotal(b),0)};};
+  const all=mine.reduce((s,b)=>s+bkTotal(b),0);
+  const rows=[['ok','Đã xác nhận'],['hold','Chờ xếp xe'],['resched','Đề nghị đổi ngày'],['rejected','Bị từ chối']].map(([k,l])=>({k,l,...sum(k)})).filter(r=>r.n||r.k==='ok'||r.k==='hold');
+  const sp=user(cust(me().customerId).salesId);
+  return `<aside class="stats"><h3>THỐNG KÊ CỦA BẠN</h3><div class="bignum num"><small>TỔNG SỐ TẤN ĐÃ ĐẶT</small>${t2(all)}</div>
+  <div class="cstat">${rows.map(r=>`<div class="cstat-row"><span class="st st-${r.k}">${r.l}</span><span class="num"><b>${t2(r.t)} t</b> <span class="muted small">· ${r.n} đơn</span></span></div>`).join('')}</div>
+  ${mine.length?`<div><div class="lbl">Đơn trong tháng</div><div class="cbklist">${mine.map(b=>`<button type="button" class="cbk" data-a="custDay" data-d="${b.date}" title="Xem đơn ngày ${dmy(b.date)}"><span class="num">${dm(b.date)}</span><span class="num">${t2(bkTotal(b))} t</span><span class="st st-${b.status}">${ST_CUST[b.status]}</span></button>`).join('')}</div><div class="small muted" style="margin-top:4px">Không tính đơn đã hủy.</div></div>`:''}
+  <div><div class="lbl">Sales phụ trách</div><div>${esc(sp.name)}</div><div class="muted small">${esc(sp.phone||'')} · ${esc(sp.email)}</div></div></aside>`;}
  return `<aside class="stats"><h3>THỐNG KÊ</h3>
   <div><div class="lbl">Tổng lượt xe</div><div class="line num">${DK_SVG()} ${tDK}</div><div class="line num">${CN_SVG()} ${tCN}</div></div>
   <div><div class="lbl">Đã dùng</div><div class="line num">${DK_SVG()} ${uDK}/${tDK}</div><div class="line num">${CN_SVG()} ${uCN}/${tCN}</div></div>
@@ -334,12 +357,12 @@ function suggCard(g,past){
 function vBookings(){
  const tabs=[...(can('booking.create')||can('booking.edit')?[['todo','Cần xử lý']]:[]),['all','Tất cả'],['draft','Nháp'],['hold','Chờ xếp xe'],['ok','Đã xác nhận'],['resched','Đề nghị đổi ngày'],['closed','Từ chối / Đã hủy']].filter(t=>t[0]!=='draft'||can('booking.create'));
  const f=V.blF;const q=f.q.trim().toLowerCase();
- const todo=b=>(b.status==='resched'||b.status==='hold'&&b.date<TODAY||b.status==='rejected'&&b.date>=TODAY)&&(V.blAll||myCsCust(cust(b.customerId)));
+ const todo=b=>(b.status==='resched'||b.status==='hold'&&b.date<TODAY||b.status==='rejected'&&b.date>=addDays(TODAY,-7))&&(V.blAll||myCsCust(cust(b.customerId)));
  let list=S.bookings.filter(visibleBk).filter(b=>V.blTab==='todo'?todo(b):V.blTab==='all'?true:V.blTab==='closed'?['rejected','cancelled'].includes(b.status):b.status===V.blTab)
   .filter(b=>f.wh==='all'||b.wh===f.wh).filter(b=>f.region==='all'||b.region===f.region)
   .filter(b=>!q||(b.id+' '+b.ref+' '+cust(b.customerId).name).toLowerCase().includes(q)).sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id));
  return `<div class="panel"><div class="pagehead"><h2>DANH SÁCH BOOKING</h2>${can('booking.create')?`<button class="btn" data-a="newBk" data-d="${TODAY}">Đặt hàng mới</button>`:''}</div>
- <div class="tabs">${tabs.map(([k,l])=>`<button class="${V.blTab===k?'on':''}" data-a="blTab" data-t="${k}">${l}${k==='todo'?` <span class="cnt">${S.bookings.filter(visibleBk).filter(b=>(b.status==='resched'||b.status==='hold'&&b.date<TODAY||b.status==='rejected'&&b.date>=TODAY)&&myCsCust(cust(b.customerId))).length}</span>`:''}</button>`).join('')}</div>
+ <div class="tabs">${tabs.map(([k,l])=>`<button class="${V.blTab===k?'on':''}" data-a="blTab" data-t="${k}">${l}${k==='todo'?` <span class="cnt">${S.bookings.filter(visibleBk).filter(b=>(b.status==='resched'||b.status==='hold'&&b.date<TODAY||b.status==='rejected'&&b.date>=addDays(TODAY,-7))&&myCsCust(cust(b.customerId))).length}</span>`:''}</button>`).join('')}</div>
  ${V.blTab==='todo'?`<div class="hint" style="margin-bottom:10px">Đề nghị đổi ngày, bị từ chối, chờ xếp xe quá ngày bốc của khách bạn phụ trách, khách của CS đang nghỉ mà bạn nhận thay, và khách chưa gán CS. <label class="row" style="display:inline-flex;margin-left:8px"><input type="checkbox" data-f="blAll" ${V.blAll?'checked':''}> Xem của tất cả CS</label></div>`:''}
  <div class="filters"><div class="field"><label for="bl-wh">Kho</label><select id="bl-wh" class="inp" data-a="blF" data-k="wh"><option value="all">Tất cả kho</option>${WH.map(w=>`<option value="${w.id}" ${f.wh===w.id?'selected':''}>${w.name}</option>`).join('')}</select></div>
  <div class="field"><label for="bl-rg">Khu vực</label><select id="bl-rg" class="inp" data-a="blF" data-k="region"><option value="all">Tất cả</option>${S.regions.filter(r=>f.wh==='all'||r.wh===f.wh).map(r=>`<option value="${r.id}" ${f.region===r.id?'selected':''}>${esc(r.name)} (${r.wh})</option>`).join('')}</select></div>
@@ -381,7 +404,8 @@ function vBooking(){
  const chk=asgCheck(b);
  const hist=S.audit.filter(a=>a.obj===b.id);
  return `<div class="panel"><div class="crumb"><button class="linkbtn" data-a="back">← Quay lại</button><span class="muted">/</span><b>${b.id}</b><span class="st st-${b.status}">${ST_LABEL[b.status]}</span></div>
- <div class="pagehead"><h2>CHI TIẾT BOOKING & GÁN XE</h2>${(b.status==='draft'?b.csId===V.me:can('booking.edit'))&&ownsCust(b.customerId)&&(['draft','hold','resched'].includes(b.status)||b.status==='ok'&&!past)?`<button class="btn ghost" data-a="editBk" data-id="${b.id}">Sửa booking</button>`:''}</div>
+ <div class="pagehead"><h2>CHI TIẾT BOOKING & GÁN XE</h2>${(b.status==='draft'?b.csId===V.me:can('booking.edit'))&&ownsCust(b.customerId)&&(['draft','hold','resched'].includes(b.status)||b.status==='ok'&&!past)?`<button class="btn ghost" data-a="editBk" data-id="${b.id}">Sửa booking</button>`:''}${b.status==='rejected'&&can('booking.edit')&&ownsCust(b.customerId)?`<button class="btn" data-a="rebookBk" data-id="${b.id}">Đặt lại ngày khác</button>`:''}</div>
+ ${b.status==='rejected'?`<div class="warnlist" style="margin-bottom:12px"><b>Booking bị từ chối</b>${b.rejectReason?': '+esc(b.rejectReason):''}. ${can('booking.edit')&&ownsCust(b.customerId)?'Bấm <b>Đặt lại ngày khác</b> để chọn ngày còn chỗ và giữ chỗ lại; mã booking và lịch sử được giữ nguyên.':'CS phụ trách có thể đặt lại sang ngày khác.'}</div>`:''}
  ${past&&['hold','resched','draft'].includes(b.status)?`<div class="warnlist" style="margin-bottom:12px"><b>Ngày bốc ${dmy(b.date)} đã qua</b> nên không gán xe được nữa (BR-12). ${b.status==='hold'?'Booking chưa được xếp xe: Logistics <b>Đề nghị đổi ngày</b> hoặc <b>Từ chối</b>; CS có thể <b>Sửa booking</b> để chuyển sang ngày khác.':'CS có thể <b>Sửa booking</b> để chọn ngày bốc mới.'}</div>`:''}
  <div class="bdgrid"><div class="panel" style="background:var(--sand)">
   <dl class="dl"><dt>Kho</dt><dd>${WH.find(w=>w.id===b.wh).full}</dd><dt>Ngày bốc</dt><dd class="num">${dmy(b.date)}</dd><dt>Ngày giao YC</dt><dd>${b.delivery?dmy(b.delivery):'–'}</dd>
@@ -777,7 +801,7 @@ function bfHintHtml(){const M=V.modal;const f=M.f;if(!f.region||f.region==='NONE
 function mBF(){const M=V.modal;const f=M.f;const c=cust(f.customerId);const det=f.customerId?detectRegion({...f}):{};const editing=M.mode==='edit';const b=M.id?bkById(M.id):null;
  const regOpts=regionsOf(f.wh);const pref=bfTotal(f)>S.cfg.split?'DK':'CN';
  return `<div class="mhead"><span class="meta">${WH.find(w=>w.id===f.wh).full.toUpperCase()}</span><span class="meta">Ngày: ${f.date?dmy(f.date):'–'}</span></div>
- <h2 style="margin-bottom:12px">${editing?'SỬA BOOKING '+M.id:'ĐẶT HÀNG'}</h2>
+ <h2 style="margin-bottom:12px">${M.rebook?'ĐẶT LẠI BOOKING '+M.id:editing?'SỬA BOOKING '+M.id:'ĐẶT HÀNG'}</h2>${M.info?`<div class="hint" style="margin-bottom:10px">${esc(M.info)}</div>`:''}
  <div class="fgrid">
  <div class="field"><label for="bf-wh">Kho <span class="req">*</span></label><select id="bf-wh" class="inp" data-f="bf" data-k="wh" ${editing?'disabled':''}>${WH.map(w=>`<option value="${w.id}" ${f.wh===w.id?'selected':''}>${w.name}</option>`).join('')}</select></div>
  <div class="field"><label for="bf-date">Ngày bốc <span class="req">*</span></label><input id="bf-date" type="date" class="inp" min="${TODAY}" value="${f.date}" data-f="bf" data-k="date"></div>
@@ -800,7 +824,7 @@ function mBF(){const M=V.modal;const f=M.f;const c=cust(f.customerId);const det=
  <div class="span2" id="bf-cap">${bfCapHtml()}</div></div>
  ${M.err?`<div class="err" style="margin-top:10px">${esc(M.err)}</div>`:''}
  ${M.cancel?`<div class="panel" style="margin-top:10px"><div class="field"><label for="bf-cr">Lý do hủy <span class="req">*</span></label><input id="bf-cr" class="inp" data-f="bfcr" value="${esc(M.cancelReason)}"></div><div class="mfoot"><button class="btn ghost sm" data-a="bfCancelOff">Thôi</button><button class="btn danger sm" data-a="bfCancelGo">Xác nhận hủy booking</button></div></div>`:''}
- <div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button>${editing&&b.status!=='draft'&&can('booking.cancel')?`<button class="btn danger" data-a="bfCancelOn">Hủy booking</button>`:''}${!editing||b.status==='draft'?'<button class="btn ghost" data-a="bfDraft">Lưu tạm</button>':''}${editing&&b.status!=='draft'&&b.status!=='resched'?'<button class="btn" data-a="bfHold">Lưu thay đổi</button>':'<button class="btn" data-a="bfHold">Giữ chỗ</button>'}</div>`;}
+ <div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button>${M.rebook?'<button class="btn" data-a="bfHold">Đặt lại (giữ chỗ)</button>':`${editing&&b.status!=='draft'&&can('booking.cancel')?`<button class="btn danger" data-a="bfCancelOn">Hủy booking</button>`:''}${!editing||b.status==='draft'?'<button class="btn ghost" data-a="bfDraft">Lưu tạm</button>':''}${editing&&b.status!=='draft'&&b.status!=='resched'?'<button class="btn" data-a="bfHold">Lưu thay đổi</button>':'<button class="btn" data-a="bfHold">Giữ chỗ</button>'}`}</div>`;}
 const CAT={products:{label:'Sản phẩm',named:true},colors:{label:'Màu',named:true},thicks:{label:'Độ dày',unit:'mm',min:0.1,max:10},widths:{label:'Khổ rộng',unit:'mm',min:100,max:2000,int:true}};
 const LINEKEY={products:'p',colors:'c',thicks:'th',widths:'w'};
 const catLabel=(k,x)=>CAT[k].named?x.name:String(x.value).replace('.',',');
@@ -918,6 +942,7 @@ const A={
   mutate('propose_day',{p_id:b.id,p_day:A_.newDate,p_reason:A_.resReason.trim()},{err:m=>V.asg.err=m,ok:()=>{V.asg=null;toast('Đã gửi đề nghị đổi ngày');}});},
  // booking form
  newBk:d=>{V.modal=bfNew(d.d||TODAY);render();},
+ rebookBk:d=>{const b=bkById(d.id);const M=bfNew(b.date,b);M.rebook=true;M.f.date='';M.info='Booking bị từ chối ngày '+dmy(b.date)+(b.rejectReason?' (lý do: '+b.rejectReason+')':'')+'. Chọn ngày bốc mới còn đủ chỗ rồi bấm Đặt lại.';V.modal=M;render();setTimeout(()=>{const x=document.getElementById('bf-date');if(x)x.focus();},0);},
  editBk:d=>{const b=bkById(d.id);const M=bfNew(b.date,b);if(b.status==='resched'&&b.proposedDate)M.f.date=b.proposedDate;if(M.f.date&&M.f.date<TODAY){M.f.date='';M.err='Ngày bốc '+dmy(b.date)+' đã qua: chọn ngày bốc mới rồi bấm Lưu.';}V.modal=M;render();},
  bfAdd:()=>{V.modal.f.lines.push({p:'',c:'',th:'',w:'',t:''});render();},
  bfDel:d=>{V.modal.f.lines.splice(+d.i,1);render();},
@@ -1043,7 +1068,7 @@ function saveBF(kind){const M=V.modal;const f=M.f;M.err='';const tot=bfTotal(f);
  const p={id:M.id||null,mode:kind,wh:f.wh,day:f.date,delivery:f.delivery||'',customer_id:f.customerId,ref:f.ref,address_id:isNew?'new':f.addrId,
   province:f.province,ward:f.ward,street:f.addrText,save_addr:!!f.saveAddr,region:f.region||'',note:f.note||'',
   lines:f.lines.map(l=>({p:l.p,c:l.c,th:String(l.th??'').replace(',','.'),w:String(l.w??''),t:String(l.t??'').replace(',','.')}))};
- mutate('save_booking',{p},{err:m=>M.err=m,ok:id=>{V.modal=null;V.asg=null;toast(kind==='draft'?`Đã lưu nháp ${id}`:M.id?`Đã lưu ${id}`:`Đã giữ chỗ ${id}, trừ tạm ${t2(tot)} t`);}});}
+ mutate('save_booking',{p},{err:m=>M.err=m,ok:id=>{V.modal=null;V.asg=null;toast(kind==='draft'?`Đã lưu nháp ${id}`:M.rebook?`Đã đặt lại ${id} ngày ${dm(f.date)}, chờ Logistics xếp xe`:M.id?`Đã lưu ${id}`:`Đã giữ chỗ ${id}, trừ tạm ${t2(tot)} t`);}});}
 
 /* ===================== Global Search ===================== */
 const GS={open:false,q:'',items:[],sel:0,seq:0,t:null,loading:false,res:null};
