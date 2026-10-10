@@ -26,7 +26,7 @@ step = 'cs-away'; p = await login('cs@demo.vn');
 await p.click('[data-a="menu"]'); await p.click('.menu [data-a="go"][data-v="profile"]');
 const today = await p.evaluate(() => TODAY); const plus3 = await p.evaluate(() => addDays(TODAY, 3));
 await p.fill('#aw-f', today); await p.locator('#aw-f').dispatchEvent('change'); await p.fill('#aw-t', plus3); await p.locator('#aw-t').dispatchEvent('change');
-await p.selectOption('#aw-d', { label: 'Lê Thu Hằng · CS' }); await clr(p); await p.click('[data-a="awSave"][data-m="self"]'); log('set away ->', await toast(p));
+console.log('delegate options:', (await p.locator('#aw-d option').allInnerTexts()).join(' | ')); await p.selectOption('#aw-d', { label: 'Lê Thu Hằng' }); await clr(p); await p.click('[data-a="awSave"][data-m="self"]'); log('set away ->', await toast(p));
 await p.screenshot({ path: `${OUT}/16-away.png`, fullPage: true }); await p.context().close();
 step = 'log-propose'; p = await login('log@demo.vn');
 await p.click('[data-a="go"][data-v="approvals"]'); await p.locator('tr.click', { hasText: 'Đại Lộc' }).first().click(); await p.waitForTimeout(200);

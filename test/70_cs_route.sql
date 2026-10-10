@@ -27,3 +27,20 @@ select cs_user_id = '00000000-0000-0000-0000-0000000000c1' assigned_to_truc from
 update app.bookings set updated_at = now() - interval '5 hours' where id in (:'bk', :'bk2');
 select app.escalate() escalated; select app.escalate() escalated_again;
 select count(distinct user_id) reminder_recipients from app.notifications where type='Nhắc việc';
+\echo --- Người nhận thay phải là CS: chọn Sales -> expect ERROR; Sales tự đặt nghỉ -> expect ERROR; CS nhận thay đang nghỉ trùng -> expect ERROR
+begin;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000c1',true);
+set local role authenticated;
+select set_away(null, current_date, current_date+3, '00000000-0000-0000-0000-0000000000d1');
+rollback;
+begin;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000d1',true);
+set local role authenticated;
+select set_away(null, current_date, current_date+3, null);
+rollback;
+begin;
+update app.profiles set away_from = current_date+1, away_to = current_date+5 where user_id = '00000000-0000-0000-0000-0000000000c2';
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000c1',true);
+set local role authenticated;
+select set_away(null, current_date, current_date+3, '00000000-0000-0000-0000-0000000000c2');
+rollback;

@@ -642,13 +642,13 @@ function dashSystem(){
 /* ---------- SCR-17 profile ---------- */
 
 function awayForm(u,mode){if(!V.aw||V.aw.uid!==u.id)V.aw={uid:u.id,from:u.awayFrom||'',to:u.awayTo||'',del:u.delegateId||'',err:''};const W=V.aw;
- const cands=S.users.filter(x=>x.active&&x.id!==u.id&&x.role!=='customer').sort((a,b)=>(a.role===u.role?0:1)-(b.role===u.role?0:1)||a.name.localeCompare(b.name));
+ const cands=S.users.filter(x=>x.active&&x.id!==u.id&&x.role==='cs').sort((a,b)=>a.name.localeCompare(b.name));
  return `<h3 style="margin-top:18px;font-size:15px">NGHỈ PHÉP VÀ NGƯỜI NHẬN THAY</h3>
  <p class="small muted" style="margin-top:0">Trong thời gian nghỉ, thông báo về khách bạn phụ trách chuyển cho người nhận thay. Không chọn người nhận thay thì gửi cho tất cả CS.</p>
  ${isAway(u)?`<div class="hint" style="margin-bottom:8px">Đang nghỉ đến ${dmy(u.awayTo)}${u.delegateId?' · người nhận thay: <b>'+esc(user(u.delegateId).name)+'</b>':''}</div>`:''}
  <div class="fgrid"><div class="field"><label for="aw-f">Từ ngày</label><input id="aw-f" type="date" class="inp" data-f="aw" data-k="from" value="${W.from}"></div>
  <div class="field"><label for="aw-t">Đến ngày</label><input id="aw-t" type="date" class="inp" data-f="aw" data-k="to" value="${W.to}"></div>
- <div class="field" style="grid-column:1/-1"><label for="aw-d">Người nhận thay</label><select id="aw-d" class="inp" data-f="aw" data-k="del"><option value="">Không chọn: gửi cho tất cả CS</option>${cands.map(x=>`<option value="${x.id}" ${W.del===x.id?'selected':''}>${esc(x.name)} · ${ROLE_LABEL[x.role]}${isAway(x)?' (đang nghỉ)':''}</option>`).join('')}</select></div></div>
+ <div class="field" style="grid-column:1/-1"><label for="aw-d">Người nhận thay</label><select id="aw-d" class="inp" data-f="aw" data-k="del"><option value="">Không chọn: gửi cho tất cả CS</option>${cands.map(x=>`<option value="${x.id}" ${W.del===x.id?'selected':''}>${esc(x.name)}${x.awayFrom&&x.awayTo>=TODAY?` (nghỉ ${dm(x.awayFrom)}–${dm(x.awayTo)})`:''}</option>`).join('')}</select>${cands.length?'<span class="small muted">Chỉ chọn được CS khác, vì người nhận thay cần quyền xử lý booking của khách.</span>':'<span class="small muted">Chưa có CS nào khác: thông báo sẽ gửi cho tất cả CS đang làm việc.</span>'}</div></div>
  ${W.err?`<div class="err">${esc(W.err)}</div>`:''}
  <div class="mfoot">${u.awayFrom?`<button class="btn ghost" data-a="awClear" data-m="${mode}">Tắt nghỉ phép</button>`:''}<button class="btn ghost" data-a="awSave" data-m="${mode}">Lưu nghỉ phép</button></div>`;}
 /* ---- Xác thực 2 lớp (MFA, TOTP) ---- */
@@ -703,7 +703,7 @@ function vProfile(){const u=me();
  ${u.customerId&&cust(u.customerId)?`<div class="field"><label>Công ty</label><div>${esc(cust(u.customerId).name)} · ${SEG_LABEL[cust(u.customerId).segment]}</div></div><div class="field"><label>Sales phụ trách</label><div>${esc(user(cust(u.customerId).salesId).name)}</div></div>`:''}
  <div class="field"><label>Kho mặc định</label><div>${(WH.find(w=>w.id===u.wh)||{full:u.wh}).full}</div></div></div>
  ${S.imp?'<p class="small muted" style="margin-top:12px">Đang Login as: không sửa hồ sơ và mật khẩu của người này.</p>':`<div class="mfoot"><button class="btn" data-a="pfSave">Lưu</button></div>
- ${u.role!=='customer'?awayForm(u,'self'):''}
+ ${u.role==='cs'?awayForm(u,'self'):''}
  ${mfaProfile(u)}
  <h3 style="margin-top:18px;font-size:15px">ĐỔI MẬT KHẨU</h3><div class="fgrid"><div class="field"><label for="pw1">Mật khẩu mới</label><input id="pw1" type="password" class="inp" autocomplete="new-password" data-f="pw" data-k="pw" value="${esc(V.pw||'')}"></div><div class="field"><label for="pw2">Nhập lại</label><input id="pw2" type="password" class="inp" autocomplete="new-password" data-f="pw" data-k="pw2" value="${esc(V.pw2||'')}"></div></div>${V.pwErr?`<div class="err">${esc(V.pwErr)}</div>`:''}<div class="mfoot"><button class="btn ghost" data-a="pwSave">Đổi mật khẩu</button></div>`}</div>`;}
 
@@ -867,7 +867,7 @@ function mUserNew(){const M=V.modal;const f=M.f;
  ${f.role==='sales'?`<div class="field"><label for="un-s">Segment <span class="req">*</span></label><select id="un-s" class="inp" data-f="un" data-k="segment"><option value="DD" ${f.segment==='DD'?'selected':''}>Dân dụng</option><option value="DA" ${f.segment==='DA'?'selected':''}>Dự án</option></select></div>`:''}
  ${f.role==='customer'?`<div class="field"><label for="un-c">Công ty khách hàng <span class="req">*</span></label><select id="un-c" class="inp" data-f="un" data-k="customerId"><option value="">Chọn</option>${S.customers.map(c=>`<option value="${c.id}" ${f.customerId===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>`:''}
  <div class="field"><label for="un-w">Kho mặc định <span class="req">*</span></label><select id="un-w" class="inp" data-f="un" data-k="wh">${WH.map(w=>`<option value="${w.id}" ${f.wh===w.id?'selected':''}>${w.name}</option>`).join('')}</select></div></div>
- ${M.err?`<div class="err" style="margin-top:8px">${esc(M.err)}</div>`:''}<p class="small muted">Gửi email và mật khẩu tạm cho người dùng; họ tự đổi mật khẩu trong Hồ sơ cá nhân.</p>${M.edit&&f.role!=='customer'&&S.users.find(x=>x.email===f.email)?awayForm(S.users.find(x=>x.email===f.email),'admin'):''}
+ ${M.err?`<div class="err" style="margin-top:8px">${esc(M.err)}</div>`:''}<p class="small muted">Gửi email và mật khẩu tạm cho người dùng; họ tự đổi mật khẩu trong Hồ sơ cá nhân.</p>${M.edit&&f.role==='cs'&&S.users.find(x=>x.email===f.email)?awayForm(S.users.find(x=>x.email===f.email),'admin'):''}
  <div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button><button class="btn" data-a="unSave">${M.edit?'Lưu':'Cấp quyền'}</button></div>`;}
 function mCustNew(){const M=V.modal;const f=M.f;const sales=S.users.filter(u=>u.role==='sales'&&u.active&&u.segment===f.segment);const cand=S.regions.filter(r=>r.active&&r.newProvince===f.province);
  return `<div class="mhead"><h2>THÊM KHÁCH HÀNG</h2></div><div class="fgrid">

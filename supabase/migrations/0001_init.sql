@@ -1476,6 +1476,11 @@ exception when unique_violation then
 end $$;
 
 -- Nghỉ phép và người nhận thay. p_user null = chính mình; người khác cần quyền Quản lý tài khoản.
+-- Dọn dữ liệu cũ: người nhận thay chỉ là CS; chỉ CS có nghỉ phép
+update app.profiles p set delegate_id = null
+ where delegate_id is not null and not exists (select 1 from app.profiles d where d.user_id = p.delegate_id and d.role = 'cs');
+update app.profiles set away_from = null, away_to = null, delegate_id = null where role <> 'cs' and (away_from is not null or delegate_id is not null);
+
 create or replace function public.set_away(p_user uuid, p_from date, p_to date, p_delegate uuid) returns void
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; t app.profiles; d app.profiles;
@@ -1490,7 +1495,7 @@ begin
     select * into t from app.profiles where user_id = p_user;
     if not found then raise exception 'Không tìm thấy tài khoản.'; end if;
   end if;
-  if t.role = 'customer' then raise exception 'Tài khoản khách hàng không dùng nghỉ phép.'; end if;
+  if t.role <> 'cs' then raise exception 'Nghỉ phép và người nhận thay chỉ dùng cho tài khoản CS.'; end if;
   if p_from is null and p_to is null then
     update app.profiles set away_from = null, away_to = null, delegate_id = null where user_id = t.user_id;
     perform app.audit('user:' || t.user_id, t.full_name || ' tắt nghỉ phép');
@@ -1499,8 +1504,12 @@ begin
   if p_from is null or p_to is null or p_to < p_from then raise exception 'Chọn ngày bắt đầu và kết thúc nghỉ (kết thúc ≥ bắt đầu).'; end if;
   if p_to < app.today() then raise exception 'Ngày kết thúc nghỉ đã qua.'; end if;
   if p_delegate is not null then
-    select * into d from app.profiles where user_id = p_delegate and active and role <> 'customer';
-    if not found or d.user_id = t.user_id then raise exception 'Người nhận thay phải là một tài khoản nội bộ khác đang hoạt động.'; end if;
+    -- Người nhận thay phải là CS khác (cùng quyền xử lý booking của khách), đang hoạt động và không nghỉ trùng thời gian
+    select * into d from app.profiles where user_id = p_delegate and active and role = 'cs';
+    if not found or d.user_id = t.user_id then raise exception 'Người nhận thay phải là một CS khác đang hoạt động.'; end if;
+    if d.away_from is not null and d.away_from <= p_to and d.away_to >= p_from then
+      raise exception '% cũng nghỉ từ % đến %, trùng thời gian nghỉ này. Chọn CS khác.', d.full_name, app.dm(d.away_from), app.dm(d.away_to);
+    end if;
   end if;
   update app.profiles set away_from = p_from, away_to = p_to, delegate_id = p_delegate where user_id = t.user_id;
   perform app.audit('user:' || t.user_id, t.full_name || ' nghỉ ' || app.dm(p_from) || '–' || app.dm(p_to)

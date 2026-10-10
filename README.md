@@ -125,7 +125,7 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 ## CS phụ trách, nghỉ phép và nhắc việc
 - Mỗi khách hàng có **CS phụ trách** (Setting user account → Khách hàng → Sửa). Thông báo về booking của khách (xác nhận, từ chối, đổi ngày, sửa phần hàng) gửi cho CS phụ trách, người tạo booking và Sales.
-- Mỗi người tự khai **Nghỉ phép và người nhận thay** trong Hồ sơ cá nhân (Admin cũng đặt được ở màn hình Người dùng). Khi CS nghỉ, thông báo chuyển cho người nhận thay, ghi rõ "[Nhận thay cho …]". Không có ai nhận thì gửi tất cả CS.
+- Mỗi CS tự khai **Nghỉ phép và người nhận thay** trong Hồ sơ cá nhân (Admin cũng đặt được ở màn hình Người dùng). Người nhận thay chỉ chọn được CS khác, không nghỉ trùng thời gian; Sales, Logistics, khách hàng không nhận thay vì không có quyền xử lý booking như CS. Khi CS nghỉ, thông báo chuyển cho người nhận thay, ghi rõ "[Nhận thay cho …]". Không có ai nhận thì gửi tất cả CS.
 - Mỗi giờ hệ thống **nhắc tất cả CS** các booking Đề nghị đổi ngày chưa xử lý quá N giờ (Configuration, mặc định 4) và booking chờ xếp xe đã quá ngày bốc.
 - CS có tab **Cần xử lý** trong Danh sách booking.
 - **Booking bị từ chối:** CS mở chi tiết booking → **Đặt lại ngày khác** → chọn ngày còn chỗ → **Đặt lại (giữ chỗ)**. Mã booking và lịch sử từ chối được giữ; Logistics nhận lại yêu cầu giữ chỗ, khách nhận thông báo.
