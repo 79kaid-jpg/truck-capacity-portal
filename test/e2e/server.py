@@ -28,7 +28,7 @@ class H(http.server.SimpleHTTPRequestHandler):
                         out = [{'id': r[0], 'status': r[1], 'factor_type': r[2]} for r in c.fetchall()]
                     elif act == 'enroll':
                         c.execute("insert into auth.mfa_factors (user_id, status, friendly_name) values (%s, 'unverified', %s) returning id::text", (uid, body.get('name')))
-                        svg = "<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><rect width='180' height='180' fill='white'/><rect x='20' y='20' width='40' height='40'/><rect x='120' y='20' width='40' height='40'/><rect x='20' y='120' width='40' height='40'/></svg>"
+                        svg = '<?xml version="1.0" encoding="utf-8"?><svg xmlns="http://www.w3.org/2000/svg" width="180" height="180"><rect width="180" height="180" fill="white"/><rect x="20" y="20" width="40" height="40"/><rect x="120" y="20" width="40" height="40"/><rect x="20" y="120" width="40" height="40"/></svg>'  # giống Supabase: SVG có dấu " , không mã hóa
                         out = {'id': c.fetchone()[0], 'totp': {'qr_code': 'data:image/svg+xml;utf-8,' + svg, 'secret': 'JBSWY3DPEHPK3PXP'}}
                     elif act == 'verify':
                         if body.get('code') != '123456': raise Exception('Invalid TOTP code entered')

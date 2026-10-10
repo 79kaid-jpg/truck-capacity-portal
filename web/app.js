@@ -613,11 +613,13 @@ function awayForm(u,mode){if(!V.aw||V.aw.uid!==u.id)V.aw={uid:u.id,from:u.awayFr
  ${W.err?`<div class="err">${esc(W.err)}</div>`:''}
  <div class="mfoot">${u.awayFrom?`<button class="btn ghost" data-a="awClear" data-m="${mode}">Tắt nghỉ phép</button>`:''}<button class="btn ghost" data-a="awSave" data-m="${mode}">Lưu nghỉ phép</button></div>`;}
 /* ---- Xác thực 2 lớp (MFA, TOTP) ---- */
+// Supabase trả qr_code dạng "data:image/svg+xml;utf-8,<svg ...>" (SVG chưa mã hóa, có dấu "): mã hóa lại để đặt an toàn trong src
+function qrSrc(q){q=String(q||'');const i=q.indexOf('<svg');const svg=i>=0?q.slice(i):'';return svg?'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg):q.replace(/"/g,'%22');}
 function mfaBox(E,prefix){return `<ol class="small" style="padding-left:18px;margin:8px 0">
  <li>Cài <b>Google Authenticator</b> hoặc <b>Microsoft Authenticator</b> trên điện thoại.</li>
  <li>Trong ứng dụng chọn thêm tài khoản → quét mã QR dưới đây.</li>
  <li>Nhập mã 6 số ứng dụng hiện ra.</li></ol>
- <div class="mfaqr">${E.qr?`<img src="${E.qr}" alt="Mã QR đăng ký xác thực 2 lớp" width="180" height="180">`:'<span class="muted small">Đang tạo mã…</span>'}</div>
+ <div class="mfaqr">${E.qr?`<img src="${qrSrc(E.qr)}" alt="Mã QR đăng ký xác thực 2 lớp" width="180" height="180">`:'<span class="muted small">Đang tạo mã…</span>'}</div>
  ${E.secret?`<p class="small muted" style="text-align:center">Không quét được? Nhập khóa thủ công:<br><code class="mfasecret">${esc(E.secret.replace(/(.{4})/g,'$1 ').trim())}</code></p>`:''}
  <div class="field"><label for="${prefix}-code">Mã 6 số</label><input id="${prefix}-code" class="inp mfacode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000"></div>
  ${E.err?`<div class="err">${esc(E.err)}</div>`:''}`;}

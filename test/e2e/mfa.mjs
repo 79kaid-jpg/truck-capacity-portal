@@ -23,6 +23,7 @@ const check = (name, ok) => { log((ok ? 'OK  ' : 'FAIL') + ' ' + name); if (!ok)
 let p = await open('cs@demo.vn', { width: 390, height: 844 });
 check('CS first login -> enroll screen', (await h1(p)) === 'Bật xác thực 2 lớp');
 await p.waitForSelector('#mfe button:not([disabled])'); await shot(p, 'mfa-1-enroll-mobile');
+check('QR image loads, no broken markup', (await p.locator('.mfaqr img').evaluate(i => i.complete && i.naturalWidth > 0)) && !/alt=|width=/.test(await p.locator('.mfaqr').innerText()));
 check('QR + secret shown', (await p.locator('.mfaqr img').count()) === 1 && /JBSW/.test(await p.locator('.mfasecret').textContent()));
 await p.fill('#mfe-code', '111111'); await p.click('#mfe button'); await p.waitForTimeout(500);
 check('wrong code -> error', /Mã không đúng/.test(await p.locator('.err').textContent().catch(() => '')));
