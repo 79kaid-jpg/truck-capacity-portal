@@ -33,9 +33,11 @@ insert into app.settings (key, value) values
   ('emailOn', 'false'),
   ('emailFrom', '"Đặt Xe <onboarding@resend.dev>"'),
   ('siteUrl', '""'),
-  ('emailTypes', '["Giữ chỗ","Xác nhận","Từ chối","Đổi ngày","Hủy booking","Sửa phần hàng","Chưa phân khu vực"]'),
+  ('emailTypes', '["Giữ chỗ","Xác nhận","Từ chối","Đổi ngày","Hủy booking","Sửa phần hàng","Chưa phân khu vực","Nhắc việc"]'),
   ('emailDailyCap', '95')
 on conflict (key) do nothing;
+
+update app.settings set value = value || '["Nhắc việc"]'::jsonb where key = 'emailTypes' and not (value ? 'Nhắc việc');
 
 -- Bật/tắt và cấu hình email (chạy trong SQL Editor)
 create or replace function app.setup_email(p_from text, p_site_url text, p_on boolean default true) returns text
@@ -134,6 +136,12 @@ do $$ begin
   perform cron.unschedule('send-emails');
 exception when others then null; end $$;
 select cron.schedule('send-emails', '* * * * *', 'select app.send_emails()');
+
+-- Nhắc việc mỗi giờ (booking đổi ngày chưa xử lý, chờ xếp xe quá ngày bốc)
+do $$ begin
+  perform cron.unschedule('escalate');
+exception when others then null; end $$;
+select cron.schedule('escalate', '7 * * * *', 'select app.escalate()');
 
 -- Admin: thống kê (thêm phần email) và gửi email thử
 create or replace function public.admin_stats() returns jsonb

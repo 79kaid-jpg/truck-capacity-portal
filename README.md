@@ -123,6 +123,15 @@ Admin vào **Setting user account → Phân quyền** để bật/tắt từng t
 ## Login as
 Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") bấm **Login as** ở danh sách người dùng để xem và thao tác đúng như người đó, không cần mật khẩu của họ. Phiên tối đa 60 phút, có dải cảnh báo và nút **Thoát Login as** ở đầu trang. Nhật ký ghi lúc bắt đầu, lúc kết thúc và mọi thao tác kèm "… thao tác thay (Login as)". Trong phiên này không sửa được hồ sơ, mật khẩu, và không đổi trạng thái đã đọc thông báo của người kia.
 
+## CS phụ trách, nghỉ phép và nhắc việc
+- Mỗi khách hàng có **CS phụ trách** (Setting user account → Khách hàng → Sửa). Thông báo về booking của khách (xác nhận, từ chối, đổi ngày, sửa phần hàng) gửi cho CS phụ trách, người tạo booking và Sales.
+- Mỗi người tự khai **Nghỉ phép và người nhận thay** trong Hồ sơ cá nhân (Admin cũng đặt được ở màn hình Người dùng). Khi CS nghỉ, thông báo chuyển cho người nhận thay, ghi rõ "[Nhận thay cho …]". Không có ai nhận thì gửi tất cả CS.
+- Mỗi giờ hệ thống **nhắc tất cả CS** các booking Đề nghị đổi ngày chưa xử lý quá N giờ (Configuration, mặc định 4) và booking chờ xếp xe đã quá ngày bốc.
+- CS có tab **Cần xử lý** trong Danh sách booking.
+
+## Tìm kiếm (Global Search)
+Ô **Tìm kiếm** trên thanh trên cùng, hoặc phím **Ctrl+K** hay **/**. Gõ mã booking, số SO, tên khách (không dấu cũng được), ngày (`15/10`, `mai`, `thứ 6`), số tấn (`28t`, `28t 15/10`), mã xe (`DK-03 mai`), biển số, tài xế, trạng thái (`quá hạn`, `nháp`, `đổi ngày`, `quá tải`) hoặc tên màn hình. Kết quả theo đúng phạm vi dữ liệu của vai trò.
+
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.
 - Gói Free **không có backup tự động**. Mỗi tuần nên export các bảng chính (Table Editor → schema `app` → Export CSV).

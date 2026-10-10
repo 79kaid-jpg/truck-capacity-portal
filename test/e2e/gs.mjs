@@ -1,0 +1,70 @@
+// Test: CS phụ trách / nghỉ phép / Cần xử lý + Global Search theo vai trò
+import { chromium } from '/opt/npm-tools/node_modules/playwright/index.mjs';
+import fs from 'fs';
+const mock = fs.readFileSync(new URL('./mock-supabase.js', import.meta.url), 'utf8');
+const OUT = '/tmp/e2e-shots'; const b = await chromium.launch(); const errs = []; let step = '';
+const log = (...a) => console.log(...a);
+async function login(email, vp = { width: 1440, height: 1000 }) { const c = await b.newContext({ viewport: vp }); const p = await c.newPage();
+  await p.route('**/cdn.jsdelivr.net/**', r => r.fulfill({ contentType: 'text/javascript', body: mock }));
+  await p.route('**/config.js', r => r.fulfill({ contentType: 'text/javascript', body: "window.APP_CONFIG={SUPABASE_URL:'http://127.0.0.1:8787',SUPABASE_ANON_KEY:'t'}" }));
+  await p.route('**/fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
+  p.on('pageerror', e => errs.push(`[${email} ${step}] ${e.message}`)); p.on('console', m => { if (m.type() === 'error' && !/400/.test(m.text())) errs.push(`[${email} ${step}] console ${m.text()}`); });
+  await p.goto('http://127.0.0.1:8787/'); await p.fill('#lg-e', email); await p.fill('#lg-p', 'Test@1234'); await p.click('#login button'); await p.waitForTimeout(800); return p; }
+const toast = async p => (await p.locator('.toast').last().textContent({ timeout: 4000 }).catch(() => '')) || '(no toast)';
+const clr = p => p.evaluate(() => { V.toast = ''; document.querySelectorAll('.toast').forEach(e => e.remove()); });
+async function search(p, q, wait = 700) { await p.evaluate(() => gsClose()); await p.keyboard.press('Control+k'); await p.waitForSelector('#gs-q'); await p.fill('#gs-q', q); await p.waitForTimeout(wait);
+  return p.locator('.gs-it').evaluateAll(els => els.map(e => { let g = e.previousElementSibling; while (g && !g.classList.contains('gs-g')) g = g.previousElementSibling; return (g ? g.textContent : '') + ' | ' + e.querySelector('b').textContent + ' | ' + [...e.querySelectorAll('.gs-acts button')].map(x => x.textContent).join('/'); })); }
+const groups = r => [...new Set(r.map(x => x.split(' | ')[0]))].join(', ');
+let p;
+// ---- A. CS routing
+step = 'admin-cs'; p = await login('admin@demo.vn');
+await p.click('[data-a="go"][data-v="users"]'); await p.click('[data-a="uTab"][data-t="customers"]');
+await p.locator('tr', { hasText: 'Đại Lộc' }).locator('[data-a="custEdit"]').click(); await p.selectOption('#ce-cs', { label: 'Nguyễn Thanh Trúc' });
+await clr(p); await p.click('[data-a="ceSave"]'); log('assign CS ->', await toast(p), '| table:', (await p.locator('tr', { hasText: 'Đại Lộc' }).innerText()).includes('Nguyễn Thanh Trúc'));
+await p.context().close();
+step = 'cs-away'; p = await login('cs@demo.vn');
+await p.click('[data-a="menu"]'); await p.click('.menu [data-a="go"][data-v="profile"]');
+const today = await p.evaluate(() => TODAY); const plus3 = await p.evaluate(() => addDays(TODAY, 3));
+await p.fill('#aw-f', today); await p.locator('#aw-f').dispatchEvent('change'); await p.fill('#aw-t', plus3); await p.locator('#aw-t').dispatchEvent('change');
+await p.selectOption('#aw-d', { label: 'Lê Thu Hằng · CS' }); await clr(p); await p.click('[data-a="awSave"][data-m="self"]'); log('set away ->', await toast(p));
+await p.screenshot({ path: `${OUT}/16-away.png`, fullPage: true }); await p.context().close();
+step = 'log-propose'; p = await login('log@demo.vn');
+await p.click('[data-a="go"][data-v="approvals"]'); await p.locator('tr.click', { hasText: 'Đại Lộc' }).first().click(); await p.waitForTimeout(200);
+await p.click('[data-a="asgPanel"][data-p="res"]'); await p.selectOption('#res-d', { index: 1 }); await p.fill('#res-r', 'Hết xe tuyến Đắk Lắk'); await p.locator('#res-r').dispatchEvent('input');
+await clr(p); await p.click('[data-a="asgResched"]'); log('propose ->', await toast(p)); await p.context().close();
+step = 'cs2'; p = await login('cs2@demo.vn');
+await p.click('[data-a="go"][data-v="notifs"]'); log('CS2 notif:', (await p.locator('.notif').first().innerText()).replace(/\s+/g, ' ').slice(0, 110));
+await p.click('[data-a="go"][data-v="bookings"]'); await p.click('[data-a="blTab"][data-t="todo"]'); log('CS2 todo rows:', await p.locator('tr.click').count(), '| has Đại Lộc:', (await p.locator('tbody').innerText()).includes('Đại Lộc'));
+await p.screenshot({ path: `${OUT}/17-todo.png`, fullPage: true }); await p.context().close();
+// ---- B. Global Search
+step = 'gs-log'; p = await login('log@demo.vn');
+let r = await search(p, 'van thanh'); log('log "van thanh":', groups(r), '| n=', r.length);
+await p.screenshot({ path: `${OUT}/18-gs-log.png` });
+await p.keyboard.press('Enter'); await p.waitForTimeout(300); log('enter opens booking:', await p.locator('h2', { hasText: 'CHI TIẾT BOOKING' }).count() > 0);
+r = await search(p, '28t'); log('log "28t":', r.slice(0, 4).map(x => x.split(' | ').slice(0, 2).join(': ')).join(' || '));
+r = await search(p, '30t 12/10'); log('log "30t 12/10":', r.slice(0, 3).map(x => x.split(' | ')[1]).join(' || '));
+r = await search(p, 'dk-01 mai'); log('log "dk-01 mai":', r.map(x => x.split(' | ')[1]).join(' || ')); await p.keyboard.press('Enter'); await p.waitForTimeout(500); log('truck modal open:', await p.locator('.truckbig').count() > 0);
+await p.keyboard.press('Escape');
+r = await search(p, 'khai bao'); log('log "khai bao":', r.map(x => x.split(' | ')[1]).join(' || ')); await p.keyboard.press('Enter'); await p.waitForTimeout(300); log('fleet view:', await p.locator('h2', { hasText: 'TRUCKS CAPACITY' }).count() > 0);
+r = await search(p, 'qua han'); log('log "qua han":', r.map(x => x.split(' | ').slice(0, 2).join(': ')).join(' || '));
+r = await search(p, '51c'); log('log "51c":', r.map(x => x.split(' | ').slice(0, 2).join(': ')).join(' || '));
+await p.keyboard.press('Escape'); await p.context().close();
+step = 'gs-cs'; p = await login('cs@demo.vn');
+r = await search(p, 'kim phat'); log('cs "kim phat":', r.map(x => x.split(' | ').slice(0, 3).join(': ')).join(' || '));
+const idx = r.findIndex(x => x.includes('Đặt hàng cho khách')); if (idx >= 0) { await p.locator('.gs-it').nth(idx).locator('button', { hasText: 'Đặt hàng cho khách' }).click(); await p.waitForTimeout(200); log('booking form prefilled customer:', await p.locator('#bf-cust option:checked').innerText()); await p.keyboard.press('Escape'); }
+r = await search(p, '', 300); log('cs empty query:', r.map(x => x.split(' | ').slice(0, 2).join(': ')).join(' || '));
+await p.keyboard.press('Escape'); await p.context().close();
+step = 'gs-sales'; p = await login('s1@demo.vn');
+r = await search(p, 'lysaght'); log('sales DD "lysaght" results:', r.length, groups(r));
+r = await search(p, 'van thanh'); log('sales DD "van thanh":', groups(r)); await p.keyboard.press('Escape'); await p.context().close();
+step = 'gs-cust'; p = await login('kh@demo.vn');
+r = await search(p, 'BK'); log('customer "BK":', groups(r), r.length);
+r = await search(p, '30t'); log('customer "30t":', r.slice(0, 3).map(x => x.split(' | ')[1]).join(' || '), '| actions:', r.some(x => x.split(' | ')[2]));
+r = await search(p, 'lien he sales'); log('customer "lien he sales":', r.map(x => x.split(' | ')[1]).join(' || '));
+r = await search(p, 'lysaght'); log('customer "lysaght" (other company):', r.length);
+await p.keyboard.press('Escape'); await p.context().close();
+step = 'gs-admin'; p = await login('admin@demo.vn');
+r = await search(p, 'cs@demo'); log('admin "cs@demo":', r.map(x => x.split(' | ').slice(1).join(': ')).join(' || '));
+await p.screenshot({ path: `${OUT}/19-gs-admin.png` }); await p.keyboard.press('Escape'); await p.context().close();
+step = 'gs-mobile'; p = await login('cs@demo.vn', { width: 390, height: 844 }); await p.click('.gsbtn'); await p.fill('#gs-q', 'dai loc'); await p.waitForTimeout(700); await p.screenshot({ path: `${OUT}/20-gs-mobile.png` }); await p.context().close();
+await b.close(); log('\nPAGE ERRORS:', errs.length ? errs.join('\n') : 'none');

@@ -48,7 +48,7 @@ const ST_CUST={hold:'Chờ duyệt',ok:'Đã xác nhận',rejected:'Từ chối'
 const vnToday=()=>{const p={};new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).forEach(x=>p[x.type]=x.value);return `${p.year}-${p.month}-${p.day}`;};
 TODAY=vnToday();
 const num=v=>parseFloat(String(v??'').replace(',','.'));
-const CFG_DEFAULT={capDKMin:15,capDKMax:35,capCNMin:5,capCNMax:20,near:80,capDK:30,capCN:15,split:15,sla:60,maxStops:3,fillMin:70,suggestOn:true,sundayOff:true,holidays:[]};
+const CFG_DEFAULT={escalateHours:4,capDKMin:15,capDKMax:35,capCNMin:5,capCNMax:20,near:80,capDK:30,capCN:15,split:15,sla:60,maxStops:3,fillMin:70,suggestOn:true,sundayOff:true,holidays:[]};
 function adopt(st){
  const S={};
  S.me=st.me;S.cfg={...CFG_DEFAULT,...(st.cfg||{})};S.perms=st.perms||[];S.imp=st.imp||null;S.permCatalog=st.permCatalog||[];S.roleMatrix=st.roleMatrix||null;
@@ -85,6 +85,10 @@ const role=()=>me().role;
 const internal=()=>role()!=='customer';
 const can=p=>!!(S&&S.perms&&S.perms.includes(p));
 const canAny=pre=>!!(S&&S.perms&&S.perms.some(x=>x.startsWith(pre)));
+const isAway=u=>!!(u&&u.awayFrom&&TODAY>=u.awayFrom&&TODAY<=(u.awayTo||u.awayFrom));
+const awayTag=u=>isAway(u)?` <span class="awaychip">Đang nghỉ đến ${dm(u.awayTo||u.awayFrom)}${u.delegateId?' · thay: '+esc(user(u.delegateId).name):''}</span>`:(u&&u.awayFrom&&u.awayFrom>TODAY?` <span class="awaychip soon">Nghỉ ${dm(u.awayFrom)}–${dm(u.awayTo)}</span>`:'');
+// Khách thuộc phạm vi CS của tôi: tôi phụ trách, tôi nhận thay CS đang nghỉ, hoặc khách chưa gán CS
+const myCsCust=c=>!!c&&(c.csId===V.me||!c.csId||(isAway(user(c.csId))&&user(c.csId).delegateId===V.me));
 const myWhs=()=>role()==='logistics'?(me().whs||[me().wh]):WH.map(w=>w.id);
 const cust=id=>S.customers.find(c=>c.id===id)||(id?{id,code:'',name:'Khách khác',segment:'',salesId:null,addresses:[]}:undefined);
 const user=id=>S.users.find(u=>u.id===id)||{id,name:'–',email:'',phone:'',role:''};
@@ -196,6 +200,7 @@ function impBar(u){const left=Math.min(60,Math.max(0,Math.floor(S.imp.expiresAt/
 function topbar(u){const w=WH.find(x=>x.id===V.wh);
  return `<header class="top"><button class="logo" data-a="go" data-v="calendar"><span class="mark">${IC.truck.replace('<svg','<svg width="16" height="16"')}</span>ĐẶT XE</button>
  <div class="ctx">Lịch Đặt Xe – ${esc(w.full)}</div>
+ <button class="gsbtn" data-a="gsOpen" aria-label="Tìm kiếm (Ctrl+K)">${SEARCH_SVG}<span>Tìm kiếm…</span><kbd>Ctrl K</kbd></button>
  <button class="userbtn" data-a="menu" aria-haspopup="true"><span class="avatar">${esc(u.name.split(' ').slice(-1)[0][0])}</span><span>${esc(u.name)}</span><span aria-hidden="true">▾</span></button>
  ${V.menu?`<div class="menu"><div class="sub">${esc(u.email)}</div><div class="sub">Vai trò: ${ROLE_LABEL[u.role]}${u.segment?' · Segment '+SEG_LABEL[u.segment]:''}${u.customerId?' · '+esc(cust(u.customerId).name)+' · '+SEG_LABEL[cust(u.customerId).segment]:''}</div><button data-a="go" data-v="profile">Hồ sơ cá nhân</button><button data-a="refresh">Tải lại dữ liệu</button><button data-a="logout">Đăng xuất</button></div>`:''}</header>`;}
 const NAV=[
@@ -327,13 +332,15 @@ function suggCard(g,past){
 
 /* ---------- SCR-09 bookings list ---------- */
 function vBookings(){
- const tabs=[['all','Tất cả'],['draft','Nháp'],['hold','Chờ xếp xe'],['ok','Đã xác nhận'],['resched','Đề nghị đổi ngày'],['closed','Từ chối / Đã hủy']].filter(t=>t[0]!=='draft'||can('booking.create'));
+ const tabs=[...(can('booking.create')||can('booking.edit')?[['todo','Cần xử lý']]:[]),['all','Tất cả'],['draft','Nháp'],['hold','Chờ xếp xe'],['ok','Đã xác nhận'],['resched','Đề nghị đổi ngày'],['closed','Từ chối / Đã hủy']].filter(t=>t[0]!=='draft'||can('booking.create'));
  const f=V.blF;const q=f.q.trim().toLowerCase();
- let list=S.bookings.filter(visibleBk).filter(b=>V.blTab==='all'?true:V.blTab==='closed'?['rejected','cancelled'].includes(b.status):b.status===V.blTab)
+ const todo=b=>(b.status==='resched'||b.status==='hold'&&b.date<TODAY||b.status==='rejected'&&b.date>=TODAY)&&(V.blAll||myCsCust(cust(b.customerId)));
+ let list=S.bookings.filter(visibleBk).filter(b=>V.blTab==='todo'?todo(b):V.blTab==='all'?true:V.blTab==='closed'?['rejected','cancelled'].includes(b.status):b.status===V.blTab)
   .filter(b=>f.wh==='all'||b.wh===f.wh).filter(b=>f.region==='all'||b.region===f.region)
   .filter(b=>!q||(b.id+' '+b.ref+' '+cust(b.customerId).name).toLowerCase().includes(q)).sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id));
  return `<div class="panel"><div class="pagehead"><h2>DANH SÁCH BOOKING</h2>${can('booking.create')?`<button class="btn" data-a="newBk" data-d="${TODAY}">Đặt hàng mới</button>`:''}</div>
- <div class="tabs">${tabs.map(([k,l])=>`<button class="${V.blTab===k?'on':''}" data-a="blTab" data-t="${k}">${l}</button>`).join('')}</div>
+ <div class="tabs">${tabs.map(([k,l])=>`<button class="${V.blTab===k?'on':''}" data-a="blTab" data-t="${k}">${l}${k==='todo'?` <span class="cnt">${S.bookings.filter(visibleBk).filter(b=>(b.status==='resched'||b.status==='hold'&&b.date<TODAY||b.status==='rejected'&&b.date>=TODAY)&&myCsCust(cust(b.customerId))).length}</span>`:''}</button>`).join('')}</div>
+ ${V.blTab==='todo'?`<div class="hint" style="margin-bottom:10px">Đề nghị đổi ngày, bị từ chối, chờ xếp xe quá ngày bốc của khách bạn phụ trách, khách của CS đang nghỉ mà bạn nhận thay, và khách chưa gán CS. <label class="row" style="display:inline-flex;margin-left:8px"><input type="checkbox" data-f="blAll" ${V.blAll?'checked':''}> Xem của tất cả CS</label></div>`:''}
  <div class="filters"><div class="field"><label for="bl-wh">Kho</label><select id="bl-wh" class="inp" data-a="blF" data-k="wh"><option value="all">Tất cả kho</option>${WH.map(w=>`<option value="${w.id}" ${f.wh===w.id?'selected':''}>${w.name}</option>`).join('')}</select></div>
  <div class="field"><label for="bl-rg">Khu vực</label><select id="bl-rg" class="inp" data-a="blF" data-k="region"><option value="all">Tất cả</option>${S.regions.filter(r=>f.wh==='all'||r.wh===f.wh).map(r=>`<option value="${r.id}" ${f.region===r.id?'selected':''}>${esc(r.name)} (${r.wh})</option>`).join('')}</select></div>
  <div class="field grow"><label for="bl-q">Tìm mã booking, ref, khách</label><input id="bl-q" class="inp" data-f="blq" value="${esc(f.q)}" placeholder="Ví dụ: Lysaght, SO-45…"></div></div>
@@ -380,7 +387,7 @@ function vBooking(){
   <dl class="dl"><dt>Kho</dt><dd>${WH.find(w=>w.id===b.wh).full}</dd><dt>Ngày bốc</dt><dd class="num">${dmy(b.date)}</dd><dt>Ngày giao YC</dt><dd>${b.delivery?dmy(b.delivery):'–'}</dd>
   <dt>Khách hàng</dt><dd>${ownsCust(b.customerId)?`${esc(c.name)}<div class="small muted">${SEG_LABEL[c.segment]} · Sales: ${esc(user(c.salesId).name)}</div>`:'–'}</dd><dt>Ref</dt><dd>${esc(b.ref)}</dd><dt>Địa chỉ giao</dt><dd>${esc(b.addrText)}<div class="small muted">${esc(b.province)}</div></dd>
   <dt>Khu vực</dt><dd>${can('booking.region')&&ownsCust(b.customerId)&&!past&&['hold','ok'].includes(b.status)?`<select class="inp" id="bk-region" data-a="bkRegion"><option value="NONE" ${b.region==='NONE'?'selected':''}>Chưa phân khu vực</option>${regionsOf(b.wh).map(r=>`<option value="${r.id}" ${b.region===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}</select>`:esc(regName(b.region))}</dd>
-  <dt>Tổng tấn</dt><dd class="num"><b>${t2(bkTotal(b))} t</b> · gợi ý ${pref}</dd><dt>CS tạo</dt><dd>${esc(user(b.csId).name)}${b.status!=='draft'?` · giữ chỗ ${clockStr(b.heldAt)}`:''}</dd>
+  <dt>Tổng tấn</dt><dd class="num"><b>${t2(bkTotal(b))} t</b> · gợi ý ${pref}</dd><dt>CS phụ trách</dt><dd>${esc(user(b.csId).name)}${awayTag(user(b.csId))}${c&&c.csId&&c.csId!==b.csId?'<div class="small muted">CS phụ trách khách: '+esc(user(c.csId).name)+awayTag(user(c.csId))+'</div>':''}${b.status!=='draft'?` · giữ chỗ ${clockStr(b.heldAt)}`:''}</dd>
   ${b.note?`<dt>Ghi chú</dt><dd>${esc(b.note)}</dd>`:''}${b.rejectReason?`<dt>Lý do</dt><dd>${esc(b.rejectReason)}</dd>`:''}${b.proposedDate?`<dt>Ngày đề xuất</dt><dd>${dmy(b.proposedDate)}</dd>`:''}</dl>
   <ul class="lines">${b.lines.map(l=>`<li>${esc(l.p)} · ${esc(l.c)} · ${l.th}×${l.w} · <b class="num">${t2(l.t)} t</b></li>`).join('')}</ul>
   ${hist.length?`<h4 style="margin:12px 0 4px;font-size:12px">LỊCH SỬ</h4><ul class="hist">${hist.map(h=>`<li>${clockStr(h.at)} · ${esc(h.who)}: ${esc(h.text)}</li>`).join('')}</ul>`:''}
@@ -435,7 +442,7 @@ function vConfig(){const C=S.cfg;
  if(!tabs.some(t=>t[0]===V.cfgTab))V.cfgTab=tabs[0]?tabs[0][0]:'general';const T=V.cfgTab;
  let body='';
  if(T==='general'){const f=(k,l,suf)=>`<div class="field"><label for="cf-${k}">${l}</label><div class="row" style="flex-wrap:nowrap"><input id="cf-${k}" class="inp num" inputmode="decimal" data-f="cfg" data-k="${k}" value="${C[k]}"><span class="muted small">${suf}</span></div></div>`;
-  body=`<div class="fgrid">${f('near','Ngưỡng GẦN ĐẦY','%')}${f('capDK','Tải trọng mặc định đầu kéo (DK)','tấn')}${f('capCN','Tải trọng mặc định container (CN)','tấn')}${f('capDKMin','DK: tải trọng tối thiểu khi chỉnh từng xe','tấn')}${f('capDKMax','DK: tải trọng tối đa khi chỉnh từng xe','tấn')}${f('capCNMin','CN: tải trọng tối thiểu khi chỉnh từng xe','tấn')}${f('capCNMax','CN: tải trọng tối đa khi chỉnh từng xe','tấn')}${f('split','Ngưỡng phân loại đơn DK / CN','tấn')}${f('sla','Thời hạn phản hồi giữ chỗ','phút')}${f('maxStops','Số điểm giao tối đa / xe','điểm')}${f('fillMin','Lấp đầy tối thiểu để đề xuất nhóm gộp','%')}
+  body=`<div class="fgrid">${f('near','Ngưỡng GẦN ĐẦY','%')}${f('capDK','Tải trọng mặc định đầu kéo (DK)','tấn')}${f('capCN','Tải trọng mặc định container (CN)','tấn')}${f('capDKMin','DK: tải trọng tối thiểu khi chỉnh từng xe','tấn')}${f('capDKMax','DK: tải trọng tối đa khi chỉnh từng xe','tấn')}${f('capCNMin','CN: tải trọng tối thiểu khi chỉnh từng xe','tấn')}${f('capCNMax','CN: tải trọng tối đa khi chỉnh từng xe','tấn')}${f('split','Ngưỡng phân loại đơn DK / CN','tấn')}${f('sla','Thời hạn phản hồi giữ chỗ','phút')}${f('escalateHours','Nhắc lại cho tất cả CS khi Đề nghị đổi ngày chưa xử lý sau','giờ')}${f('maxStops','Số điểm giao tối đa / xe','điểm')}${f('fillMin','Lấp đầy tối thiểu để đề xuất nhóm gộp','%')}
   <div class="field"><label>Gợi ý gộp xe</label><label class="row"><input type="checkbox" data-f="cfgb" data-k="suggestOn" ${C.suggestOn?'checked':''}> Bật gợi ý gộp xe theo khu vực</label></div></div>
   <p class="small muted">Đơn trên ${C.split} tấn gợi ý DK, từ ${C.split} tấn trở xuống gợi ý CN. Thay đổi áp dụng ngay cho mọi người dùng.</p>`;}
  if(T==='regions'){const rs=S.regions.filter(r=>r.wh===V.wh);const mapped=new Set(rs.filter(r=>r.active).map(r=>r.newProvince));const unm=PROVINCES.filter(p=>!mapped.has(p));const none=S.bookings.filter(b=>b.wh===V.wh&&b.region==='NONE'&&['hold','ok'].includes(b.status)).length;const NR=V.newReg||{};
@@ -466,8 +473,8 @@ function vUsers(){const UT=[['users','Người dùng','users.manage'],['customer
  if(!UT.some(t=>t[0]===V.uTab))V.uTab=UT[0][0];const T=V.uTab;
  return `<div class="panel"><div class="pagehead"><h2>SETTING USER ACCOUNT</h2>${T==='users'?'<button class="btn" data-a="userNew">Cấp quyền tài khoản</button>':T==='customers'?'<button class="btn" data-a="custNew">Thêm khách hàng</button>':''}</div>
  <div class="tabs">${UT.map(([k,l])=>`<button class="${T===k?'on':''}" data-a="uTab" data-t="${k}">${l}</button>`).join('')}</div>
- ${T==='perms'?vPerms():T==='users'?`<div class="tbl-wrap"><table><thead><tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Segment</th><th>Kho mặc định</th><th>Công ty</th><th>Trạng thái</th><th></th></tr></thead><tbody>${S.users.map(u=>`<tr><td><b>${esc(u.name)}</b></td><td>${esc(u.email)}</td><td>${ROLE_LABEL[u.role]}</td><td>${u.segment?SEG_LABEL[u.segment]:u.customerId?SEG_LABEL[cust(u.customerId).segment]:'–'}</td><td>${u.wh}</td><td>${u.customerId?esc(cust(u.customerId).name):'–'}</td><td>${u.active?'<span class="st st-ok">Hoạt động</span>':'<span class="st st-cancelled">Khóa</span>'}</td><td class="r" style="white-space:nowrap">${can('users.impersonate')&&u.id!==V.me&&u.active?`<button class="btn ghost sm" data-a="loginAs" data-id="${u.id}" title="Xem và thao tác với tư cách ${esc(u.name)}">Login as</button> `:''}<button class="btn ghost sm" data-a="userEdit" data-id="${u.id}">Sửa</button> ${u.id!==V.me?`<button class="btn ghost sm" data-a="userToggle" data-id="${u.id}">${u.active?'Khóa':'Mở khóa'}</button>`:''}</td></tr>`).join('')}</tbody></table></div>${V.userErr?`<div class="err" style="margin-top:8px">${esc(V.userErr)}</div>`:''}`
- :`<div class="tbl-wrap"><table><thead><tr><th>Mã KH</th><th>Tên công ty</th><th>Segment</th><th>Sales phụ trách</th><th>Địa chỉ giao · khu vực</th><th class="r">Tài khoản</th><th>Trạng thái</th><th></th></tr></thead><tbody>${S.customers.map(c=>`<tr style="${c.active===false?'opacity:.6':''}"><td>${c.code}</td><td><b>${esc(c.name)}</b></td><td>${SEG_LABEL[c.segment]}</td><td>${esc(user(c.salesId).name)}</td><td class="small">${c.addresses.map(a=>`${esc(a.label)}, ${esc(a.ward)}, ${esc(a.province)} · <b>${Object.values(a.regions).map(regName).map(esc).join(', ')||'Chưa phân khu vực'}</b>`).join('<br>')}</td><td class="r">${S.users.filter(u=>u.customerId===c.id).length}</td><td>${c.active===false?'<span class="st st-cancelled">Ngừng dùng</span>':'<span class="st st-ok">Đang dùng</span>'}</td>
+ ${T==='perms'?vPerms():T==='users'?`<div class="tbl-wrap"><table><thead><tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Segment</th><th>Kho mặc định</th><th>Công ty</th><th>Trạng thái</th><th></th></tr></thead><tbody>${S.users.map(u=>`<tr><td><b>${esc(u.name)}</b></td><td>${esc(u.email)}</td><td>${ROLE_LABEL[u.role]}</td><td>${u.segment?SEG_LABEL[u.segment]:u.customerId?SEG_LABEL[cust(u.customerId).segment]:'–'}</td><td>${u.wh}</td><td>${u.customerId?esc(cust(u.customerId).name):'–'}</td><td>${u.active?'<span class="st st-ok">Hoạt động</span>':'<span class="st st-cancelled">Khóa</span>'}${awayTag(u)}</td><td class="r" style="white-space:nowrap">${can('users.impersonate')&&u.id!==V.me&&u.active?`<button class="btn ghost sm" data-a="loginAs" data-id="${u.id}" title="Xem và thao tác với tư cách ${esc(u.name)}">Login as</button> `:''}<button class="btn ghost sm" data-a="userEdit" data-id="${u.id}">Sửa</button> ${u.id!==V.me?`<button class="btn ghost sm" data-a="userToggle" data-id="${u.id}">${u.active?'Khóa':'Mở khóa'}</button>`:''}</td></tr>`).join('')}</tbody></table></div>${V.userErr?`<div class="err" style="margin-top:8px">${esc(V.userErr)}</div>`:''}`
+ :`<div class="tbl-wrap"><table><thead><tr><th>Mã KH</th><th>Tên công ty</th><th>Segment</th><th>Sales phụ trách</th><th>CS phụ trách</th><th>Địa chỉ giao · khu vực</th><th class="r">Tài khoản</th><th>Trạng thái</th><th></th></tr></thead><tbody>${S.customers.map(c=>`<tr style="${c.active===false?'opacity:.6':''}"><td>${c.code}</td><td><b>${esc(c.name)}</b></td><td>${SEG_LABEL[c.segment]}</td><td>${esc(user(c.salesId).name)}</td><td>${c.csId?esc(user(c.csId).name)+awayTag(user(c.csId)):'<span class="muted small">Chưa gán</span>'}</td><td class="small">${c.addresses.map(a=>`${esc(a.label)}, ${esc(a.ward)}, ${esc(a.province)} · <b>${Object.values(a.regions).map(regName).map(esc).join(', ')||'Chưa phân khu vực'}</b>`).join('<br>')}</td><td class="r">${S.users.filter(u=>u.customerId===c.id).length}</td><td>${c.active===false?'<span class="st st-cancelled">Ngừng dùng</span>':'<span class="st st-ok">Đang dùng</span>'}</td>
  <td class="r" style="white-space:nowrap"><button class="btn ghost sm" data-a="custEdit" data-id="${c.id}">Sửa</button> <button class="btn ghost sm" data-a="custToggle" data-id="${c.id}">${c.active===false?'Dùng lại':'Ngừng dùng'}</button></td></tr>`).join('')}</tbody></table></div>`}</div>`;
 }
 
@@ -594,6 +601,17 @@ function dashSystem(){
  <div class="dcard span2"><h3>NGƯỜI DÙNG VÀ LẦN ĐĂNG NHẬP GẦN NHẤT</h3><p class="cap">Tài khoản chưa đăng nhập 7 ngày cần nhắc hoặc hướng dẫn lại</p><div class="tbl-wrap"><table><thead><tr><th>Họ tên</th><th>Vai trò</th><th>Công ty</th><th>Đăng nhập gần nhất</th><th>Trạng thái</th></tr></thead><tbody>${users.sort((a,b)=>(b.last||'').localeCompare(a.last||'')).map(u=>{const ok=u.last&&u.last>=addDays(TODAY,-6);return `<tr><td>${esc(u.name)}</td><td>${ROLE_LABEL[u.role]}</td><td>${u.customerId?esc(cust(u.customerId).name):'–'}</td><td class="num">${u.last?dmy(u.last):'Chưa đăng nhập'}</td><td>${ok?'<span class="st st-ok">Đang dùng</span>':'<span class="st st-hold">Cần nhắc</span>'}</td></tr>`;}).join('')}</tbody></table></div></div></div>`;}
 
 /* ---------- SCR-17 profile ---------- */
+
+function awayForm(u,mode){if(!V.aw||V.aw.uid!==u.id)V.aw={uid:u.id,from:u.awayFrom||'',to:u.awayTo||'',del:u.delegateId||'',err:''};const W=V.aw;
+ const cands=S.users.filter(x=>x.active&&x.id!==u.id&&x.role!=='customer').sort((a,b)=>(a.role===u.role?0:1)-(b.role===u.role?0:1)||a.name.localeCompare(b.name));
+ return `<h3 style="margin-top:18px;font-size:15px">NGHỈ PHÉP VÀ NGƯỜI NHẬN THAY</h3>
+ <p class="small muted" style="margin-top:0">Trong thời gian nghỉ, thông báo về khách bạn phụ trách chuyển cho người nhận thay. Không chọn người nhận thay thì gửi cho tất cả CS.</p>
+ ${isAway(u)?`<div class="hint" style="margin-bottom:8px">Đang nghỉ đến ${dmy(u.awayTo)}${u.delegateId?' · người nhận thay: <b>'+esc(user(u.delegateId).name)+'</b>':''}</div>`:''}
+ <div class="fgrid"><div class="field"><label for="aw-f">Từ ngày</label><input id="aw-f" type="date" class="inp" data-f="aw" data-k="from" value="${W.from}"></div>
+ <div class="field"><label for="aw-t">Đến ngày</label><input id="aw-t" type="date" class="inp" data-f="aw" data-k="to" value="${W.to}"></div>
+ <div class="field" style="grid-column:1/-1"><label for="aw-d">Người nhận thay</label><select id="aw-d" class="inp" data-f="aw" data-k="del"><option value="">Không chọn: gửi cho tất cả CS</option>${cands.map(x=>`<option value="${x.id}" ${W.del===x.id?'selected':''}>${esc(x.name)} · ${ROLE_LABEL[x.role]}${isAway(x)?' (đang nghỉ)':''}</option>`).join('')}</select></div></div>
+ ${W.err?`<div class="err">${esc(W.err)}</div>`:''}
+ <div class="mfoot">${u.awayFrom?`<button class="btn ghost" data-a="awClear" data-m="${mode}">Tắt nghỉ phép</button>`:''}<button class="btn ghost" data-a="awSave" data-m="${mode}">Lưu nghỉ phép</button></div>`;}
 function vProfile(){const u=me();
  return `<div class="panel" style="max-width:640px"><div class="pagehead"><h2>HỒ SƠ CÁ NHÂN</h2></div><div class="fgrid">
  <div class="field"><label for="pf-n">Họ tên hiển thị</label><input id="pf-n" class="inp" data-f="pf" data-k="name" value="${esc(u.name)}"></div>
@@ -603,6 +621,7 @@ function vProfile(){const u=me();
  ${u.customerId&&cust(u.customerId)?`<div class="field"><label>Công ty</label><div>${esc(cust(u.customerId).name)} · ${SEG_LABEL[cust(u.customerId).segment]}</div></div><div class="field"><label>Sales phụ trách</label><div>${esc(user(cust(u.customerId).salesId).name)}</div></div>`:''}
  <div class="field"><label>Kho mặc định</label><div>${(WH.find(w=>w.id===u.wh)||{full:u.wh}).full}</div></div></div>
  ${S.imp?'<p class="small muted" style="margin-top:12px">Đang Login as: không sửa hồ sơ và mật khẩu của người này.</p>':`<div class="mfoot"><button class="btn" data-a="pfSave">Lưu</button></div>
+ ${u.role!=='customer'?awayForm(u,'self'):''}
  <h3 style="margin-top:18px;font-size:15px">ĐỔI MẬT KHẨU</h3><div class="fgrid"><div class="field"><label for="pw1">Mật khẩu mới</label><input id="pw1" type="password" class="inp" autocomplete="new-password" data-f="pw" data-k="pw" value="${esc(V.pw||'')}"></div><div class="field"><label for="pw2">Nhập lại</label><input id="pw2" type="password" class="inp" autocomplete="new-password" data-f="pw" data-k="pw2" value="${esc(V.pw2||'')}"></div></div>${V.pwErr?`<div class="err">${esc(V.pwErr)}</div>`:''}<div class="mfoot"><button class="btn ghost" data-a="pwSave">Đổi mật khẩu</button></div>`}</div>`;}
 
 /* ===================== modals ===================== */
@@ -679,7 +698,7 @@ function mCustEdit(){const M=V.modal;const f=M.f;const c=cust(M.id);if(!c){retur
  <div class="field"><label for="ce-c">Mã khách hàng <span class="req">*</span></label><input id="ce-c" class="inp" data-f="ce" data-k="code" value="${esc(f.code)}"></div>
  <div class="field"><label for="ce-n">Tên công ty <span class="req">*</span></label><input id="ce-n" class="inp" data-f="ce" data-k="name" value="${esc(f.name)}"></div>
  <div class="field"><label for="ce-s">Segment <span class="req">*</span></label><select id="ce-s" class="inp" data-f="ce" data-k="segment"><option value="DD" ${f.segment==='DD'?'selected':''}>Dân dụng</option><option value="DA" ${f.segment==='DA'?'selected':''}>Dự án</option></select></div>
- <div class="field"><label for="ce-sl">Sales phụ trách (cùng segment) <span class="req">*</span></label><select id="ce-sl" class="inp" data-f="ce" data-k="salesId"><option value="">Chọn</option>${sales.map(u=>`<option value="${u.id}" ${f.salesId===u.id?'selected':''}>${esc(u.name)}${u.active?'':' (đã khóa)'}</option>`).join('')}</select>${f.salesId!==c.salesId&&f.salesId?'<span class="small" style="color:var(--warn)">Đổi Sales: Sales mới thấy toàn bộ booking của khách này, Sales cũ không còn thấy.</span>':''}</div></div>
+ <div class="field"><label for="ce-sl">Sales phụ trách (cùng segment) <span class="req">*</span></label><select id="ce-sl" class="inp" data-f="ce" data-k="salesId"><option value="">Chọn</option>${sales.map(u=>`<option value="${u.id}" ${f.salesId===u.id?'selected':''}>${esc(u.name)}${u.active?'':' (đã khóa)'}</option>`).join('')}</select>${f.salesId!==c.salesId&&f.salesId?'<span class="small" style="color:var(--warn)">Đổi Sales: Sales mới thấy toàn bộ booking của khách này, Sales cũ không còn thấy.</span>':''}</div><div class="field"><label for="ce-cs">CS phụ trách</label><select id="ce-cs" class="inp" data-f="ce" data-k="csId"><option value="">Chưa gán (thông báo gửi tất cả CS)</option>${S.users.filter(u=>u.role==='cs'&&(u.active||u.id===f.csId)).map(u=>`<option value="${u.id}" ${f.csId===u.id?'selected':''}>${esc(u.name)}${isAway(u)?' (đang nghỉ)':''}</option>`).join('')}</select></div></div>
  ${M.err?`<div class="err" style="margin-top:8px">${esc(M.err)}</div>`:''}
  <div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button><button class="btn" data-a="ceSave">Lưu thông tin</button></div>
  <h3 style="margin-top:16px;font-size:15px">ĐỊA CHỈ GIAO HÀNG</h3>
@@ -765,7 +784,7 @@ function mUserNew(){const M=V.modal;const f=M.f;
  ${f.role==='sales'?`<div class="field"><label for="un-s">Segment <span class="req">*</span></label><select id="un-s" class="inp" data-f="un" data-k="segment"><option value="DD" ${f.segment==='DD'?'selected':''}>Dân dụng</option><option value="DA" ${f.segment==='DA'?'selected':''}>Dự án</option></select></div>`:''}
  ${f.role==='customer'?`<div class="field"><label for="un-c">Công ty khách hàng <span class="req">*</span></label><select id="un-c" class="inp" data-f="un" data-k="customerId"><option value="">Chọn</option>${S.customers.map(c=>`<option value="${c.id}" ${f.customerId===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>`:''}
  <div class="field"><label for="un-w">Kho mặc định <span class="req">*</span></label><select id="un-w" class="inp" data-f="un" data-k="wh">${WH.map(w=>`<option value="${w.id}" ${f.wh===w.id?'selected':''}>${w.name}</option>`).join('')}</select></div></div>
- ${M.err?`<div class="err" style="margin-top:8px">${esc(M.err)}</div>`:''}<p class="small muted">Gửi email và mật khẩu tạm cho người dùng; họ tự đổi mật khẩu trong Hồ sơ cá nhân.</p>
+ ${M.err?`<div class="err" style="margin-top:8px">${esc(M.err)}</div>`:''}<p class="small muted">Gửi email và mật khẩu tạm cho người dùng; họ tự đổi mật khẩu trong Hồ sơ cá nhân.</p>${M.edit&&f.role!=='customer'&&S.users.find(x=>x.email===f.email)?awayForm(S.users.find(x=>x.email===f.email),'admin'):''}
  <div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button><button class="btn" data-a="unSave">${M.edit?'Lưu':'Cấp quyền'}</button></div>`;}
 function mCustNew(){const M=V.modal;const f=M.f;const sales=S.users.filter(u=>u.role==='sales'&&u.active&&u.segment===f.segment);const cand=S.regions.filter(r=>r.active&&r.newProvince===f.province);
  return `<div class="mhead"><h2>THÊM KHÁCH HÀNG</h2></div><div class="fgrid">
@@ -773,6 +792,7 @@ function mCustNew(){const M=V.modal;const f=M.f;const sales=S.users.filter(u=>u.
  <div class="field"><label for="cn-n">Tên công ty <span class="req">*</span></label><input id="cn-n" class="inp" data-f="cn" data-k="name" value="${esc(f.name)}"></div>
  <div class="field"><label for="cn-s">Segment <span class="req">*</span></label><select id="cn-s" class="inp" data-f="cn" data-k="segment"><option value="DD" ${f.segment==='DD'?'selected':''}>Dân dụng</option><option value="DA" ${f.segment==='DA'?'selected':''}>Dự án</option></select></div>
  <div class="field"><label for="cn-sl">Sales phụ trách (cùng segment) <span class="req">*</span></label><select id="cn-sl" class="inp" data-f="cn" data-k="salesId"><option value="">Chọn</option>${sales.map(u=>`<option value="${u.id}" ${f.salesId===u.id?'selected':''}>${esc(u.name)}</option>`).join('')}</select></div>
+ <div class="field"><label for="cn-cs">CS phụ trách</label><select id="cn-cs" class="inp" data-f="cn" data-k="csId"><option value="">Chưa gán (thông báo gửi tất cả CS)</option>${S.users.filter(u=>u.role==='cs'&&(u.active||u.id===f.csId)).map(u=>`<option value="${u.id}" ${f.csId===u.id?'selected':''}>${esc(u.name)}${isAway(u)?' (đang nghỉ)':''}</option>`).join('')}</select></div>
  <div class="field"><label for="cn-l">Tên điểm giao <span class="req">*</span></label><input id="cn-l" class="inp" data-f="cn" data-k="label" value="${esc(f.label)}"></div>
  <div class="field"><label for="cn-p">Tỉnh/Thành <span class="req">*</span></label><select id="cn-p" class="inp" data-f="cn" data-k="province"><option value="">Chọn</option>${PROVINCES.map(p=>`<option ${f.province===p?'selected':''}>${p}</option>`).join('')}</select></div>
  <div class="field"><label for="cn-w">Phường/Xã <span class="req">*</span></label><input id="cn-w" class="inp" data-f="cn" data-k="ward" value="${esc(f.ward)}"></div>
@@ -806,6 +826,7 @@ function openBooking(id){V.bk=id;V.asg=null;V.prev=V.view==='booking'?V.prev:V.v
 const A={
  go:d=>go(d.v),
  menu:()=>{V.menu=!V.menu;render();},
+ gsOpen:()=>gsOpen(),
  logout:async()=>{try{await sb.auth.signOut();}catch(e){}location.reload();},
  refresh:()=>{reload().then(()=>{render();toast('Đã cập nhật dữ liệu');}).catch(e=>toast(e.message));},
  close:()=>{V.modal=null;render();},
@@ -913,9 +934,9 @@ const A={
    {err:m=>M.err=m,ok:()=>{V.modal=null;toast((M.edit?'Đã cập nhật ':'Đã cấp quyền cho ')+f.email.trim());}});},
  loginAs:d=>{const u=user(d.id);mutate('impersonate_start',{p_user:d.id},{ok:r=>{V.view='calendar';V.modal=null;V.asg=null;V.menu=false;V.wh=me().wh||'PMY';V.fleetEdit={};render();window.scrollTo(0,0);toast(`Đang Login as ${r.name} trong ${r.minutes} phút`);}});},
  impStop:()=>mutate('impersonate_stop',{},{ok:()=>{V.view='users';V.uTab='users';V.modal=null;V.asg=null;V.wh=me().wh||'PMY';render();toast('Đã thoát Login as');}}),
- custEdit:d=>{const c=cust(d.id);V.modal={type:'custEdit',id:c.id,wide:true,err:'',addr:null,f:{code:c.code,name:c.name,segment:c.segment,salesId:c.salesId||''}};render();},
+ custEdit:d=>{const c=cust(d.id);V.modal={type:'custEdit',id:c.id,wide:true,err:'',addr:null,f:{code:c.code,name:c.name,segment:c.segment,salesId:c.salesId||'',csId:c.csId||''}};render();},
  ceSave:()=>{const M=V.modal;const f=M.f;if(!f.code.trim()||!f.name.trim()||!f.salesId){M.err='Điền đủ mã, tên công ty và Sales phụ trách.';return render();}
-  mutate('admin_update_customer',{p:{id:M.id,code:f.code.trim(),name:f.name.trim(),segment:f.segment,sales_id:f.salesId}},{err:m=>M.err=m,ok:()=>{V.modal=null;toast('Đã lưu khách hàng '+f.name.trim());}});},
+  mutate('admin_update_customer',{p:{id:M.id,code:f.code.trim(),name:f.name.trim(),segment:f.segment,sales_id:f.salesId,cs_id:f.csId||''}},{err:m=>M.err=m,ok:()=>{V.modal=null;toast('Đã lưu khách hàng '+f.name.trim());}});},
  custToggle:d=>{const c=cust(d.id);mutate('admin_toggle_customer',{p_id:d.id},{ok:r=>toast(r.active?`Đã dùng lại ${c.name}`:`Đã ngừng dùng ${c.name}: không tạo booking mới được${r.openBookings?`; ${r.openBookings} booking đang mở vẫn được xử lý`:''}`)});},
  addrNew:()=>{V.modal.addr={id:'',label:'',province:'',ward:'',regions:{}};V.modal.addrErr='';render();},
  addrEdit:d=>{const a=cust(V.modal.id).addresses.find(x=>x.id===d.id);V.modal.addr={id:a.id,label:a.label,province:a.province,ward:a.ward,regions:{...a.regions}};V.modal.addrErr='';render();},
@@ -925,9 +946,9 @@ const A={
  addrDel:d=>{V.modal.delAddr=d.id;V.modal.delErr='';render();},
  addrDelOff:()=>{V.modal.delAddr=null;render();},
  addrDelGo:d=>{const M=V.modal;mutate('admin_delete_address',{p_id:d.id},{err:m=>{M.delErr=m;M.delAddr=null;},ok:()=>{M.delAddr=null;M.delErr='';render();toast('Đã xóa địa chỉ');}});},
- custNew:()=>{V.modal={type:'custNew',f:{code:'KH0'+(300+S.customers.length),name:'',segment:'DD',salesId:'',label:'',province:'',ward:'',region:''},err:''};render();},
+ custNew:()=>{V.modal={type:'custNew',f:{code:'KH0'+(300+S.customers.length),name:'',segment:'DD',salesId:'',csId:'',label:'',province:'',ward:'',region:''},err:''};render();},
  cnSave:()=>{const M=V.modal;const f=M.f;if(!f.code.trim()||!f.name.trim()||!f.salesId||!f.label.trim()||!f.province||!f.ward.trim()){M.err='Điền đủ các trường bắt buộc.';return render();}
-  mutate('admin_add_customer',{p:{code:f.code.trim(),name:f.name.trim(),segment:f.segment,sales_id:f.salesId,label:f.label.trim(),province:f.province,ward:f.ward.trim(),region:f.region}},
+  mutate('admin_add_customer',{p:{code:f.code.trim(),name:f.name.trim(),segment:f.segment,sales_id:f.salesId,cs_id:f.csId||'',label:f.label.trim(),province:f.province,ward:f.ward.trim(),region:f.region}},
    {err:m=>M.err=m,ok:()=>{V.modal=null;toast('Đã thêm khách hàng '+f.name.trim());}});},
  // notifs
  readAll:()=>mutate('mark_notifs_read',{p_ids:null},{ok:()=>toast('Đã đánh dấu tất cả đã đọc')}),
@@ -936,6 +957,9 @@ const A={
   if(L.bk&&internal()){const b=bkById(L.bk);if(b&&visibleBk(b))return openBooking(b.id);}
   if(!internal()&&(L.bk||L.day)){const b=L.bk?bkById(L.bk):null;const day=b?b.date:L.day;if(b)V.wh=b.wh;V.view='calendar';V.modal={type:'custDay',date:day,wide:true};return afterNav(goMonth(day));}
   if(L.day){V.day=L.day;V.view=internal()?'day':'calendar';return afterNav(goMonth(L.day));}render();},
+ awSave:d=>{const W=V.aw;W.err='';if(!W.from||!W.to){W.err='Chọn ngày bắt đầu và kết thúc nghỉ.';return render();}if(W.to<W.from){W.err='Ngày kết thúc phải sau ngày bắt đầu.';return render();}
+  mutate('set_away',{p_user:d.m==='self'?null:W.uid,p_from:W.from,p_to:W.to,p_delegate:W.del||null},{err:m=>W.err=m,ok:()=>{V.aw=null;toast('Đã lưu nghỉ phép');}});},
+ awClear:d=>{const W=V.aw;mutate('set_away',{p_user:d.m==='self'?null:W.uid,p_from:null,p_to:null,p_delegate:null},{err:m=>W.err=m,ok:()=>{V.aw=null;toast('Đã tắt nghỉ phép');}});},
  pfSave:()=>mutate('update_my_profile',{p_name:me().name,p_phone:me().phone||''},{ok:()=>toast('Đã lưu hồ sơ')}),
  pwSave:async()=>{const p=V.pw||'';if(p.length<8){V.pwErr='Mật khẩu tối thiểu 8 ký tự.';return render();}if(p!==V.pw2){V.pwErr='Hai lần nhập không khớp.';return render();}
   setBusy(true);const{error}=await sb.auth.updateUser({password:p});setBusy(false);if(error){V.pwErr=error.message;return render();}V.pw='';V.pw2='';V.pwErr='';toast('Đã đổi mật khẩu');},
@@ -966,6 +990,118 @@ function saveBF(kind){const M=V.modal;const f=M.f;M.err='';const tot=bfTotal(f);
   province:f.province,ward:f.ward,street:f.addrText,save_addr:!!f.saveAddr,region:f.region||'',note:f.note||'',
   lines:f.lines.map(l=>({p:l.p,c:l.c,th:String(l.th??'').replace(',','.'),w:String(l.w??''),t:String(l.t??'').replace(',','.')}))};
  mutate('save_booking',{p},{err:m=>M.err=m,ok:id=>{V.modal=null;V.asg=null;toast(kind==='draft'?`Đã lưu nháp ${id}`:M.id?`Đã lưu ${id}`:`Đã giữ chỗ ${id}, trừ tạm ${t2(tot)} t`);}});}
+
+/* ===================== Global Search ===================== */
+const GS={open:false,q:'',items:[],sel:0,seq:0,t:null,loading:false,res:null};
+const SEARCH_SVG='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+const fold=s=>String(s??'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase();
+const WDN={cn:0,'chu nhat':0,'thu 2':1,'thu hai':1,'thu 3':2,'thu ba':2,'thu 4':3,'thu tu':3,'thu 5':4,'thu nam':4,'thu 6':5,'thu sau':5,'thu 7':6,'thu bay':6};
+// Nhận dạng: số tấn, ngày (dd/mm, hôm nay, mai, mốt, thứ N), mã xe (DK-03), phần còn lại là chữ để tìm trên máy chủ
+function gsParse(q){
+ const r={day:null,tons:null,truck:null,text:''};let t=' '+fold(q).replace(/\s+/g,' ')+' ';
+ t=t.replace(/ (\d+(?:[.,]\d+)?) ?(t|tan)(?= )/,(m,n)=>{r.tons=num(n);return ' ';});
+ t=t.replace(/ (\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?(?= )/,(m,dd,mm,yy)=>{const y0=+TODAY.slice(0,4);let y=yy?(+yy<100?2000+(+yy):+yy):y0;
+  if(+mm<1||+mm>12||+dd<1||+dd>31)return m;let ds=iso(y,+mm,+dd);if(!yy&&ds<addDays(TODAY,-90))ds=iso(y+1,+mm,+dd);r.day=ds;return ' ';});
+ t=t.replace(/ (dk|cn) ?-? ?(\d{1,2})(?= )/,(m,ty,n)=>{r.truck=ty.toUpperCase()+'-'+pad(+n);return ' ';});
+ const rel=[[' hom nay ',0],[' ngay mai ',1],[' ngay kia ',2],[' mai ',1],[' mot ',2]];
+ if(!r.day){for(const[k,n]of rel){if(t.includes(k)){r.day=addDays(TODAY,n);t=t.replace(k,' ');break;}}}
+ if(!r.day){for(const k of Object.keys(WDN).sort((a,b)=>b.length-a.length)){if(t.includes(' '+k+' ')){let d=TODAY;for(let i=0;i<7&&dow(d)!==WDN[k];i++)d=addDays(d,1);r.day=d;t=t.replace(' '+k+' ',' ');break;}}}
+ r.text=t.trim();return r;}
+function gsCmds(){return[
+ {l:'Lịch đặt xe',k:'lich dat xe calendar trang chu',ok:true,run:()=>go('calendar')},
+ {l:'Đặt hàng mới',k:'dat hang moi tao booking',ok:can('booking.create'),run:()=>{V.modal=bfNew(TODAY);render();}},
+ {l:'Danh sách booking',k:'danh sach booking',ok:can('booking.list'),run:()=>{V.blTab='all';go('bookings');}},
+ {l:'Cần xử lý (CS)',k:'can xu ly viec todo',ok:can('booking.create')||can('booking.edit'),run:()=>{V.blTab='todo';go('bookings');}},
+ {l:'Approval request',k:'approval request duyet cho xep xe giu cho',ok:can('approvals.view'),run:()=>go('approvals')},
+ {l:'Khai báo xe theo ngày',k:'khai bao xe trucks capacity setting so xe',ok:can('fleet.manage'),run:()=>go('fleet')},
+ {l:'Cấu hình · Ngưỡng & tải trọng',k:'cau hinh configuration nguong tai trong sla nhac lai',ok:can('config.general'),run:()=>{V.cfgTab='general';go('config');}},
+ {l:'Cấu hình · Khu vực giao hàng',k:'cau hinh khu vuc giao hang region lan can',ok:can('config.regions'),run:()=>{V.cfgTab='regions';go('config');}},
+ {l:'Cấu hình · Sản phẩm, màu, độ dày, khổ',k:'cau hinh san pham mau do day kho rong danh muc',ok:can('config.catalog'),run:()=>{V.cfgTab='catalog';go('config');}},
+ {l:'Cấu hình · Ngày nghỉ',k:'cau hinh ngay nghi le holiday chu nhat',ok:can('config.general'),run:()=>{V.cfgTab='holiday';go('config');}},
+ {l:'Dashboard',k:'dashboard bao cao thong ke',ok:canAny('dash.'),run:()=>go('dash')},
+ {l:'Dashboard · Sức khỏe hệ thống (DB-06)',k:'db-06 db06 suc khoe he thong email dung luong',ok:can('dash.system'),run:()=>{V.dashTab='DB-06';go('dash');}},
+ {l:'Người dùng',k:'nguoi dung user tai khoan cap quyen login as',ok:can('users.manage'),run:()=>{V.uTab='users';go('users');}},
+ {l:'Khách hàng',k:'khach hang customer',ok:can('customers.manage'),run:()=>{V.uTab='customers';go('users');}},
+ {l:'Phân quyền vai trò',k:'phan quyen vai tro permission',ok:can('perms.manage'),run:()=>{V.uTab='perms';go('users');}},
+ {l:'Thông báo',k:'thong bao notification',ok:true,run:()=>go('notifs')},
+ {l:'Hồ sơ cá nhân · nghỉ phép · đổi mật khẩu',k:'ho so ca nhan profile nghi phep nguoi nhan thay doi mat khau',ok:true,run:()=>go('profile')},
+ {l:'Đăng xuất',k:'dang xuat logout thoat',ok:true,run:()=>A.logout()},
+].filter(c=>c.ok);}
+function gsStatus(){const holds=S.bookings.filter(b=>b.status==='hold'&&visibleBk(b));const over=holds.filter(b=>S.clock-b.heldAt>S.cfg.sla).length;return[
+ {k:['cho xep xe','cho duyet','giu cho','cho'],l:'Booking đang chờ xếp xe',sub:`${holds.length} booking`,ok:can('approvals.view')||can('booking.list'),run:()=>{if(can('approvals.view'))go('approvals');else{V.blTab='hold';go('bookings');}}},
+ {k:['qua han','tre han','sla'],l:'Booking chờ quá hạn phản hồi',sub:`${over} booking quá ${S.cfg.sla} phút`,ok:can('approvals.view'),run:()=>go('approvals')},
+ {k:['nhap','draft'],l:'Nháp của tôi',sub:`${S.bookings.filter(b=>b.status==='draft'&&b.csId===V.me).length} nháp`,ok:can('booking.create'),run:()=>{V.blTab='draft';go('bookings');}},
+ {k:['doi ngay','de nghi'],l:'Booking đề nghị đổi ngày',sub:`${S.bookings.filter(b=>b.status==='resched'&&visibleBk(b)).length} booking`,ok:can('booking.list'),run:()=>{V.blTab='resched';go('bookings');}},
+ {k:['tu choi','huy','da huy'],l:'Booking từ chối / đã hủy',ok:can('booking.list'),run:()=>{V.blTab='closed';go('bookings');}},
+ {k:['can xu ly','viec'],l:'Cần xử lý (CS)',ok:can('booking.create')||can('booking.edit'),run:()=>{V.blTab='todo';go('bookings');}},
+].filter(x=>x.ok);}
+// Mở booking ở bất kỳ tháng nào (nạp lại dữ liệu nếu cần)
+async function gsOpenBooking(b,then){V.wh=b.wh;const need=goMonth(b.date);if(need){try{await reload();}catch(e){return toast(e.message);}}
+ if(internal()){openBooking(b.id);if(then)then();}else{V.view='calendar';V.modal={type:'custDay',date:b.date,wide:true};render();}}
+async function gsOpenDay(wh,date,truck){V.wh=wh;V.day=date;V.view=can('day.view')?'day':'calendar';V.dayFilter={st:'all',region:'all'};V.modal=null;const need=goMonth(date);if(need){try{await reload();}catch(e){return toast(e.message);}}
+ if(truck&&can('day.view')){const code=`${wh}-${ddmmyy(date)}-${truck}`;if(trucksOf(wh,date).some(t=>t.code===code))V.modal={type:'truck',code,wide:true};else toast(`Ngày ${dm(date)} kho ${wh} không có xe ${truck}`);}
+ render();window.scrollTo(0,0);}
+function gsBookFor(custId,date,wh){V.modal=bfNew(date||TODAY);const F=V.modal.f;if(wh)F.wh=wh;if(custId){const c=cust(custId);F.customerId=custId;F.addrId=c&&c.addresses[0]?c.addresses[0].id:'new';F.province=c&&c.addresses[0]?c.addresses[0].province:'';const d=detectRegion(F);F.region=d.region;F.regionMode=d.mode;}render();}
+const gsRecentGet=()=>{try{return JSON.parse(localStorage.getItem('gsRecent')||'[]');}catch(e){return[];}};
+function gsRemember(it){if(!it.rk)return;try{const L=gsRecentGet().filter(x=>x.rk!==it.rk);L.unshift({rk:it.rk,l:it.l,sub:it.sub||'',ref:it.ref});localStorage.setItem('gsRecent',JSON.stringify(L.slice(0,6)));}catch(e){}}
+function gsFromRecent(x){const r=x.ref||{};const run=r.kind==='bk'?()=>gsOpenBooking(r):r.kind==='day'?()=>gsOpenDay(r.wh,r.date,r.truck):r.kind==='cust'&&can('customers.manage')?()=>{V.uTab='customers';go('users');A.custEdit({id:r.id});}:r.kind==='cust'?()=>{V.blF.q=r.name;V.blTab='all';go('bookings');}:null;
+ return run?{g:'Vừa xem',l:x.l,sub:x.sub,rk:x.rk,ref:r,run,acts:[]}:null;}
+// Ghép kết quả: cục bộ (lệnh, trạng thái, xe theo mã, quá tải, liên hệ Sales) + máy chủ (booking, khách, biển số, người dùng, ngày)
+function gsBuild(P,R){const items=[];const f=fold(GS.q).trim();const words=f.split(' ').filter(Boolean);
+ if(!f){gsRecentGet().map(gsFromRecent).filter(Boolean).forEach(x=>items.push(x));
+  const quick=role()==='customer'?['Lịch đặt xe','Thông báo']:role()==='logistics'?['Approval request','Khai báo xe theo ngày','Lịch đặt xe']:role()==='cs'?['Đặt hàng mới','Cần xử lý (CS)','Danh sách booking']:role()==='sales'?['Danh sách booking','Lịch đặt xe']:['Người dùng','Dashboard · Sức khỏe hệ thống (DB-06)','Phân quyền vai trò'];
+  gsCmds().filter(c=>quick.includes(c.l)).forEach(c=>items.push({g:'Lệnh hay dùng',l:c.l,run:c.run,acts:[],rk:'cmd:'+c.l,ref:{kind:'cmd'}}));return items;}
+ const exact=[];
+ (R&&R.bookings||[]).forEach(b=>{const open=['hold','ok','resched','draft'].includes(b.status);const it={g:'Booking',l:b.id+(b.ref?' · '+b.ref:''),sub:`${b.customer?b.customer+' · ':''}${dmy(b.date)} · ${b.wh} · ${t2(b.tons)} t · ${internal()?ST_LABEL[b.status]:(ST_CUST[b.status]||ST_LABEL[b.status])}${b.trucks?' · xe '+b.trucks:''}${b.date<TODAY?' · đã qua':''}`,
+  rk:'bk:'+b.id,ref:{kind:'bk',id:b.id,date:b.date,wh:b.wh},run:()=>gsOpenBooking(b),acts:[]};
+  if(can('alloc.assign')&&b.status==='hold'&&b.date>=TODAY)it.acts.push({l:'Xếp xe',run:()=>gsOpenBooking(b)});
+  if(can('booking.edit')&&open&&b.status!=='draft'&&(b.date>=TODAY||b.status!=='ok'))it.acts.push({l:'Sửa',run:()=>gsOpenBooking(b,()=>{if(bkById(b.id))A.editBk({id:b.id});})});
+  if(fold(b.id)===f||fold(b.ref)===f)exact.push(it);else items.push(it);});
+ if(P.truck&&can('day.view')){const d=P.day||TODAY;items.push({g:'Xe',l:`Xe ${P.truck} · ${WDS[dow(d)]} ${dmy(d)} · ${(WH.find(w=>w.id===V.wh)||{}).full||V.wh}`,sub:'Mở thẻ xe: phần hàng, tải trọng, biển số',rk:`truck:${V.wh}:${d}:${P.truck}`,ref:{kind:'day',wh:V.wh,date:d,truck:P.truck},run:()=>gsOpenDay(V.wh,d,P.truck),acts:[]});}
+ (R&&R.trucks||[]).forEach(t=>{const[wh,dd,ty,n]=t.code.split('-');items.push({g:'Xe',l:`${t.plate||'(chưa có biển số)'} · ${ty}-${n} · ${dmy(t.date)} · ${wh}`,sub:`${t.driver?'Tài xế '+t.driver+(t.phone?' '+t.phone:'')+' · ':''}${t2(t.load)}${t.cap?'/'+t2(t.cap):''} t · ${t.bookings} booking`,rk:'truck:'+t.code,ref:{kind:'day',wh,date:t.date,truck:ty+'-'+n},run:()=>gsOpenDay(wh,t.date,ty+'-'+n),acts:[]});});
+ (R&&R.days||[]).forEach(d=>{const it={g:P.tons&&!P.day?`Ngày gần nhất còn đủ ${t2(P.tons)} t`:'Ngày',l:`${WDS[dow(d.date)]} ${dmy(d.date)} · ${d.whName}`,sub:`${d.status==='off'?'Ngày nghỉ':d.status==='none'?'Chưa mở lịch xe':'Có thể đặt '+t2(d.avail)+' t · '+PILL[d.status]}${P.tons&&d.status!=='off'&&d.status!=='none'?(d.fits?' · đủ '+t2(P.tons)+' t':' · không đủ '+t2(P.tons)+' t'):''}`,
+  rk:`day:${d.wh}:${d.date}`,ref:{kind:'day',wh:d.wh,date:d.date},run:()=>gsOpenDay(d.wh,d.date),acts:[],warn:P.tons&&!d.fits};
+  if(can('booking.create')&&d.fits&&d.date>=TODAY&&!['off','none'].includes(d.status))it.acts.push({l:'Đặt hàng ngày này',run:()=>gsBookFor(null,d.date,d.wh)});items.push(it);});
+ if(P.tons&&P.day&&R&&R.days&&R.days.length&&!R.days.some(d=>d.fits)&&!P.text)items.push({g:'Ngày',l:`Tìm ngày gần nhất còn đủ ${t2(P.tons)} t`,sub:'Bấm để xem các ngày còn chỗ',run:()=>{const inp=document.getElementById('gs-q');inp.value=String(P.tons).replace('.',',')+'t';GS.q=inp.value;gsRun();},keep:true,acts:[]});
+ (R&&R.customers||[]).forEach(c=>{const it={g:'Khách hàng',l:`${c.name} · ${c.code}`,sub:`${c.active?'':'Ngừng dùng · '}${c.address||''}${c.sales?' · Sales '+c.sales:''}${c.cs?' · CS '+c.cs:''} · ${c.open} booking đang mở`,rk:'cust:'+c.id,ref:{kind:'cust',id:c.id,name:c.name},
+  run:()=>{V.blF={wh:'all',region:'all',q:c.name};V.blTab='all';go('bookings');},acts:[]};
+  if(can('booking.create')&&c.active)it.acts.push({l:'Đặt hàng cho khách',run:()=>gsBookFor(c.id,P.day&&P.day>=TODAY?P.day:TODAY)});
+  if(can('customers.manage'))it.acts.push({l:'Sửa khách',run:()=>{V.uTab='customers';go('users');A.custEdit({id:c.id});}});items.push(it);});
+ (R&&R.users||[]).forEach(u=>{const it={g:'Người dùng',l:u.name,sub:`${u.email} · ${ROLE_LABEL[u.role]}${u.company?' · '+u.company:''}${u.active?'':' · đã khóa'}`,rk:'user:'+u.id,run:()=>{V.uTab='users';go('users');if(can('users.manage'))A.userEdit({id:u.id});},acts:[]};
+  if(can('users.impersonate')&&u.active&&u.id!==V.me)it.acts.push({l:'Login as',run:()=>A.loginAs({id:u.id})});items.push(it);});
+ if(words.length&&!P.truck){
+  if(role()==='customer'&&/sales|lien he|ho tro|goi/.test(f)){const c=cust(me().customerId);const s=c&&user(c.salesId);if(s)items.push({g:'Liên hệ',l:`Sales phụ trách: ${s.name}`,sub:`${s.phone||''}${s.phone?' · ':''}${s.email}`,run:()=>{},acts:[]});}
+  if(internal()&&can('day.view')&&/qua tai/.test(f)){for(let i=0;i<14;i++){const d=addDays(TODAY,i);WH.forEach(w=>trucksOf(w.id,d).forEach(t=>{const l=loadOf(t.code);if(l>t.cap+0.001)items.push({g:'Xe quá tải',l:`${t.short} · ${dmy(d)} · ${w.name}`,sub:`${t2(l)}/${t2(t.cap)} t · thừa ${t2(l-t.cap)} t`,rk:'truck:'+t.code,ref:{kind:'day',wh:w.id,date:d,truck:t.short},run:()=>gsOpenDay(w.id,d,t.short),acts:[]});}));}}
+  gsStatus().filter(x=>x.k.some(k=>f===k||f.startsWith(k+' ')||(k.length>3&&f.includes(k)))).forEach(x=>items.push({g:'Trạng thái',l:x.l,sub:x.sub,run:x.run,acts:[]}));
+  gsCmds().filter(c=>words.every(w=>fold(c.l+' '+c.k).includes(w))).slice(0,5).forEach(c=>items.push({g:'Lệnh',l:c.l,run:c.run,acts:[],rk:'cmd:'+c.l,ref:{kind:'cmd'}}));}
+ const order=['Booking','Xe','Xe quá tải',`Ngày gần nhất còn đủ ${t2(P.tons||0)} t`,'Ngày','Khách hàng','Người dùng','Liên hệ','Trạng thái','Lệnh'];
+ items.sort((a,b)=>(order.indexOf(a.g)+99)%99-(order.indexOf(b.g)+99)%99);
+ return exact.map(x=>({...x,g:'Khớp chính xác'})).concat(items);}
+function gsRenderList(){const box=document.getElementById('gs-res');if(!box)return;const its=GS.items;
+ if(!its.length){box.innerHTML=GS.loading?'<div class="gs-empty">Đang tìm…</div>':`<div class="gs-empty">${GS.q.trim()?'Không tìm thấy kết quả phù hợp. Thử mã booking, số SO, tên khách, ngày (15/10), số tấn (28t), biển số hoặc tên màn hình.':'Gõ để tìm.'}</div>`;return;}
+ let html='',last='';its.forEach((it,i)=>{if(it.g!==last){html+=`<div class="gs-g">${esc(it.g)}</div>`;last=it.g;}
+  html+=`<div class="gs-it ${i===GS.sel?'on':''} ${it.warn?'warn':''}" data-gi="${i}" role="option" aria-selected="${i===GS.sel}"><div class="gs-main"><b>${esc(it.l)}</b>${it.sub?`<span>${esc(it.sub)}</span>`:''}</div>${it.acts.length?`<div class="gs-acts">${it.acts.map((a,j)=>`<button class="btn ghost sm" data-gi="${i}" data-ga="${j}">${esc(a.l)}</button>`).join('')}</div>`:''}</div>`;});
+ box.innerHTML=html+(GS.loading?'<div class="gs-empty small">Đang tìm thêm…</div>':'');const on=box.querySelector('.gs-it.on');if(on)on.scrollIntoView({block:'nearest'});}
+async function gsRun(){const P=gsParse(GS.q);const my=++GS.seq;GS.items=gsBuild(P,null);GS.sel=0;
+ const needServer=P.text.length>=2||P.day||P.tons;GS.loading=!!needServer;gsRenderList();if(!needServer)return;
+ try{const R=await rpc('search',{p_q:P.text.length>=2?P.text:'',p_day:P.day,p_tons:P.tons,p_wh:V.wh});if(my!==GS.seq)return;GS.loading=false;GS.items=gsBuild(P,R);GS.sel=0;gsRenderList();}
+ catch(e){if(my!==GS.seq)return;GS.loading=false;gsRenderList();toast(e.message);}}
+function gsPick(i,j){const it=GS.items[i];if(!it)return;const act=j==null?it.run:(it.acts[j]||{}).run;if(!act)return;if(!it.keep){gsRemember(it);gsClose();}act();}
+function gsOpen(){if(!S)return;let el=document.getElementById('gs');if(!el){el=document.createElement('div');el.id='gs';document.body.appendChild(el);
+  el.addEventListener('click',e=>{if(e.target===el.firstElementChild){gsClose();return;}const b=e.target.closest('[data-gi]');if(!b)return;e.stopPropagation();gsPick(+b.dataset.gi,b.dataset.ga!=null?+b.dataset.ga:null);});}
+ el.innerHTML=`<div class="gs-scrim"><div class="gs" role="dialog" aria-label="Tìm kiếm"><div class="gs-in">${SEARCH_SVG}<input id="gs-q" autocomplete="off" spellcheck="false" placeholder="Tìm booking, SO, khách hàng, ngày (15/10), số tấn (28t), biển số, màn hình…" aria-label="Tìm kiếm" role="combobox" aria-expanded="true" aria-controls="gs-res"><kbd>Esc</kbd></div>
+  <div class="gs-res" id="gs-res" role="listbox"></div><div class="gs-foot"><span>↑ ↓ chọn · Enter mở · Esc đóng</span><span>Ví dụ: <code>28t 15/10</code> <code>SO-4500</code> <code>DK-03 mai</code> <code>51C-123</code> <code>quá hạn</code></span></div></div></div>`;
+ GS.open=true;GS.q='';const inp=document.getElementById('gs-q');
+ inp.addEventListener('input',()=>{GS.q=inp.value;clearTimeout(GS.t);GS.t=setTimeout(gsRun,200);});
+ inp.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){e.preventDefault();GS.sel=Math.min(GS.items.length-1,GS.sel+1);gsRenderList();}
+  else if(e.key==='ArrowUp'){e.preventDefault();GS.sel=Math.max(0,GS.sel-1);gsRenderList();}
+  else if(e.key==='Enter'){e.preventDefault();clearTimeout(GS.t);if(GS.items.length)gsPick(GS.sel,null);}
+  else if(e.key==='Escape'){e.preventDefault();gsClose();}});
+ gsRun();setTimeout(()=>inp.focus(),0);}
+function gsClose(){GS.open=false;GS.seq++;const el=document.getElementById('gs');if(el)el.innerHTML='';}
+document.addEventListener('keydown',e=>{if(!S)return;const tag=(e.target.tagName||'');const typing=['INPUT','TEXTAREA','SELECT'].includes(tag);
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();GS.open?gsClose():gsOpen();}
+ else if(e.key==='/'&&!typing&&!GS.open&&!V.modal){e.preventDefault();gsOpen();}});
 
 /* ===================== start ===================== */
 function screen(title,body,actions=''){return `<div class="login"><div class="panel loginbox"><div class="brand"><span class="mark">${IC.truck.replace('<svg','<svg width="18" height="18"')}</span>ĐẶT XE</div><h1>${title}</h1>${body}${actions}</div></div>`;}
@@ -1031,10 +1167,12 @@ async function boot(){
 
 
 /* ===================== events ===================== */
+// Thao tác chỉ điều hướng: vẫn cho bấm khi đang lưu
+const NAV_SAFE=new Set(['close','scrim','go','menu','cfgTab','uTab','dashTab','dayTab','blTab','month','dayNav','openDay','openBk','back','truck','custDay','gsOpen','dashTable','asgPanel','pmUndo']);
 document.addEventListener('click',e=>{
  const el=e.target.closest('[data-a]');
  if(V.menu&&!e.target.closest('.menu')&&!e.target.closest('.userbtn')){V.menu=false;if(!el){render();return;}}
- if(!el)return;const a=el.dataset.a;if(V.busy&&a!=='close')return;
+ if(!el)return;const a=el.dataset.a;if(V.busy&&!NAV_SAFE.has(a))return;
  if(el.tagName==='SELECT')return;
  if(a!=='scrim'&&el.closest('.modal')&&a==='scrim')return;
  if(A[a]){e.stopPropagation();A[a](el.dataset,el,e);}
@@ -1066,6 +1204,8 @@ document.addEventListener('change',e=>{const el=e.target;const a=el.dataset.a;
  if(f==='un'){V.modal.f[el.dataset.k]=el.value;if(el.dataset.k==='role')render();return;}
  if(f==='cn'){V.modal.f[el.dataset.k]=el.value;if(['segment','province'].includes(el.dataset.k)){if(el.dataset.k==='segment')V.modal.f.salesId='';if(el.dataset.k==='province'){const c=S.regions.filter(r=>r.active&&r.newProvince===el.value);V.modal.f.region=c.length===1?c[0].id:'';}render();}return;}
  if(f==='hol'){V.hol=el.value;return;}
+ if(f==='aw'){V.aw[el.dataset.k]=el.value;return;}
+ if(f==='blAll'){V.blAll=el.checked;render();return;}
  if(f==='ti'){V.modal.ti[el.dataset.k]=el.value;if(el.dataset.k==='cap')render();return;}
  if(f==='regE'){V.regEdit[el.dataset.k]=el.value;return;}
  if(f==='regENb'){const s2=new Set(V.regEdit.nb);el.checked?s2.add(el.value):s2.delete(el.value);V.regEdit.nb=[...s2];return;}

@@ -74,6 +74,12 @@ do $$ begin
   alter table app.profiles add constraint profiles_customer_fk foreign key (customer_id) references app.customers(id);
 exception when duplicate_object then null; end $$;
 
+-- CS phụ trách khách; nghỉ phép và người nhận thay của từng người dùng
+alter table app.customers add column if not exists cs_user_id uuid references app.profiles(user_id);
+alter table app.profiles  add column if not exists away_from date;
+alter table app.profiles  add column if not exists away_to date;
+alter table app.profiles  add column if not exists delegate_id uuid references app.profiles(user_id);
+
 create table if not exists app.customer_addresses (
   id          uuid primary key default gen_random_uuid(),
   customer_id uuid not null references app.customers(id) on delete cascade,
@@ -185,6 +191,7 @@ create table if not exists app.bookings (
   updated_at     timestamptz not null default now()
 );
 create index if not exists bookings_wh_day_status on app.bookings (warehouse_code, day, status);
+alter table app.bookings add column if not exists escalated_at timestamptz;
 create index if not exists bookings_customer on app.bookings (customer_id);
 
 create table if not exists app.booking_lines (
@@ -268,6 +275,14 @@ revoke all on all sequences in schema app from public, anon, authenticated;
 -- ---------------------------------------------------------------------
 -- 2. Hàm nội bộ (schema app)
 -- ---------------------------------------------------------------------
+-- Chuẩn hóa để tìm kiếm: chữ thường, bỏ dấu tiếng Việt
+create or replace function app.fold(t text) returns text
+language sql immutable set search_path = '' as $$
+  select lower(translate(coalesce(t, ''),
+    'àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ',
+    'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyydAAAAAAAAAAAAAAAAAEEEEEEEEEEEIIIIIOOOOOOOOOOOOOOOOOUUUUUUUUUUUYYYYYD'))
+$$;
+
 create or replace function app.today() returns date
 language sql stable set search_path = '' as $$
   select (now() at time zone 'Asia/Ho_Chi_Minh')::date
@@ -479,6 +494,51 @@ language sql security definer set search_path = '' as $$
    where u is not null and exists (select 1 from app.profiles p where p.user_id = u and p.active)
 $$;
 
+create or replace function app.is_away(p_user uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from app.profiles p where p.user_id = p_user and p.away_from is not null and app.today() between p.away_from and coalesce(p.away_to, p.away_from))
+$$;
+
+-- Gửi thông báo về booking cho CS: CS phụ trách khách (nếu nghỉ → người nhận thay), người tạo booking;
+-- không còn CS nào nhận → gửi tất cả CS đang làm việc. Ghi chú khi khách chưa có tài khoản.
+create or replace function app.notify_cs(p_customer uuid, p_creator uuid, p_type text, p_text text, p_link jsonb) returns void
+language plpgsql security definer set search_path = '' as $$
+declare c app.customers; cs app.profiles; d app.profiles; v_txt text; v_cov int := 0;
+begin
+  select * into c from app.customers where id = p_customer;
+  v_txt := p_text || case when not exists (select 1 from app.profiles where customer_id = p_customer and role = 'customer' and active)
+                          then ' · Khách chưa có tài khoản: báo khách qua điện thoại.' else '' end;
+  if c.cs_user_id is not null then
+    select * into cs from app.profiles where user_id = c.cs_user_id and active;
+    if found then
+      if not app.is_away(cs.user_id) then
+        perform app.notify(array[cs.user_id], p_type, v_txt, p_link); v_cov := v_cov + 1;
+      else
+        select * into d from app.profiles where user_id = cs.delegate_id and active;
+        if found and not app.is_away(d.user_id) then
+          perform app.notify(array[d.user_id], p_type, '[Nhận thay cho ' || cs.full_name || '] ' || v_txt, p_link); v_cov := v_cov + 1;
+        end if;
+      end if;
+    end if;
+  end if;
+  if p_creator is not null and p_creator is distinct from cs.user_id and p_creator is distinct from d.user_id and not app.is_away(p_creator) then
+    perform app.notify(array[p_creator], p_type, v_txt, p_link);
+    if exists (select 1 from app.profiles where user_id = p_creator and role = 'cs' and active) then v_cov := v_cov + 1; end if;
+  end if;
+  if v_cov = 0 then
+    perform app.notify(array(select user_id from app.profiles where role = 'cs' and active and not app.is_away(user_id) and user_id is distinct from p_creator),
+                       p_type, '[Chưa có CS phụ trách trực] ' || v_txt, p_link);
+  end if;
+end $$;
+
+-- Thông báo booking: CS (theo notify_cs) + những người khác (Sales, tài khoản khách…)
+create or replace function app.notify_bk(p_customer uuid, p_creator uuid, p_others uuid[], p_type text, p_text text, p_link jsonb) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  perform app.notify_cs(p_customer, p_creator, p_type, p_text, p_link);
+  perform app.notify(p_others, p_type, p_text, p_link);
+end $$;
+
 create or replace function app.logistics_of(p_wh text) returns uuid[]
 language sql stable security definer set search_path = '' as $$
   select coalesce(array_agg(user_id), '{}') from app.profiles
@@ -513,7 +573,7 @@ begin
   select string_agg(split_part(truck_code, '-', 3) || '-' || split_part(truck_code, '-', 4) || ' ' || app.fmt(tons) || ' t', ', ' order by truck_code)
     into v_trucks from app.allocations where booking_id = p_id;
   perform app.audit(p_id, 'Xác nhận, xe: ' || coalesce(v_trucks, ''));
-  perform app.notify(array[b.cs_user_id, c.sales_user_id], 'Xác nhận',
+  perform app.notify_bk(c.id, b.cs_user_id, array[c.sales_user_id], 'Xác nhận',
     p_id || ' · ' || c.name || ' ' || app.fmt(app.bk_total(p_id)) || ' t ngày ' || app.dm(b.day) || ' đã xác nhận. Xe: ' || coalesce(v_trucks, ''),
     jsonb_build_object('bk', p_id));
   perform app.notify(app.customer_users(c.id), 'Xác nhận',
@@ -549,7 +609,8 @@ begin
     'today', app.today(),
     'now', extract(epoch from now()),
     'me', jsonb_build_object('id', me.user_id, 'name', me.full_name, 'email', me.email, 'phone', me.phone, 'role', me.role,
-                             'segment', me.segment, 'customerId', me.customer_id, 'wh', me.default_warehouse, 'whs', me.warehouses),
+                             'segment', me.segment, 'customerId', me.customer_id, 'wh', me.default_warehouse, 'whs', me.warehouses,
+                             'awayFrom', me.away_from, 'awayTo', me.away_to, 'delegateId', me.delegate_id),
     'cfg', v_cfg,
     'perms', to_jsonb(app.my_perms(me.role)),
     'imp', case when app.impersonating() then (select jsonb_build_object('by', a.full_name, 'expiresAt', extract(epoch from i.expires_at))
@@ -600,9 +661,10 @@ begin
     'reasons',  (select coalesce(jsonb_agg(jsonb_build_object('kind', kind, 'code', code, 'name', name) order by kind, code), '[]') from app.reason_codes where active),
     'users', (select coalesce(jsonb_agg(jsonb_build_object('id', p.user_id, 'name', p.full_name, 'email', p.email, 'phone', p.phone, 'role', p.role,
                 'segment', p.segment, 'customerId', p.customer_id, 'wh', p.default_warehouse, 'whs', p.warehouses, 'active', p.active,
+                'awayFrom', p.away_from, 'awayTo', p.away_to, 'delegateId', p.delegate_id,
                 'last', (select (u.last_sign_in_at at time zone 'Asia/Ho_Chi_Minh')::date from auth.users u where u.id = p.user_id)) order by p.full_name), '[]')
               from app.profiles p),
-    'customers', (select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'code', c.code, 'name', c.name, 'segment', c.segment, 'salesId', c.sales_user_id, 'active', c.active,
+    'customers', (select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'code', c.code, 'name', c.name, 'segment', c.segment, 'salesId', c.sales_user_id, 'csId', c.cs_user_id, 'active', c.active,
                     'addresses', (select coalesce(jsonb_agg(jsonb_build_object('id', a.id, 'label', a.label, 'province', a.province, 'ward', a.ward,
                                     'regions', (select coalesce(jsonb_object_agg(ar.warehouse_code, ar.region_id), '{}') from app.address_regions ar where ar.address_id = a.id))
                                     order by a.is_default desc, a.label), '[]')
@@ -633,12 +695,12 @@ begin
                                  from app.booking_lines l where l.booking_id = b.id))
                    end), '[]')
                  from app.bookings b join app.customers c on c.id = b.customer_id
-                where (b.day between p_from and p_to or b.status = 'hold')
+                where (b.day between p_from and p_to or b.status in ('hold','resched'))
                   and (b.status <> 'draft' or b.cs_user_id = me.user_id)),
     'allocs', (select coalesce(jsonb_agg(jsonb_build_object('id', a.id, 'bk', a.booking_id, 'truck', a.truck_code, 'tons', a.tons,
                  'override', a.override, 'reason', a.override_reason)), '[]')
                from app.allocations a join app.bookings b on b.id = a.booking_id
-              where b.day between p_from and p_to or b.status = 'hold'),
+              where b.day between p_from and p_to or b.status in ('hold','resched')),
     'audit', (select coalesce(jsonb_agg(jsonb_build_object('obj', l.entity_id, 'text', l.detail,
                 'who', coalesce((select p.full_name from app.profiles p where p.user_id = l.actor), 'Hệ thống'),
                 'at', extract(epoch from l.at) / 60) order by l.at desc), '[]')
@@ -741,7 +803,9 @@ begin
     insert into app.bookings (id, warehouse_code, day, delivery_date, customer_id, ref, address_id, address_text, province, region_id,
                               status, note, cs_user_id, held_at)
     values (v_id, v_wh, v_day, nullif(p->>'delivery', '')::date, v_cust, coalesce(trim(p->>'ref'), ''), v_addr, v_addr_text, v_prov, v_region,
-            v_mode, coalesce(p->>'note', ''), me.user_id, case when v_mode = 'hold' then now() end);
+            v_mode, coalesce(p->>'note', ''),
+            case when v_mode = 'draft' or me.role = 'cs' then me.user_id else coalesce(c.cs_user_id, me.user_id) end,
+            case when v_mode = 'hold' then now() end);
     perform app.status_change(v_id, null, v_mode);
     v_status := v_mode;
     perform app.audit(v_id, case when v_mode = 'draft' then 'Lưu nháp' else 'Giữ chỗ ' || app.fmt(v_total) || ' t' end);
@@ -945,7 +1009,7 @@ begin
     perform app.status_change(p_id, 'ok', 'hold', null, 'Sửa phần hàng');
   end if;
   perform app.audit(p_id, v_txt);
-  perform app.notify(array[b.cs_user_id, c.sales_user_id], 'Sửa phần hàng', p_id || ' · ' || c.name || ': ' || v_txt, jsonb_build_object('bk', p_id));
+  perform app.notify_bk(c.id, b.cs_user_id, array[c.sales_user_id], 'Sửa phần hàng', p_id || ' · ' || c.name || ': ' || v_txt, jsonb_build_object('bk', p_id));
 end $$;
 
 create or replace function public.reject_booking(p_id text, p_reason text, p_reason_code text default 'OTHER') returns void
@@ -962,7 +1026,7 @@ begin
   update app.bookings set status = 'rejected', closed_at = now(), reason_code = p_reason_code, reason_note = p_reason, updated_at = now() where id = p_id;
   perform app.status_change(p_id, 'hold', 'rejected', p_reason_code, p_reason);
   perform app.audit(p_id, 'Từ chối: ' || p_reason);
-  perform app.notify(array[b.cs_user_id, c.sales_user_id] || app.customer_users(c.id), 'Từ chối',
+  perform app.notify_bk(c.id, b.cs_user_id, array[c.sales_user_id] || app.customer_users(c.id), 'Từ chối',
     p_id || ' · ' || c.name || ' ngày ' || app.dm(b.day) || ' bị từ chối. Lý do: ' || p_reason, jsonb_build_object('bk', p_id, 'day', b.day));
 end $$;
 
@@ -984,7 +1048,7 @@ begin
   update app.bookings set status = 'resched', proposed_day = p_day, reason_code = p_reason_code, reason_note = p_reason, updated_at = now() where id = p_id;
   perform app.status_change(p_id, 'hold', 'resched', p_reason_code, p_reason);
   perform app.audit(p_id, 'Đề nghị đổi sang ' || app.dm(p_day) || ': ' || p_reason);
-  perform app.notify(array[b.cs_user_id, c.sales_user_id] || app.customer_users(c.id), 'Đổi ngày',
+  perform app.notify_bk(c.id, b.cs_user_id, array[c.sales_user_id] || app.customer_users(c.id), 'Đổi ngày',
     p_id || ' · ' || c.name || ': đề nghị đổi từ ' || app.dm(b.day) || ' sang ' || app.dm(p_day) || '. Lý do: ' || p_reason,
     jsonb_build_object('bk', p_id, 'day', b.day));
 end $$;
@@ -1147,10 +1211,10 @@ declare me app.profiles; k text;
 begin
   me := app.require_perm('config.general');
   for k in select jsonb_object_keys(p) loop
-    if k not in ('near','capDK','capCN','split','sla','maxStops','fillMin','suggestOn','sundayOff','holidays','capDKMin','capDKMax','capCNMin','capCNMax') then
+    if k not in ('near','capDK','capCN','split','sla','maxStops','fillMin','suggestOn','sundayOff','holidays','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours') then
       raise exception 'Cấu hình % không hợp lệ.', k;
     end if;
-    if k in ('near','capDK','capCN','split','sla','maxStops','fillMin','capDKMin','capDKMax','capCNMin','capCNMax') and not ((p->>k)::numeric > 0) then
+    if k in ('near','capDK','capCN','split','sla','maxStops','fillMin','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours') and not ((p->>k)::numeric > 0) then
       raise exception 'Giá trị % phải lớn hơn 0.', k;
     end if;
     insert into app.settings values (k, p->k) on conflict (key) do update set value = excluded.value;
@@ -1330,7 +1394,10 @@ begin
   end if;
   select * into v_sales from app.profiles where user_id = nullif(p->>'sales_id', '')::uuid and role = 'sales' and active;
   if not found or v_sales.segment <> p->>'segment' then raise exception 'Chọn Sales phụ trách cùng segment (BR-17).'; end if;
-  insert into app.customers (code, name, segment, sales_user_id) values (trim(p->>'code'), trim(p->>'name'), p->>'segment', v_sales.user_id) returning id into v_id;
+  if nullif(p->>'cs_id', '') is not null and not exists (select 1 from app.profiles where user_id = (p->>'cs_id')::uuid and role = 'cs' and active) then
+    raise exception 'CS phụ trách không hợp lệ.';
+  end if;
+  insert into app.customers (code, name, segment, sales_user_id, cs_user_id) values (trim(p->>'code'), trim(p->>'name'), p->>'segment', v_sales.user_id, nullif(p->>'cs_id', '')::uuid) returning id into v_id;
   insert into app.customer_addresses (customer_id, label, ward, province, is_default) values (v_id, trim(p->>'label'), trim(p->>'ward'), p->>'province', true) returning id into v_addr;
   if v_region is not null then
     insert into app.address_regions select v_addr, r.warehouse_code, r.id from app.regions r where r.id = v_region;
@@ -1338,6 +1405,150 @@ begin
   return v_id;
 exception when unique_violation then
   raise exception 'Mã khách hàng đã tồn tại.';
+end $$;
+
+-- Nghỉ phép và người nhận thay. p_user null = chính mình; người khác cần quyền Quản lý tài khoản.
+create or replace function public.set_away(p_user uuid, p_from date, p_to date, p_delegate uuid) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; t app.profiles; d app.profiles;
+begin
+  if p_user is null then
+    if app.impersonating() then raise exception 'Đang Login as: đặt nghỉ phép cho người này ở màn hình Người dùng.'; end if;
+    select * into me from app.profiles where user_id = auth.uid() and active;
+    if not found then raise exception 'Tài khoản chưa được cấp quyền.'; end if;
+    t := me;
+  else
+    me := app.require_perm('users.manage');
+    select * into t from app.profiles where user_id = p_user;
+    if not found then raise exception 'Không tìm thấy tài khoản.'; end if;
+  end if;
+  if t.role = 'customer' then raise exception 'Tài khoản khách hàng không dùng nghỉ phép.'; end if;
+  if p_from is null and p_to is null then
+    update app.profiles set away_from = null, away_to = null, delegate_id = null where user_id = t.user_id;
+    perform app.audit('user:' || t.user_id, t.full_name || ' tắt nghỉ phép');
+    return;
+  end if;
+  if p_from is null or p_to is null or p_to < p_from then raise exception 'Chọn ngày bắt đầu và kết thúc nghỉ (kết thúc ≥ bắt đầu).'; end if;
+  if p_to < app.today() then raise exception 'Ngày kết thúc nghỉ đã qua.'; end if;
+  if p_delegate is not null then
+    select * into d from app.profiles where user_id = p_delegate and active and role <> 'customer';
+    if not found or d.user_id = t.user_id then raise exception 'Người nhận thay phải là một tài khoản nội bộ khác đang hoạt động.'; end if;
+  end if;
+  update app.profiles set away_from = p_from, away_to = p_to, delegate_id = p_delegate where user_id = t.user_id;
+  perform app.audit('user:' || t.user_id, t.full_name || ' nghỉ ' || app.dm(p_from) || '–' || app.dm(p_to)
+                    || coalesce(', nhận thay: ' || d.full_name, ', không có người nhận thay'));
+end $$;
+
+-- Nhắc việc: booking Đề nghị đổi ngày quá N giờ chưa xử lý, hoặc Chờ xếp xe đã quá ngày bốc → nhắc tất cả CS (+ Logistics kho).
+create or replace function app.escalate() returns int
+language plpgsql security definer set search_path = '' as $$
+declare r record; n int := 0; v_h numeric := coalesce(app.setn('escalateHours'), 4); v_cs uuid[];
+begin
+  v_cs := array(select user_id from app.profiles where role = 'cs' and active and not app.is_away(user_id));
+  for r in select b.*, c.name as cname from app.bookings b join app.customers c on c.id = b.customer_id
+            where ((b.status = 'resched' and b.updated_at < now() - make_interval(secs => (v_h * 3600)::int))
+                or (b.status = 'hold' and b.day < app.today()))
+              and (b.escalated_at is null or b.escalated_at < b.updated_at)
+  loop
+    perform app.notify(v_cs || case when r.status = 'hold' then app.logistics_of(r.warehouse_code) else '{}'::uuid[] end, 'Nhắc việc',
+      r.id || ' · ' || r.cname || case when r.status = 'resched'
+        then ': đề nghị đổi ngày sang ' || coalesce(app.dm(r.proposed_day), '?') || ' chưa được CS xử lý quá ' || app.fmt(v_h) || ' giờ.'
+        else ': chờ xếp xe nhưng ngày bốc ' || app.dm(r.day) || ' đã qua; cần đổi ngày hoặc từ chối.' end,
+      jsonb_build_object('bk', r.id));
+    update app.bookings set escalated_at = now() where id = r.id;
+    n := n + 1;
+  end loop;
+  return n;
+end $$;
+
+-- Global Search: tìm theo mã booking / SO, khách hàng, địa chỉ, biển số / tài xế, người dùng; số tấn còn đặt được theo ngày.
+-- Cùng phạm vi dữ liệu với get_state: khách chỉ đơn mình; Sales chỉ khách mình; nháp chỉ người tạo; người dùng chỉ khi có quyền quản trị.
+create or replace function public.search(p_q text, p_day date default null, p_tons numeric default null, p_wh text default null) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  me app.profiles; q text := app.fold(trim(coalesce(p_q, ''))); qd text; v_int boolean; res jsonb := '{}'::jsonb;
+  w record; d date; m jsonb; v_days jsonb := '[]'::jsonb; k int;
+begin
+  select * into me from app.profiles p where p.user_id = app.uid() and p.active;
+  if not found then return res; end if;
+  v_int := me.role <> 'customer';
+  qd := regexp_replace(q, '[^a-z0-9]', '', 'g');
+  if length(q) >= 2 then
+    res := res || jsonb_build_object('bookings', (
+      select coalesce(jsonb_agg(x.j order by x.rk, x.day desc), '[]') from (
+        select jsonb_build_object('id', b.id, 'date', b.day, 'wh', b.warehouse_code, 'status', b.status, 'ref', b.ref,
+                 'customer', case when v_int then c.name else '' end, 'customerId', b.customer_id, 'tons', app.bk_total(b.id),
+                 'trucks', case when v_int then (select string_agg(split_part(a.truck_code, '-', 3) || '-' || split_part(a.truck_code, '-', 4), ', ' order by a.truck_code)
+                                  from app.allocations a where a.booking_id = b.id) end) j,
+               case when app.fold(b.id) = q or app.fold(b.ref) = q or regexp_replace(app.fold(b.ref), '[^a-z0-9]', '', 'g') = qd then 0 else 1 end rk, b.day
+          from app.bookings b join app.customers c on c.id = b.customer_id
+         where (v_int or (b.customer_id = me.customer_id and b.status <> 'draft'))
+           and (me.role <> 'sales' or c.sales_user_id = me.user_id)
+           and (b.status <> 'draft' or b.cs_user_id = me.user_id)
+           and (app.fold(b.id) like '%' || q || '%' or app.fold(b.ref) like '%' || q || '%'
+                or (length(qd) >= 3 and regexp_replace(app.fold(b.ref), '[^a-z0-9]', '', 'g') like '%' || qd || '%')
+                or (v_int and (app.fold(c.name) like '%' || q || '%' or app.fold(c.code) like '%' || q || '%' or app.fold(b.address_text) like '%' || q || '%'))
+                or (v_int and length(qd) >= 3 and exists (select 1 from app.allocations a join app.truck_days td on td.truck_code = a.truck_code
+                     where a.booking_id = b.id and regexp_replace(app.fold(td.plate), '[^a-z0-9]', '', 'g') like '%' || qd || '%')))
+         order by rk, b.day desc limit 8) x));
+    if v_int then
+      res := res || jsonb_build_object('customers', (
+        select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'code', c.code, 'name', c.name, 'segment', c.segment, 'active', c.active,
+                 'sales', (select full_name from app.profiles where user_id = c.sales_user_id),
+                 'cs', (select full_name from app.profiles where user_id = c.cs_user_id),
+                 'address', (select a.label || ', ' || a.province from app.customer_addresses a where a.customer_id = c.id order by a.is_default desc limit 1),
+                 'open', (select count(*) from app.bookings b where b.customer_id = c.id and b.status in ('hold','ok','resched') and b.day >= app.today()))
+                 order by c.active desc, c.name), '[]')
+          from (select * from app.customers c
+                 where (me.role <> 'sales' or c.sales_user_id = me.user_id)
+                   and (app.fold(c.name) like '%' || q || '%' or app.fold(c.code) like '%' || q || '%'
+                        or exists (select 1 from app.customer_addresses a where a.customer_id = c.id
+                                    and (app.fold(a.label) like '%' || q || '%' or app.fold(a.ward) like '%' || q || '%')))
+                 order by c.active desc, c.name limit 6) c));
+      if length(qd) >= 3 then
+        res := res || jsonb_build_object('trucks', (
+          select coalesce(jsonb_agg(jsonb_build_object('code', td.truck_code, 'date', td.day, 'wh', td.warehouse_code, 'plate', td.plate, 'driver', td.driver,
+                   'phone', td.phone, 'cap', td.cap, 'load', app.truck_load(td.truck_code),
+                   'bookings', (select count(*) from app.allocations a join app.bookings b on b.id = a.booking_id where a.truck_code = td.truck_code and b.status in ('hold','ok')))
+                   order by td.day desc), '[]')
+            from (select * from app.truck_days td
+                   where regexp_replace(app.fold(td.plate), '[^a-z0-9]', '', 'g') like '%' || qd || '%'
+                      or app.fold(td.driver) like '%' || q || '%' or regexp_replace(td.phone, '[^0-9]', '', 'g') like '%' || qd || '%'
+                   order by td.day desc limit 6) td));
+      end if;
+      if app.role_has(me.role, 'users.manage') or app.role_has(me.role, 'users.impersonate') then
+        res := res || jsonb_build_object('users', (
+          select coalesce(jsonb_agg(jsonb_build_object('id', p.user_id, 'name', p.full_name, 'email', p.email, 'role', p.role, 'active', p.active,
+                   'company', (select name from app.customers where id = p.customer_id)) order by p.full_name), '[]')
+            from (select * from app.profiles p
+                   where app.fold(p.full_name) like '%' || q || '%' or lower(p.email) like '%' || q || '%'
+                      or (length(qd) >= 4 and regexp_replace(coalesce(p.phone, ''), '[^0-9]', '', 'g') like '%' || qd || '%')
+                   order by p.full_name limit 6) p));
+      end if;
+    end if;
+  end if;
+  -- Số tấn còn đặt được: theo một ngày, hoặc các ngày gần nhất đủ p_tons
+  if p_day is not null then
+    for w in select code, full_name from app.warehouses where active order by (code = coalesce(p_wh, me.default_warehouse)) desc, code loop
+      m := app.day_metrics(w.code, p_day);
+      v_days := v_days || jsonb_build_array(jsonb_build_object('wh', w.code, 'whName', w.full_name, 'date', p_day, 'avail', (m->>'avail')::numeric,
+                  'status', m->>'status', 'fits', p_tons is null or (m->>'avail')::numeric >= p_tons));
+    end loop;
+  elsif p_tons is not null then
+    for w in select code, full_name from app.warehouses where active order by (code = coalesce(p_wh, me.default_warehouse)) desc, code loop
+      k := 0;
+      for d in select g::date from generate_series(app.today(), app.today() + 45, interval '1 day') g loop
+        m := app.day_metrics(w.code, d);
+        if m->>'status' not in ('off','none') and (m->>'avail')::numeric >= p_tons then
+          v_days := v_days || jsonb_build_array(jsonb_build_object('wh', w.code, 'whName', w.full_name, 'date', d, 'avail', (m->>'avail')::numeric,
+                      'status', m->>'status', 'fits', true));
+          k := k + 1; exit when k >= 3;
+        end if;
+      end loop;
+    end loop;
+  end if;
+  if jsonb_array_length(v_days) > 0 then res := res || jsonb_build_object('days', v_days); end if;
+  return res;
 end $$;
 
 -- Login as: bắt đầu / kết thúc. Kiểm tra quyền theo người đăng nhập thật (không theo người đang được xem).
@@ -1421,7 +1632,14 @@ begin
   if c.name <> trim(p->>'name') then v_txt := v_txt || 'tên → ' || trim(p->>'name') || '; '; end if;
   if c.segment <> p->>'segment' then v_txt := v_txt || 'segment ' || c.segment || ' → ' || (p->>'segment') || '; '; end if;
   if c.sales_user_id is distinct from v_sales.user_id then v_txt := v_txt || 'Sales → ' || v_sales.full_name || '; '; end if;
-  update app.customers set code = trim(p->>'code'), name = trim(p->>'name'), segment = p->>'segment', sales_user_id = v_sales.user_id where id = c.id;
+  if nullif(p->>'cs_id', '') is not null and not exists (select 1 from app.profiles where user_id = (p->>'cs_id')::uuid and role = 'cs' and active) then
+    raise exception 'CS phụ trách không hợp lệ.';
+  end if;
+  if c.cs_user_id is distinct from nullif(p->>'cs_id', '')::uuid then
+    v_txt := v_txt || 'CS → ' || coalesce((select full_name from app.profiles where user_id = (p->>'cs_id')::uuid), 'chưa gán') || '; ';
+  end if;
+  update app.customers set code = trim(p->>'code'), name = trim(p->>'name'), segment = p->>'segment', sales_user_id = v_sales.user_id,
+         cs_user_id = nullif(p->>'cs_id', '')::uuid where id = c.id;
   if v_txt <> '' then perform app.audit('customer:' || c.id, 'Sửa khách hàng ' || c.name || ': ' || v_txt); end if;
 exception when unique_violation then
   raise exception 'Mã khách hàng đã tồn tại.';
@@ -1534,7 +1752,7 @@ begin
        'admin_upsert_profile','admin_toggle_user','admin_add_customer','update_my_profile','mark_notifs_read',
        'save_role_permissions','reset_role_permissions',
        'admin_update_customer','admin_toggle_customer','admin_save_address','admin_delete_address',
-       'impersonate_start','impersonate_stop','update_region','set_truck_info')
+       'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);
@@ -1574,9 +1792,11 @@ insert into app.settings (key, value) values
   ('emailOn', 'false'),
   ('emailFrom', '"Đặt Xe <onboarding@resend.dev>"'),
   ('siteUrl', '""'),
-  ('emailTypes', '["Giữ chỗ","Xác nhận","Từ chối","Đổi ngày","Hủy booking","Sửa phần hàng","Chưa phân khu vực"]'),
+  ('emailTypes', '["Giữ chỗ","Xác nhận","Từ chối","Đổi ngày","Hủy booking","Sửa phần hàng","Chưa phân khu vực","Nhắc việc"]'),
   ('emailDailyCap', '95')
 on conflict (key) do nothing;
+
+update app.settings set value = value || '["Nhắc việc"]'::jsonb where key = 'emailTypes' and not (value ? 'Nhắc việc');
 
 -- Bật/tắt và cấu hình email (chạy trong SQL Editor)
 create or replace function app.setup_email(p_from text, p_site_url text, p_on boolean default true) returns text
@@ -1676,6 +1896,12 @@ do $$ begin
 exception when others then null; end $$;
 select cron.schedule('send-emails', '* * * * *', 'select app.send_emails()');
 
+-- Nhắc việc mỗi giờ (booking đổi ngày chưa xử lý, chờ xếp xe quá ngày bốc)
+do $$ begin
+  perform cron.unschedule('escalate');
+exception when others then null; end $$;
+select cron.schedule('escalate', '7 * * * *', 'select app.escalate()');
+
 -- Admin: thống kê (thêm phần email) và gửi email thử
 create or replace function public.admin_stats() returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
@@ -1726,7 +1952,7 @@ grant execute on function public.admin_test_email() to authenticated;
 insert into app.settings (key, value) values
   ('near', '80'), ('capDK', '30'), ('capCN', '15'), ('split', '15'), ('sla', '60'),
   ('maxStops', '3'), ('fillMin', '70'), ('suggestOn', 'true'), ('sundayOff', 'true'), ('holidays', '[]'),
-  ('capDKMin', '15'), ('capDKMax', '35'), ('capCNMin', '5'), ('capCNMax', '20')
+  ('capDKMin', '15'), ('capDKMax', '35'), ('capCNMin', '5'), ('capCNMax', '20'), ('escalateHours', '4')
 on conflict (key) do nothing;
 
 insert into app.warehouses (code, name, full_name) values
