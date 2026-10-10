@@ -293,6 +293,15 @@ function statsPanel(){
 }
 
 /* ---------- SCR-03 day ---------- */
+// Ngày nghỉ / chưa khai báo xe mà vẫn còn booking: liệt kê để xử lý (đổi ngày, từ chối) thay vì để trống
+function offDayList(date,m){const list=S.bookings.filter(b=>b.wh===V.wh&&b.date===date&&['hold','ok','resched'].includes(b.status)&&ownsCust(b.customerId)&&visibleBk(b));
+ if(!list.length)return '';const tot=list.reduce((s,b)=>s+bkTotal(b),0);
+ return `<div class="warnlist" style="margin-top:12px"><b>${list.length} booking (${t2(tot)} t) đang nằm trong ngày ${m.off?'nghỉ':'chưa khai báo xe'} ${dmy(date)}</b> nên không bốc hàng được. Cách xử lý:
+  <ul style="margin:6px 0 0 18px"><li>Booking <b>Chờ xếp xe</b>: Logistics mở booking → <b>Đề nghị đổi ngày</b> hoặc <b>Từ chối</b>; CS có thể <b>Sửa booking</b> sang ngày khác.</li>
+  <li>Booking <b>Đã xác nhận</b>: CS <b>Sửa booking</b> sang ngày khác (booking quay về Chờ xếp xe để Logistics xếp lại).</li>
+  ${m.off?`<li>Nếu ngày nghỉ được đánh dấu nhầm: ${can('config.general')?'<button class="linkbtn" data-a="go" data-v="config">vào Configuration → Ngày nghỉ</button>':'nhờ Logistics vào Configuration → Ngày nghỉ'} để bỏ ngày ${dm(date)}.</li>`:''}</ul></div>
+ <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Mã booking</th><th>Khách hàng</th><th class="r">Số tấn</th><th>Khu vực</th><th>Trạng thái</th><th></th></tr></thead><tbody>
+ ${list.map(b=>`<tr class="click" data-a="openBk" data-id="${b.id}"><td><b>${b.id}</b><div class="small muted">${esc(b.ref)}</div></td><td>${esc(cust(b.customerId).name)}</td><td class="r num">${t2(bkTotal(b))}</td><td>${esc(regName(b.region))}</td><td><span class="st st-${b.status}">${ST_LABEL[b.status]}</span></td><td class="r"><button class="btn ghost sm" data-a="openBk" data-id="${b.id}">Mở để xử lý</button></td></tr>`).join('')}</tbody></table></div>`;}
 function vDay(){
  const date=V.day;const m=dayM(V.wh,date);const past=date<TODAY;const isLog=can('fleet.manage');
  const regs=[...new Set(S.bookings.filter(b=>b.wh===V.wh&&b.date===date&&['hold','ok'].includes(b.status)).map(b=>b.region))];
@@ -309,7 +318,7 @@ function vDay(){
  <div class="dayhead"><h2>DANH SÁCH ĐỘI XE & TÌNH TRẠNG XẾP HÀNG – ${WH.find(w=>w.id===V.wh).full.toUpperCase()} | Ngày: ${dmy(date)}</h2>${m.declared&&!m.off?pill(m.status):''}</div>
  ${past?`<div class="note">Ngày đã qua: chỉ xem, không thay đổi (BR-12).</div>`:''}
  ${m.reason?`<div class="note"><b>Ghi chú ngày:</b> ${esc(m.reason)}</div>`:''}
- ${!m.declared||m.off?`<div class="empty">${m.off?'Ngày nghỉ – không bốc hàng.':'Chưa khai báo xe cho ngày này.'} ${isLog&&!m.off?'<button class="btn sm" data-a="go" data-v="fleet">Khai báo xe</button>':''}</div>`:`
+ ${!m.declared||m.off?`<div class="empty">${m.off?'Ngày nghỉ – không bốc hàng.':'Chưa khai báo xe cho ngày này.'} ${isLog&&!m.off?'<button class="btn sm" data-a="go" data-v="fleet">Khai báo xe</button>':''}</div>${offDayList(date,m)}`:`
  <div class="filters"><div class="field"><label for="f-st">Trạng thái xe</label><select id="f-st" class="inp" data-a="dayFilter" data-k="st">${[['all','Tất cả'],['empty','Trống'],['part','Đang xếp'],['full','Đầy']].map(([v,l])=>`<option value="${v}" ${V.dayFilter.st===v?'selected':''}>${l}</option>`).join('')}</select></div>
  <div class="field"><label for="f-rg">Khu vực</label><select id="f-rg" class="inp" data-a="dayFilter" data-k="region"><option value="all">Tất cả khu vực</option>${regs.map(r=>`<option value="${r}" ${V.dayFilter.region===r?'selected':''}>${esc(regName(r))}</option>`).join('')}</select></div></div>
  <div class="daygrid"><div style="min-width:0">
@@ -488,7 +497,7 @@ function vConfig(){const C=S.cfg;
   ${V.regErr?`<div class="err">${esc(V.regErr)}</div>`:''}<div class="mfoot"><button class="btn" data-a="regAdd">Thêm khu vực</button></div></div>
   <div class="hint" style="margin-top:12px"><b>Tỉnh chưa ứng với khu vực nào:</b> ${unm.map(esc).join(', ')||'không có'} · <b>${none}</b> booking đang “Chưa phân khu vực”.</div>`;}
  if(T==='catalog'){body=`<p class="small muted" style="margin-top:0">Mục ngừng dùng bị ẩn khỏi form đặt hàng mới; booking đã có vẫn giữ nguyên giá trị. Giá trị đang được dùng trong booking không sửa được, hãy ngừng dùng và thêm giá trị mới.</p><div class="fgrid">${['products','colors','thicks','widths'].map(catPanel).join('')}</div>`;}
- if(T==='holiday'){body=`<label class="row"><input type="checkbox" data-f="cfgb" data-k="sundayOff" ${C.sundayOff?'checked':''}> Chủ nhật nghỉ mặc định (tất cả kho)</label><p class="small muted">Ngày lễ: chọn ngày để đánh dấu nghỉ.</p><div class="row"><input type="date" id="hol" class="inp" style="width:auto" data-f="hol" value="${V.hol||''}"><button class="btn sm" data-a="holAdd">Thêm ngày nghỉ</button></div><div class="row" style="margin-top:8px">${C.holidays.map(h=>`<span class="chip">${dmy(h)} <button class="linkbtn" data-a="holDel" data-d="${h}" aria-label="Xóa">×</button></span>`).join('')||'<span class="muted small">Chưa có ngày lễ.</span>'}</div>`;}
+ if(T==='holiday'){body=`<label class="row"><input type="checkbox" data-f="cfgb" data-k="sundayOff" ${C.sundayOff?'checked':''}> Chủ nhật nghỉ mặc định (tất cả kho)</label><p class="small muted">Ngày lễ: chọn ngày để đánh dấu nghỉ.</p><div class="row"><input type="date" id="hol" class="inp" style="width:auto" data-f="hol" value="${V.hol||''}"><button class="btn sm" data-a="holAdd">Thêm ngày nghỉ</button></div><div class="row" style="margin-top:8px">${C.holidays.map(h=>{const n=S.bookings.filter(b=>b.date===h&&['hold','ok','resched'].includes(b.status)).length;return `<span class="chip ${n?'warn':''}" ${n?`title="${n} booking trong ngày này cần đổi ngày"`:''}>${dmy(h)}${n?` · ${n} booking`:''} <button class="linkbtn" data-a="holDel" data-d="${h}" aria-label="Xóa">×</button></span>`;}).join('')||'<span class="muted small">Chưa có ngày lễ.</span>'}</div>`;}
  return `<div class="panel"><div class="pagehead"><h2>CONFIGURATION</h2></div><div class="tabs">${tabs.map(([k,l])=>`<button class="${T===k?'on':''}" data-a="cfgTab" data-t="${k}">${l}</button>`).join('')}</div>${body}</div>`;
 }
 

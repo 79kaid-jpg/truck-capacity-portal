@@ -49,7 +49,7 @@ begin
   -- Khai báo xe 30 ngày tới (bỏ Chủ nhật)
   for i in 0 .. 30 loop
     d := v_today + i;
-    continue when extract(dow from d) = 0;
+    continue when extract(dow from d) = 0 or coalesce(app.setting('holidays'), '[]'::jsonb) ? d::text;
     insert into app.daily_fleet (warehouse_code, day, dk_count, cn_count, reason) values
       ('PMY', d, case when i = 6 then 5 else 9 end, case when i = 6 then 2 else 4 end, case when i = 6 then 'Bảo dưỡng định kỳ 4 xe' else '' end),
       ('CLO', d, 5, 3, ''), ('HPG', d, 6, 3, '')
@@ -81,7 +81,7 @@ begin
       (5,'KH0103','hold','Tôn mạ màu','Đỏ Đô',0.4,1200,10.0,'',20)
     ) v(off, code, st, p, c, th, w, t, truck, mins) loop
       d := v_today + r.off;
-      if extract(dow from d) = 0 then d := d + 1; end if;
+      while extract(dow from d) = 0 or coalesce(app.setting('holidays'), '[]'::jsonb) ? d::text loop d := d + 1; end loop;  -- bỏ Chủ nhật và ngày nghỉ đã cấu hình
       select c.id into v_cust from app.customers c where c.code = r.code;
       select a.id into v_addr from app.customer_addresses a join app.address_regions ar on ar.address_id = a.id
        where a.customer_id = v_cust and ar.warehouse_code = 'PMY' limit 1;
