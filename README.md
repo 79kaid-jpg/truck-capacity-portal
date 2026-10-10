@@ -11,6 +11,10 @@ Cổng đặt tải xe cho kho Phú Mỹ, Cửa Lò, Hải Phòng. Bản POV ch�
 
 **Bảo mật:** mọi bảng nằm trong schema `app`, không mở ra API, đã bật RLS. Trình duyệt chỉ gọi các hàm trong schema `public`. Mỗi hàm tự kiểm tra vai trò và chỉ trả dữ liệu được phép, ví dụ khách hàng chỉ thấy số tấn còn đặt được và đơn của mình. `web/config.js` chỉ chứa URL và khóa **anon public**, đây là khóa công khai. Không bao giờ dán `service_role` / secret key hay mật khẩu database vào repo.
 
+**Tài liệu liên quan:** Đặc tả yêu cầu (SRS v2.8, mục 13 ghi các bổ sung sau triển khai), Thiết kế kỹ thuật POV (mục 12 ghi bản đã triển khai), UAT checklist 89 kịch bản.
+
+**Tính năng chính:** lịch số tấn còn đặt được theo kho; CS giữ chỗ / lưu tạm; Logistics khai báo xe theo ngày, tải trọng từng xe, xếp xe, gợi ý gộp xe, từ chối / đề nghị đổi ngày; CS đặt lại booking bị từ chối; khách hàng xem lịch, đơn và thống kê của mình; phân quyền theo vai trò; Login as; CS phụ trách, nghỉ phép và người nhận thay, nhắc việc; Global Search; bộ lọc Danh sách booking; thống kê khách (nút Xe | Khách, DB-05, phạm vi thống kê); xác thực 2 lớp; email thông báo và quên mật khẩu; dashboard DB-01, DB-02, DB-05, DB-06.
+
 ---
 
 ## Hướng dẫn deploy từng bước
@@ -172,6 +176,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   index.html              Khung trang + CSS
   app.js                  Toàn bộ màn hình, gọi Supabase RPC
   config.js               URL + anon key (công khai)
+  favicon.svg, icon-*.png, apple-touch-icon.png, manifest.webmanifest   Biểu tượng trang / màn hình chính điện thoại
 supabase/
   migrations/0001_init.sql  Bảng, phân quyền, hàm nghiệp vụ
   seed.sql                  Danh mục: kho, khu vực, sản phẩm, màu, độ dày, khổ, cấu hình
@@ -180,4 +185,9 @@ supabase/
   email_setup.sql           = 0002_email.sql, dán vào SQL Editor để bật email
   setup_all.sql             Gộp tất cả, dùng cho cài đặt mới
 test/                     Kiểm thử cục bộ (Postgres 16 + Playwright), không deploy
+  00_*, 01_*              Stub Supabase (auth, auth.jwt, mfa_factors, pg_net, Vault, pg_cron)
+  10 – 95_*.sql           Test SQL: luồng booking, get_state, phân quyền, Login as, tải trọng xe,
+                          định tuyến CS / nhận thay, MFA, đặt lại booking, phạm vi thống kê
+  reset.sh                Dựng lại DB test + tài khoản mẫu (phiên mặc định aal2)
+  e2e/all.sh              Chạy 9 bộ Playwright: run, gs, past, mfa, rebook, offday, truckedit, blfilter, salesstats
 ```
