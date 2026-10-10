@@ -1,0 +1,28 @@
+import { chromium } from '/opt/npm-tools/node_modules/playwright/index.mjs';
+import fs from 'fs';
+const mock = fs.readFileSync(new URL('./mock-supabase.js', import.meta.url), 'utf8');
+const b = await chromium.launch(); const errs = [];
+async function login(email) { const c = await b.newContext({ viewport: { width: 1440, height: 1000 } }); const p = await c.newPage();
+  await p.route('**/cdn.jsdelivr.net/**', r => r.fulfill({ contentType: 'text/javascript', body: mock }));
+  await p.route('**/config.js', r => r.fulfill({ contentType: 'text/javascript', body: "window.APP_CONFIG={SUPABASE_URL:'http://127.0.0.1:8787',SUPABASE_ANON_KEY:'t'}" }));
+  await p.route('**/fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
+  p.on('pageerror', e => errs.push(e.message)); await p.goto('http://127.0.0.1:8787/'); await p.fill('#lg-e', email); await p.fill('#lg-p', 'Test@1234'); await p.click('#login button'); await p.waitForTimeout(800); return p; }
+let p = await login('log@demo.vn');
+await p.click('[data-a="go"][data-v="approvals"]'); console.log('overdue marks:', await p.locator('.err', { hasText: 'Quá ngày bốc' }).count());
+await p.locator('tr.click', { hasText: 'Quá ngày bốc' }).first().click(); await p.waitForTimeout(200);
+console.log('warning:', (await p.locator('.warnlist').first().innerText()).slice(0, 90));
+console.log('assign inputs:', await p.locator('input[data-f="asg"]').count(), '| reject btn:', await p.locator('[data-a="asgPanel"][data-p="rej"]').count(), '| resched btn:', await p.locator('[data-a="asgPanel"][data-p="res"]').count());
+await p.click('[data-a="asgPanel"][data-p="res"]'); const opts = await p.locator('#res-d option').allInnerTexts(); console.log('first proposed day option:', opts[1]);
+await p.screenshot({ path: '/tmp/e2e-shots/15-past-booking.png', fullPage: true });
+await p.selectOption('#res-d', { index: 1 }); await p.fill('#res-r', 'Quá ngày bốc, chuyển ngày'); await p.locator('#res-r').dispatchEvent('input'); await p.click('[data-a="asgResched"]'); await p.waitForTimeout(500);
+console.log('after propose toast:', await p.locator('.toast').innerText().catch(() => '(none)'));
+await p.context().close();
+p = await login('cs@demo.vn');
+await p.click('[data-a="go"][data-v="bookings"]'); await p.click('[data-a="blTab"][data-t="hold"]'); 
+const row = p.locator('tr.click').filter({ hasText: new RegExp(new Date(Date.now() - 864e5 + 7*3600e3).toISOString().slice(8,10) + '/10') }).first();
+await row.click(); await p.waitForTimeout(200); console.log('CS sees edit on past hold:', await p.locator('[data-a="editBk"]').count() > 0);
+await p.click('[data-a="editBk"]'); await p.waitForTimeout(150); console.log('form message:', await p.locator('.modal .err').innerText().catch(() => '(none)'), '| date value:', JSON.stringify(await p.locator('#bf-date').inputValue()));
+const d2 = new Date(Date.now() + 2*864e5 + 7*3600e3); if (d2.getUTCDay() === 0) d2.setUTCDate(d2.getUTCDate() + 1);
+await p.fill('#bf-date', d2.toISOString().slice(0, 10)); await p.locator('#bf-date').dispatchEvent('change'); await p.waitForTimeout(150);
+await p.click('[data-a="bfHold"]'); await p.waitForTimeout(500); console.log('CS move ->', await p.locator('.toast').innerText().catch(() => '(none)'), await p.locator('.modal .err').innerText().catch(() => ''));
+await b.close(); console.log('page errors:', errs.length ? errs : 'none');

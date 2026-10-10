@@ -973,6 +973,7 @@ begin
   select * into b from app.bookings where id = p_id for update;
   if not found or b.status <> 'hold' then raise exception 'Chỉ đề nghị đổi ngày cho booking đang chờ xếp xe.'; end if;
   perform app.check_scope(me, b.customer_id);
+  if p_day < app.today() then raise exception 'Ngày đề xuất phải từ hôm nay trở đi.'; end if;
   if not exists (select 1 from app.daily_fleet f where f.warehouse_code = b.warehouse_code and f.day = p_day) or app.is_holiday(b.warehouse_code, p_day) then
     raise exception 'Ngày đề xuất chưa khai báo xe.';
   end if;

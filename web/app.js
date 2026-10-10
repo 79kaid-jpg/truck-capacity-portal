@@ -349,7 +349,7 @@ function vApprovals(){
  return `<div class="panel"><div class="pagehead"><h2>APPROVAL REQUEST</h2><span class="muted">${list.length} booking đang giữ chỗ · thời hạn phản hồi ${S.cfg.sla} phút</span></div>
  <div class="tbl-wrap"><table><thead><tr><th>Ngày bốc</th><th>Kho</th><th>Mã booking</th><th>Khách hàng</th><th>Ref</th><th class="r">Tổng tấn</th><th>Loại gợi ý</th><th>Khu vực</th><th>Nơi giao</th><th>CS tạo</th><th>Giữ chỗ lúc</th><th>Chờ</th></tr></thead>
  <tbody>${list.map(b=>{const w=S.clock-b.heldAt;const m=dayM(b.wh,b.date);const short=m.free<bkTotal(b)-allocSum(b.id);
-  return `<tr class="click" data-a="openBk" data-id="${b.id}"><td class="num">${dmy(b.date)}</td><td>${b.wh}</td><td>${b.id}</td><td>${esc(cust(b.customerId).name)}</td><td>${esc(b.ref)}</td><td class="r num">${t2(bkTotal(b))}</td><td>${bkTotal(b)>S.cfg.split?'DK':'CN'}</td><td>${esc(regName(b.region))} ${merge.has(b.id)?'<span class="chip" style="color:var(--ok)">Có thể gộp</span>':''}</td><td class="small">${esc(b.addrText)}</td><td>${esc(user(b.csId).name)}</td><td class="num">${clockStr(b.heldAt)}</td><td class="num" style="font-weight:700;color:${w>S.cfg.sla?'var(--bad)':w>45?'var(--warn)':'inherit'}">${w} phút${short?'<div class="err">Không đủ chỗ trên xe</div>':''}</td></tr>`;}).join('')||`<tr><td colspan="12" class="empty">Không có booking chờ xử lý.</td></tr>`}</tbody></table></div></div>`;
+  return `<tr class="click" data-a="openBk" data-id="${b.id}"><td class="num">${dmy(b.date)}</td><td>${b.wh}</td><td>${b.id}</td><td>${esc(cust(b.customerId).name)}</td><td>${esc(b.ref)}</td><td class="r num">${t2(bkTotal(b))}</td><td>${bkTotal(b)>S.cfg.split?'DK':'CN'}</td><td>${esc(regName(b.region))} ${merge.has(b.id)?'<span class="chip" style="color:var(--ok)">Có thể gộp</span>':''}</td><td class="small">${esc(b.addrText)}</td><td>${esc(user(b.csId).name)}</td><td class="num">${clockStr(b.heldAt)}</td><td class="num" style="font-weight:700;color:${w>S.cfg.sla?'var(--bad)':w>45?'var(--warn)':'inherit'}">${w} phút${b.date<TODAY?'<div class="err">Quá ngày bốc</div>':short?'<div class="err">Không đủ chỗ trên xe</div>':''}</td></tr>`;}).join('')||`<tr><td colspan="12" class="empty">Không có booking chờ xử lý.</td></tr>`}</tbody></table></div></div>`;
 }
 
 /* ---------- SCR-11 booking detail & assign ---------- */
@@ -374,7 +374,8 @@ function vBooking(){
  const chk=asgCheck(b);
  const hist=S.audit.filter(a=>a.obj===b.id);
  return `<div class="panel"><div class="crumb"><button class="linkbtn" data-a="back">← Quay lại</button><span class="muted">/</span><b>${b.id}</b><span class="st st-${b.status}">${ST_LABEL[b.status]}</span></div>
- <div class="pagehead"><h2>CHI TIẾT BOOKING & GÁN XE</h2>${(b.status==='draft'?b.csId===V.me:can('booking.edit'))&&ownsCust(b.customerId)&&['draft','hold','ok','resched'].includes(b.status)&&!past?`<button class="btn ghost" data-a="editBk" data-id="${b.id}">Sửa booking</button>`:''}</div>
+ <div class="pagehead"><h2>CHI TIẾT BOOKING & GÁN XE</h2>${(b.status==='draft'?b.csId===V.me:can('booking.edit'))&&ownsCust(b.customerId)&&(['draft','hold','resched'].includes(b.status)||b.status==='ok'&&!past)?`<button class="btn ghost" data-a="editBk" data-id="${b.id}">Sửa booking</button>`:''}</div>
+ ${past&&['hold','resched','draft'].includes(b.status)?`<div class="warnlist" style="margin-bottom:12px"><b>Ngày bốc ${dmy(b.date)} đã qua</b> nên không gán xe được nữa (BR-12). ${b.status==='hold'?'Booking chưa được xếp xe: Logistics <b>Đề nghị đổi ngày</b> hoặc <b>Từ chối</b>; CS có thể <b>Sửa booking</b> để chuyển sang ngày khác.':'CS có thể <b>Sửa booking</b> để chọn ngày bốc mới.'}</div>`:''}
  <div class="bdgrid"><div class="panel" style="background:var(--sand)">
   <dl class="dl"><dt>Kho</dt><dd>${WH.find(w=>w.id===b.wh).full}</dd><dt>Ngày bốc</dt><dd class="num">${dmy(b.date)}</dd><dt>Ngày giao YC</dt><dd>${b.delivery?dmy(b.delivery):'–'}</dd>
   <dt>Khách hàng</dt><dd>${ownsCust(b.customerId)?`${esc(c.name)}<div class="small muted">${SEG_LABEL[c.segment]} · Sales: ${esc(user(c.salesId).name)}</div>`:'–'}</dd><dt>Ref</dt><dd>${esc(b.ref)}</dd><dt>Địa chỉ giao</dt><dd>${esc(b.addrText)}<div class="small muted">${esc(b.province)}</div></dd>
@@ -384,7 +385,7 @@ function vBooking(){
   <ul class="lines">${b.lines.map(l=>`<li>${esc(l.p)} · ${esc(l.c)} · ${l.th}×${l.w} · <b class="num">${t2(l.t)} t</b></li>`).join('')}</ul>
   ${hist.length?`<h4 style="margin:12px 0 4px;font-size:12px">LỊCH SỬ</h4><ul class="hist">${hist.map(h=>`<li>${clockStr(h.at)} · ${esc(h.who)}: ${esc(h.text)}</li>`).join('')}</ul>`:''}
  </div>
- <div style="min-width:0">${!trucks.length?'<div class="empty">Ngày này chưa khai báo xe.</div>':`
+ <div style="min-width:0">${!trucks.length?'<div class="empty">Ngày này chưa khai báo xe.</div>'+(can('booking.reject')&&b.status==='hold'&&ownsCust(b.customerId)?asgActions(b):''):`
   <div class="row" style="margin-bottom:8px"><h3 class="grow" style="font-size:15px">GÁN XE</h3>${editable?`<button class="btn ghost sm" data-a="asgSuggest">Gợi ý xếp xe</button>`:''}${isLog&&!A.edit&&b.status==='ok'&&!past?`<button class="btn ghost sm" data-a="asgEdit">Xếp lại</button>`:''}</div>
   <div class="tbl-wrap"><table><thead><tr><th>Xe</th><th class="r">Đã xếp / Tải trọng</th><th class="r">Còn trống</th><th>Khu vực trên xe</th><th class="r">Số tấn xếp</th></tr></thead><tbody>
   ${sorted.map(t=>{const ex=loadOf(t.code,b.id);const r=relOf(t);const v=A.rows[t.code]||'';
@@ -393,7 +394,7 @@ function vBooking(){
    <td class="r">${editable?`<input class="inp asg-inp num" inputmode="decimal" data-f="asg" data-c="${t.code}" value="${v}" aria-label="Số tấn xếp lên ${t.short}">`:`<span class="num">${v?t2(v):'–'}</span>`}</td></tr>`;}).join('')}
   </tbody></table></div>
   <div id="asg-live">${asgLive(b,chk,editable)}</div>
-  ${editable||can('booking.reject')&&b.status==='hold'&&!past?asgActions(b):''}`}</div></div></div>`;
+  ${editable||can('booking.reject')&&b.status==='hold'&&ownsCust(b.customerId)?asgActions(b):''}`}</div></div></div>`;
 }
 function asgLive(b,chk,editable){
  const ok=Math.abs(chk.sum-chk.total)<0.005;
@@ -404,7 +405,7 @@ function asgLive(b,chk,editable){
 function asgActions(b){const A=V.asg;
  return `${A.err?`<div class="err" style="margin:6px 0">${esc(A.err)}</div>`:''}
  ${A.panel==='rej'?`<div class="panel" style="margin:8px 0"><div class="field"><label for="rej">Lý do từ chối <span class="req">*</span></label><input id="rej" class="inp" data-f="rej" value="${esc(A.rej)}"></div><div class="mfoot"><button class="btn ghost sm" data-a="asgPanel" data-p="">Thôi</button><button class="btn danger sm" data-a="asgReject">Xác nhận từ chối</button></div></div>`:''}
- ${A.panel==='res'?`<div class="panel" style="margin:8px 0"><div class="fgrid"><div class="field"><label for="res-d">Ngày đề xuất <span class="req">*</span></label><select id="res-d" class="inp" data-f="resDate"><option value="">Chọn ngày</option>${[...Array(10)].map((_,i)=>addDays(b.date,i+1)).filter(d=>S.fleet[b.wh][d]&&!isHoliday(b.wh,d)).map(d=>`<option value="${d}" ${A.newDate===d?'selected':''}>${WDS[dow(d)]} ${dmy(d)} · có thể đặt ${t2(dayM(b.wh,d).avail)} t</option>`).join('')}</select></div><div class="field"><label for="res-r">Lý do <span class="req">*</span></label><input id="res-r" class="inp" data-f="resReason" value="${esc(A.resReason)}"></div></div><div class="mfoot"><button class="btn ghost sm" data-a="asgPanel" data-p="">Thôi</button><button class="btn sm" data-a="asgResched">Gửi đề nghị đổi ngày</button></div></div>`:''}
+ ${A.panel==='res'?`<div class="panel" style="margin:8px 0"><div class="fgrid"><div class="field"><label for="res-d">Ngày đề xuất <span class="req">*</span></label><select id="res-d" class="inp" data-f="resDate"><option value="">Chọn ngày</option>${[...Array(14)].map((_,i)=>addDays(b.date<TODAY?addDays(TODAY,-1):b.date,i+1)).filter(d=>S.fleet[b.wh][d]&&!isHoliday(b.wh,d)).map(d=>`<option value="${d}" ${A.newDate===d?'selected':''}>${WDS[dow(d)]} ${dmy(d)} · có thể đặt ${t2(dayM(b.wh,d).avail)} t</option>`).join('')}</select></div><div class="field"><label for="res-r">Lý do <span class="req">*</span></label><input id="res-r" class="inp" data-f="resReason" value="${esc(A.resReason)}"></div></div><div class="mfoot"><button class="btn ghost sm" data-a="asgPanel" data-p="">Thôi</button><button class="btn sm" data-a="asgResched">Gửi đề nghị đổi ngày</button></div></div>`:''}
  <div class="mfoot">${b.status==='hold'&&can('booking.reject')?`<button class="btn ghost" data-a="asgPanel" data-p="rej">Từ chối</button><button class="btn ghost" data-a="asgPanel" data-p="res">Đề nghị đổi ngày</button>`:''}${A.edit?`<button class="btn ghost" data-a="asgSave">Lưu xếp tạm</button><button class="btn" data-a="asgConfirm">Xác nhận</button>`:''}</div>`;}
 
 /* ---------- SCR-12 fleet ---------- */
@@ -852,7 +853,7 @@ const A={
   mutate('propose_day',{p_id:b.id,p_day:A_.newDate,p_reason:A_.resReason.trim()},{err:m=>V.asg.err=m,ok:()=>{V.asg=null;toast('Đã gửi đề nghị đổi ngày');}});},
  // booking form
  newBk:d=>{V.modal=bfNew(d.d||TODAY);render();},
- editBk:d=>{const b=bkById(d.id);const M=bfNew(b.date,b);if(b.status==='resched'&&b.proposedDate)M.f.date=b.proposedDate;V.modal=M;render();},
+ editBk:d=>{const b=bkById(d.id);const M=bfNew(b.date,b);if(b.status==='resched'&&b.proposedDate)M.f.date=b.proposedDate;if(M.f.date&&M.f.date<TODAY){M.f.date='';M.err='Ngày bốc '+dmy(b.date)+' đã qua: chọn ngày bốc mới rồi bấm Lưu.';}V.modal=M;render();},
  bfAdd:()=>{V.modal.f.lines.push({p:'',c:'',th:'',w:'',t:''});render();},
  bfDel:d=>{V.modal.f.lines.splice(+d.i,1);render();},
  bfDate:d=>{V.modal.f.date=d.d;render();},
