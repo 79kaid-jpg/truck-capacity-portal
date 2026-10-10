@@ -1831,6 +1831,30 @@ begin
   return n;
 end $$;
 
+-- Danh sách booking theo khoảng ngày bốc (màn hình Danh sách booking: lọc tuần này, tháng trước…)
+-- Phạm vi giống get_state: nháp chỉ của người tạo; Sales chỉ khách mình phụ trách. Tối đa 2000 dòng.
+create or replace function public.list_bookings(p_from date, p_to date) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare me app.profiles;
+begin
+  me := app.require_perm('booking.list');
+  if p_from is null or p_to is null or p_to < p_from then raise exception 'Khoảng ngày không hợp lệ.'; end if;
+  if p_to - p_from > 400 then raise exception 'Chọn khoảng tối đa khoảng 13 tháng.'; end if;
+  return (select coalesce(jsonb_agg(x.j order by x.day desc, x.id), '[]') from (
+    select b.id, b.day, jsonb_build_object('id', b.id, 'wh', b.warehouse_code, 'date', b.day, 'delivery', b.delivery_date, 'customerId', b.customer_id,
+             'ref', b.ref, 'addrText', b.address_text, 'province', b.province, 'region', coalesce(b.region_id, 'NONE'),
+             'status', b.status, 'csId', b.cs_user_id, 'rejectReason', b.reason_note, 'proposedDate', b.proposed_day,
+             'lines', (select coalesce(jsonb_agg(jsonb_build_object('p', l.product, 'c', l.color, 'th', l.thickness_mm, 'w', l.width_mm, 't', l.tons) order by l.id), '[]')
+                       from app.booking_lines l where l.booking_id = b.id),
+             'trucks', (select string_agg(split_part(a.truck_code, '-', 3) || '-' || split_part(a.truck_code, '-', 4), ', ' order by a.truck_code)
+                        from app.allocations a where a.booking_id = b.id)) j
+      from app.bookings b join app.customers c on c.id = b.customer_id
+     where b.day between p_from and p_to
+       and (b.status <> 'draft' or b.cs_user_id = me.user_id)
+       and (me.role <> 'sales' or c.sales_user_id = me.user_id)
+     order by b.day desc, b.id limit 2000) x);
+end $$;
+
 -- ---------------------------------------------------------------------
 -- 8. Quyền gọi hàm
 -- ---------------------------------------------------------------------
@@ -1847,7 +1871,7 @@ begin
        'admin_upsert_profile','admin_toggle_user','admin_add_customer','update_my_profile','mark_notifs_read',
        'save_role_permissions','reset_role_permissions',
        'admin_update_customer','admin_toggle_customer','admin_save_address','admin_delete_address',
-       'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa')
+       'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa','list_bookings')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);

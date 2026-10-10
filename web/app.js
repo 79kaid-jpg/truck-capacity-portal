@@ -77,7 +77,7 @@ function adopt(st){
 
 /* ===================== state ===================== */
 let S=null;
-const V={me:null,wh:'PMY',ym:[2026,10],view:'calendar',day:null,bk:null,modal:null,menu:false,dayTab:'pending',dayFilter:{st:'all',region:'all'},blTab:'all',blF:{wh:'all',region:'all',q:''},cfgTab:'general',uTab:'users',nTab:'list',asg:null,fleetEdit:{},toast:'',hl:null};
+const V={me:null,wh:'PMY',ym:[2026,10],view:'calendar',day:null,bk:null,modal:null,menu:false,dayTab:'pending',dayFilter:{st:'all',region:'all'},blTab:'all',blF:{wh:'all',region:'all',q:'',cust:'all',per:'month'},cfgTab:'general',uTab:'users',nTab:'list',asg:null,fleetEdit:{},toast:'',hl:null};
 
 /* ===================== domain ===================== */
 const me=()=>S.users.find(u=>u.id===V.me);
@@ -369,21 +369,45 @@ function suggCard(g,past){
 }
 
 /* ---------- SCR-09 bookings list ---------- */
+const BL_PER=[['today','Hôm nay'],['week','Tuần này'],['nweek','Tuần sau'],['month','Tháng này'],['pmonth','Tháng trước'],['nmonth','Tháng sau'],['d30','30 ngày qua'],['d90','3 tháng gần đây (±)'],['custom','Tùy chọn…']];
+// Khoảng ngày bốc theo bộ lọc thời gian (tuần tính từ Thứ 2)
+function blRange(f){const per=f.per||'month';const[y,m]=parts(TODAY);const mon=addDays(TODAY,-((dow(TODAY)+6)%7));
+ const mr=(yy,mm)=>{if(mm<1){yy--;mm=12;}if(mm>12){yy++;mm=1;}return{from:iso(yy,mm,1),to:iso(yy,mm,dim(yy,mm))};};
+ switch(per){case'today':return{from:TODAY,to:TODAY};case'week':return{from:mon,to:addDays(mon,6)};case'nweek':return{from:addDays(mon,7),to:addDays(mon,13)};
+  case'pmonth':return mr(y,m-1);case'nmonth':return mr(y,m+1);case'd30':return{from:addDays(TODAY,-30),to:TODAY};case'd90':return{from:addDays(TODAY,-90),to:addDays(TODAY,60)};
+  case'custom':{const a=f.from||mr(y,m).from,b=f.to||mr(y,m).to;return a<=b?{from:a,to:b}:{from:b,to:a};}default:return mr(y,m);}}
+// Nhớ bộ lọc Danh sách booking trên máy này (không bắt buộc; lỗi bộ nhớ trình duyệt thì bỏ qua)
+function blSave(){try{const{q,...k}=V.blF;localStorage.setItem('dx-blF',JSON.stringify(k));}catch(e){}}
+try{const k=JSON.parse(localStorage.getItem('dx-blF')||'null');if(k&&typeof k==='object'){if(BL_PER.some(x=>x[0]===k.per))V.blF.per=k.per;if(k.per==='custom'){V.blF.from=k.from;V.blF.to=k.to;}if(k.cust==='mine')V.blF.cust='mine';}}catch(e){}
+const blFiltered=f=>f.wh!=='all'||f.region!=='all'||(f.cust||'all')!=='all'||(f.per||'month')!=='month'||!!f.q;
 function vBookings(){
  const tabs=[...(can('booking.create')||can('booking.edit')?[['todo','Cần xử lý']]:[]),['all','Tất cả'],['draft','Nháp'],['hold','Chờ xếp xe'],['ok','Đã xác nhận'],['resched','Đề nghị đổi ngày'],['closed','Từ chối / Đã hủy']].filter(t=>t[0]!=='draft'||can('booking.create'));
  const f=V.blF;const q=f.q.trim().toLowerCase();
  const todo=b=>b.status==='draft'&&b.csId===V.me||(b.status==='resched'||b.status==='hold'&&b.date<TODAY||b.status==='rejected'&&b.date>=addDays(TODAY,-7))&&(V.blAll||myCsCust(cust(b.customerId)));
- let list=S.bookings.filter(visibleBk).filter(b=>V.blTab==='todo'?todo(b):V.blTab==='all'?true:V.blTab==='closed'?['rejected','cancelled'].includes(b.status):b.status===V.blTab)
-  .filter(b=>f.wh==='all'||b.wh===f.wh).filter(b=>f.region==='all'||b.region===f.region)
+ const per=f.per||'month';const R=blRange(f);const useSrv=V.blTab!=='todo';
+ const key=R.from+'|'+R.to+'|'+S.ver;
+ if(useSrv&&(!V.blData||V.blData.key!==key)&&V.blLoading!==key){V.blLoading=key;rpc('list_bookings',{p_from:R.from,p_to:R.to}).then(rows=>{V.blData={key,rows:(rows||[]).map(b=>({...b,lines:(b.lines||[]).map(l=>({...l,t:+l.t})),region:b.region||'NONE'}))};V.blLoading=null;if(V.view==='bookings')render();}).catch(e=>{V.blLoading=null;V.blData={key,rows:[],err:e.message};if(V.view==='bookings')render();});}
+ const loading=useSrv&&(!V.blData||V.blData.key!==key);
+ const src=useSrv?(V.blData&&V.blData.key===key?V.blData.rows:[]):S.bookings;
+ const custOk=b=>{const c=f.cust||'all';if(c==='all')return true;if(c==='mine'){const cc=cust(b.customerId);return role()==='sales'?cc.salesId===V.me:!!cc&&(cc.csId===V.me||(isAway(user(cc.csId))&&user(cc.csId).delegateId===V.me));}return b.customerId===c;};
+ let list=src.filter(visibleBk).filter(b=>V.blTab==='todo'?todo(b):V.blTab==='all'?true:V.blTab==='closed'?['rejected','cancelled'].includes(b.status):b.status===V.blTab)
+  .filter(b=>f.wh==='all'||b.wh===f.wh).filter(b=>f.region==='all'||b.region===f.region).filter(custOk)
   .filter(b=>!q||(b.id+' '+b.ref+' '+cust(b.customerId).name).toLowerCase().includes(q)).sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id));
+ const tot=list.reduce((s,b)=>s+bkTotal(b),0);
+ const custOpts=S.customers.filter(c=>role()!=='sales'||c.salesId===V.me).sort((a,b)=>a.name.localeCompare(b.name));
+ const canMine=['cs','sales'].includes(role())||S.customers.some(c=>c.csId===V.me);
  return `<div class="panel"><div class="pagehead"><h2>DANH SÁCH BOOKING</h2>${can('booking.create')?`<button class="btn" data-a="newBk" data-d="${TODAY}">Đặt hàng mới</button>`:''}</div>
  <div class="tabs">${tabs.map(([k,l])=>`<button class="${V.blTab===k?'on':''}" data-a="blTab" data-t="${k}">${l}${k==='todo'?` <span class="cnt">${S.bookings.filter(visibleBk).filter(b=>b.status==='draft'&&b.csId===V.me||(b.status==='resched'||b.status==='hold'&&b.date<TODAY||b.status==='rejected'&&b.date>=addDays(TODAY,-7))&&myCsCust(cust(b.customerId))).length}</span>`:''}</button>`).join('')}</div>
  ${V.blTab==='todo'?`<div class="hint" style="margin-bottom:10px">Nháp của bạn; đề nghị đổi ngày, bị từ chối, chờ xếp xe quá ngày bốc của khách bạn phụ trách, khách của CS đang nghỉ mà bạn nhận thay, và khách chưa gán CS. <label class="row" style="display:inline-flex;margin-left:8px"><input type="checkbox" data-f="blAll" ${V.blAll?'checked':''}> Xem của tất cả CS</label></div>`:''}
  <div class="filters"><div class="field"><label for="bl-wh">Kho</label><select id="bl-wh" class="inp" data-a="blF" data-k="wh"><option value="all">Tất cả kho</option>${WH.map(w=>`<option value="${w.id}" ${f.wh===w.id?'selected':''}>${w.name}</option>`).join('')}</select></div>
  <div class="field"><label for="bl-rg">Khu vực</label><select id="bl-rg" class="inp" data-a="blF" data-k="region"><option value="all">Tất cả</option>${S.regions.filter(r=>f.wh==='all'||r.wh===f.wh).map(r=>`<option value="${r.id}" ${f.region===r.id?'selected':''}>${esc(r.name)} (${r.wh})</option>`).join('')}</select></div>
+ <div class="field"><label for="bl-cu">Khách hàng</label><select id="bl-cu" class="inp" data-a="blF" data-k="cust"><option value="all">Tất cả khách</option>${canMine?`<option value="mine" ${f.cust==='mine'?'selected':''}>Khách tôi phụ trách</option>`:''}${custOpts.map(c=>`<option value="${c.id}" ${f.cust===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>
+ <div class="field"><label for="bl-per">Ngày bốc</label><select id="bl-per" class="inp" data-a="blF" data-k="per" ${V.blTab==='todo'?'disabled title="Tab Cần xử lý không lọc theo thời gian"':''}>${BL_PER.map(([k,l])=>`<option value="${k}" ${per===k?'selected':''}>${l}</option>`).join('')}</select></div>
+ ${per==='custom'&&V.blTab!=='todo'?`<div class="field"><label for="bl-from">Từ ngày</label><input id="bl-from" type="date" class="inp" data-a="blF" data-k="from" value="${R.from}"></div><div class="field"><label for="bl-to">Đến ngày</label><input id="bl-to" type="date" class="inp" data-a="blF" data-k="to" value="${R.to}"></div>`:''}
  <div class="field grow"><label for="bl-q">Tìm mã booking, ref, khách</label><input id="bl-q" class="inp" data-f="blq" value="${esc(f.q)}" placeholder="Ví dụ: Lysaght, SO-45…"></div></div>
+ <div class="blsum small">${loading?'Đang tải…':V.blData&&V.blData.err&&useSrv?`<span class="err">${esc(V.blData.err)}</span>`:`<b>${list.length}</b> booking · <b class="num">${t2(tot)}</b> tấn`}${useSrv?` · ngày bốc ${dmy(R.from)} – ${dmy(R.to)}`:' · Cần xử lý không lọc theo thời gian'}${blFiltered(f)?' · <button class="linkbtn" data-a="blReset">Bỏ lọc</button>':''}</div>
  <div class="tbl-wrap"><table><thead><tr><th>Mã booking</th><th>Ngày bốc</th><th>Kho</th><th>Khách hàng</th><th>Segment</th><th>Ref</th><th class="r">Tổng tấn</th><th>Loại gợi ý</th><th>Khu vực</th><th>Xe đã gán</th><th>Trạng thái</th></tr></thead>
- <tbody>${list.map(b=>`<tr class="click" data-a="openBk" data-id="${b.id}"><td>${b.id}</td><td class="num">${dmy(b.date)}</td><td>${b.wh}</td><td>${esc(cust(b.customerId).name)}</td><td>${SEG_LABEL[cust(b.customerId).segment]}</td><td>${esc(b.ref)}</td><td class="r num">${t2(bkTotal(b))}</td><td>${bkTotal(b)>S.cfg.split?'DK':'CN'}</td><td>${esc(regName(b.region))}</td><td class="small">${allocsOf(b.id).map(a=>a.truck.split('-').slice(2).join('-')).join(', ')||'–'}</td><td><span class="st st-${b.status}">${ST_LABEL[b.status]}</span></td></tr>`).join('')||`<tr><td colspan="11" class="empty">Không có booking phù hợp.</td></tr>`}</tbody></table></div></div>`;
+ <tbody>${list.map(b=>`<tr class="click" data-a="openBkAny" data-id="${b.id}" data-d="${b.date}" data-w="${b.wh}"><td>${b.id}</td><td class="num">${dmy(b.date)}</td><td>${b.wh}</td><td>${esc(cust(b.customerId).name)}</td><td>${SEG_LABEL[cust(b.customerId).segment]}</td><td>${esc(b.ref)}</td><td class="r num">${t2(bkTotal(b))}</td><td>${bkTotal(b)>S.cfg.split?'DK':'CN'}</td><td>${esc(regName(b.region))}</td><td class="small">${b.trucks!==undefined?(b.trucks||'–'):allocsOf(b.id).map(a=>a.truck.split('-').slice(2).join('-')).join(', ')||'–'}</td><td><span class="st st-${b.status}">${ST_LABEL[b.status]}</span></td></tr>`).join('')||`<tr><td colspan="11" class="empty">${loading?'Đang tải…':'Không có booking phù hợp.'}</td></tr>`}</tbody></table></div></div>`;
 }
 
 /* ---------- SCR-10 approvals ---------- */
@@ -898,7 +922,7 @@ async function reload(){
  const from=addDays(ms<TODAY?ms:TODAY,-7),to=addDays(me_>TODAY?me_:TODAY,21);
  const st=await rpc('get_state',{p_from:from,p_to:to});
  if(!st||!st.me){S=null;V.noProfile=true;V.authErr=st&&st.error;V.authEnrolled=!!(st&&st.enrolled);return;}
- TODAY=st.today;S=adopt(st);V.me=st.me.id;V.stats=null;RANGE.from=from;RANGE.to=to;
+ TODAY=st.today;S=adopt(st);S.ver=(reload.n=(reload.n||0)+1);V.me=st.me.id;V.stats=null;RANGE.from=from;RANGE.to=to;
 }
 function goMonth(date){const[y,m]=parts(date);const changed=y!==V.ym[0]||m!==V.ym[1];V.ym=[y,m];return changed||date<RANGE.from||date>RANGE.to;}
 function afterNav(need){if(need){render();reload().then(render).catch(e=>toast(e.message));}else render();}
@@ -944,6 +968,8 @@ const A={
  groupConfirm:()=>{const ids=V.modal.ids;mutate('confirm_group',{p_ids:ids},{ok:n=>{V.modal=null;toast(`Đã xác nhận ${n} booking${ids.length-n?`, ${ids.length-n} booking chưa gán đủ tấn`:''}`);}});},
  openBk:d=>openBooking(d.id),
  blTab:d=>{V.blTab=d.t;render();},
+ blReset:()=>{V.blF={wh:'all',region:'all',q:'',cust:'all',per:'month'};blSave();render();},
+ openBkAny:d=>{if(bkById(d.id))return openBooking(d.id);gsOpenBooking({id:d.id,wh:d.w,date:d.d});},
  back:()=>{V.view=V.prev&&V.prev!=='booking'?V.prev:'calendar';V.asg=null;render();},
  bkRegion:(d,el)=>mutate('set_region',{p_id:V.bk,p_region:el.value},{ok:()=>toast('Đã đổi khu vực')}),
  asgSuggest:()=>{const b=bkById(V.bk);const s=suggestFor(b);V.asg.rows={};s.rows.forEach(r=>V.asg.rows[r.code]=r.tons);V.asg.err=s.left>0?`Không đủ xe để gợi ý hết, còn thiếu ${t2(s.left)} t.`:'';render();},
@@ -1158,7 +1184,7 @@ function gsBuild(P,R){const items=[];const f=fold(GS.q).trim();const words=f.spl
   if(can('booking.create')&&d.fits&&d.date>=TODAY&&!['off','none'].includes(d.status))it.acts.push({l:'Đặt hàng ngày này',run:()=>gsBookFor(null,d.date,d.wh)});items.push(it);});
  if(P.tons&&P.day&&R&&R.days&&R.days.length&&!R.days.some(d=>d.fits)&&!P.text)items.push({g:'Ngày',l:`Tìm ngày gần nhất còn đủ ${t2(P.tons)} t`,sub:'Bấm để xem các ngày còn chỗ',run:()=>{const inp=document.getElementById('gs-q');inp.value=String(P.tons).replace('.',',')+'t';GS.q=inp.value;gsRun();},keep:true,acts:[]});
  (R&&R.customers||[]).forEach(c=>{const it={g:'Khách hàng',l:`${c.name} · ${c.code}`,sub:`${c.active?'':'Ngừng dùng · '}${c.address||''}${c.sales?' · Sales '+c.sales:''}${c.cs?' · CS '+c.cs:''} · ${c.open} booking đang mở`,rk:'cust:'+c.id,ref:{kind:'cust',id:c.id,name:c.name},
-  run:()=>{V.blF={wh:'all',region:'all',q:c.name};V.blTab='all';go('bookings');},acts:[]};
+  run:()=>{V.blF={wh:'all',region:'all',q:'',cust:c.id,per:'d90'};V.blTab='all';go('bookings');},acts:[]};
   if(can('booking.create')&&c.active)it.acts.push({l:'Đặt hàng cho khách',run:()=>gsBookFor(c.id,P.day&&P.day>=TODAY?P.day:TODAY)});
   if(can('customers.manage'))it.acts.push({l:'Sửa khách',run:()=>{V.uTab='customers';go('users');A.custEdit({id:c.id});}});items.push(it);});
  (R&&R.users||[]).forEach(u=>{const it={g:'Người dùng',l:u.name,sub:`${u.email} · ${ROLE_LABEL[u.role]}${u.company?' · '+u.company:''}${u.active?'':' · đã khóa'}`,rk:'user:'+u.id,run:()=>{V.uTab='users';go('users');if(can('users.manage'))A.userEdit({id:u.id});},acts:[]};
@@ -1277,7 +1303,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&V.modal){V.modal=nu
 document.addEventListener('change',e=>{const el=e.target;const a=el.dataset.a;
  if(a==='wh'){V.wh=el.value;V.fleetEdit={};if(V.view==='day')V.view='calendar';render();return;}
  if(a==='dayFilter'){V.dayFilter[el.dataset.k]=el.value;render();return;}
- if(a==='blF'){V.blF[el.dataset.k]=el.value;if(el.dataset.k==='wh')V.blF.region='all';render();return;}
+ if(a==='blF'){setTimeout(blSave,0);if(el.dataset.k==='per'&&el.value==='custom'){const r=blRange(V.blF);V.blF.from=r.from;V.blF.to=r.to;}V.blF[el.dataset.k]=el.value;if(el.dataset.k==='wh')V.blF.region='all';render();return;}
  if(a==='bkRegion'){A.bkRegion({},el);return;}
  const f=el.dataset.f;
  if(f==='bf'){const M=V.modal,F=M.f,k=el.dataset.k;F[k]=el.value;

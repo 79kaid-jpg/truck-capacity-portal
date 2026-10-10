@@ -131,6 +131,12 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - **Booking bị từ chối:** CS mở chi tiết booking → **Đặt lại ngày khác** → chọn ngày còn chỗ → **Đặt lại (giữ chỗ)**. Mã booking và lịch sử từ chối được giữ; Logistics nhận lại yêu cầu giữ chỗ, khách nhận thông báo.
 - **Khách hàng** thấy thống kê tháng tách theo trạng thái (Đã xác nhận, Chờ xếp xe, Đề nghị đổi ngày, Bị từ chối) và danh sách từng đơn; ô lịch hiện cả số tấn bị từ chối hoặc đề nghị đổi ngày.
 
+## Danh sách booking – bộ lọc
+- **Khách hàng**: Tất cả, **Khách tôi phụ trách** (CS: khách được gán cho mình và khách của CS đang nghỉ mà mình nhận thay; Sales: khách của mình), hoặc một khách cụ thể.
+- **Ngày bốc**: Hôm nay, Tuần này (Thứ 2 – Chủ nhật), Tuần sau, **Tháng này** (mặc định), Tháng trước, Tháng sau, 30 ngày qua, 3 tháng gần đây, Tùy chọn (từ ngày – đến ngày, tối đa ~13 tháng). Dữ liệu tháng cũ được tải từ máy chủ khi chọn.
+- Dòng tổng ở đầu bảng: số booking, tổng tấn, khoảng ngày; **Bỏ lọc** để về mặc định. Bộ lọc thời gian được nhớ trên máy đang dùng.
+- Tab **Cần xử lý** không lọc theo thời gian.
+
 ## Tìm kiếm (Global Search)
 Ô **Tìm kiếm** trên thanh trên cùng, hoặc phím **Ctrl+K** hay **/**. Gõ mã booking, số SO, tên khách (không dấu cũng được), ngày (`15/10`, `mai`, `thứ 6`), số tấn (`28t`, `28t 15/10`), mã xe (`DK-03 mai`), biển số, tài xế, trạng thái (`quá hạn`, `nháp`, `đổi ngày`, `quá tải`) hoặc tên màn hình. Kết quả theo đúng phạm vi dữ liệu của vai trò.
 
