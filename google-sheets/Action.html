@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#17202B;margin:4px 6px}
+  dl{display:grid;grid-template-columns:120px 1fr;gap:4px 10px;margin:0 0 10px}
+  dt{color:#5A6573}dd{margin:0;font-weight:bold}
+  .st{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px}
+  .st-ok{background:#E2F2E8;color:#1D6B41}.st-hold{background:#FBEFD3;color:#8A5A00}.st-res{background:#E3ECFA;color:#24508F}.st-bad{background:#F8E1DF;color:#9B2C24}.st-draft{background:#EEE;color:#555}
+  .box{border:1px solid #D3D9DF;border-radius:8px;padding:10px;margin-top:10px}
+  .box h4{margin:0 0 8px;font-size:13px}
+  input,select{width:100%;box-sizing:border-box;padding:6px;border:1px solid #C5CCD3;border-radius:6px;font:inherit;margin-bottom:6px}
+  .btn{padding:7px 14px;border-radius:16px;border:1px solid #1F2C3D;background:#fff;font-weight:bold;cursor:pointer}
+  .btn.primary{background:#1F2C3D;color:#fff}.btn.danger{border-color:#9B2C24;color:#9B2C24}
+  .btn:disabled{opacity:.5}
+  .msg{margin-top:10px;padding:8px;border-radius:6px}.msg.err{background:#F8E1DF;color:#9B2C24}.msg.ok{background:#E2F2E8;color:#1D6B41}
+  .warn{background:#FBEFD3;padding:8px;border-radius:6px;margin-bottom:8px}
+  .muted{color:#5A6573;font-size:12px}
+</style>
+</head>
+<body>
+<div id="view">Đang tải…</div>
+<div id="msg"></div>
+<script>
+  var ID = <?= JSON.stringify(bookingId) ?>; var X = null;
+  var $ = function (id) { return document.getElementById(id); };
+  function fmt(n) { return (Math.round((+n || 0) * 100) / 100).toLocaleString('vi-VN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function dmy(k) { return k ? k.slice(8, 10) + '/' + k.slice(5, 7) + '/' + k.slice(0, 4) : '–'; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  var CLS = { 'Đã xác nhận': 'st-ok', 'Chờ xếp xe': 'st-hold', 'Đề nghị đổi ngày': 'st-res', 'Từ chối': 'st-bad', 'Đã hủy': 'st-bad', 'Nháp': 'st-draft' };
+  function reasons(kind) { return X.reasons.filter(function (r) { return r.kind === kind; }).map(function (r) { return '<option>' + esc(r.name) + '</option>'; }).join(''); }
+  function load() {
+    google.script.run.withSuccessHandler(function (x) { X = x; render(); }).withFailureHandler(function (e) { $('view').textContent = e.message; }).getBookingForAction(ID);
+  }
+  function render() {
+    var b = X.bk, role = X.role, isLog = role === 'Logistics' || role === 'Admin', isCS = role === 'CS' || role === 'Admin';
+    var h = '<dl><dt>Trạng thái</dt><dd><span class="st ' + (CLS[b.status] || '') + '">' + esc(b.status) + '</span></dd>' +
+      '<dt>Ngày bốc</dt><dd>' + dmy(b.date) + ' · Kho ' + esc(b.wh) + '</dd><dt>Khách hàng</dt><dd>' + esc(b.cust) + ' (' + esc(b.seg) + ')</dd>' +
+      '<dt>Số tấn</dt><dd>' + fmt(b.tons) + ' t · gợi ý ' + X.truckType + '</dd><dt>Ref</dt><dd>' + esc(b.ref || '–') + '</dd>' +
+      '<dt>Khu vực</dt><dd>' + esc(b.region || '–') + '</dd><dt>Hàng hóa</dt><dd>' + esc(b.goods || '–') + '</dd>' +
+      (b.trucks ? '<dt>Xe đã gán</dt><dd>' + esc(b.trucks) + '</dd>' : '') + (b.reason ? '<dt>Lý do</dt><dd>' + esc(b.reason) + '</dd>' : '') +
+      (b.proposed ? '<dt>Ngày đề xuất</dt><dd>' + dmy(b.proposed) + '</dd>' : '') + '<dt>Người tạo</dt><dd>' + esc(b.createdBy) + '</dd></dl>';
+    if (X.past && (b.status === 'Chờ xếp xe' || b.status === 'Nháp')) h += '<div class="warn">Ngày bốc đã qua: không gán xe được nữa. Logistics đề nghị đổi ngày hoặc từ chối; CS có thể đặt lại sang ngày khác.</div>';
+    if (b.status === 'Chờ xếp xe' && isLog) {
+      if (!X.past) h += '<div class="box"><h4>Xác nhận và gán xe</h4><input id="trucks" placeholder="Xe, ví dụ: DK-01, CN-02"><button class="btn primary" data-a="confirm">Xác nhận</button></div>';
+      h += '<div class="box"><h4>Đề nghị đổi ngày</h4><input id="pdate" type="date" min="' + X.today + '"><select id="preason">' + reasons('Đổi ngày') + '</select><button class="btn" data-a="propose">Gửi đề nghị</button></div>' +
+        '<div class="box"><h4>Từ chối</h4><select id="rreason">' + reasons('Từ chối') + '</select><button class="btn danger" data-a="reject">Từ chối</button></div>';
+    }
+    if (isCS) {
+      if (b.status === 'Đề nghị đổi ngày') h += '<div class="box"><h4>Khách đồng ý ngày ' + dmy(b.proposed) + '?</h4><button class="btn primary" data-a="accept">Chấp nhận ngày đề nghị</button></div>';
+      if (['Từ chối', 'Đề nghị đổi ngày', 'Nháp', 'Chờ xếp xe', 'Đã xác nhận'].indexOf(b.status) >= 0) {
+        var title = b.status === 'Từ chối' ? 'Đặt lại ngày khác' : b.status === 'Nháp' ? 'Giữ chỗ cho nháp' : 'Đổi ngày / số tấn';
+        h += '<div class="box"><h4>' + title + '</h4><input id="ndate" type="date" min="' + X.today + '" value="' + (X.past || b.status === 'Từ chối' ? '' : b.date) + '"><input id="ntons" inputmode="decimal" value="' + b.tons + '" placeholder="Số tấn">' +
+          (b.status === 'Đã xác nhận' ? '<div class="muted">Booking đã xác nhận sẽ quay về Chờ xếp xe để Logistics xếp lại.</div>' : '') + '<button class="btn primary" data-a="rebook">' + (b.status === 'Nháp' ? 'Giữ chỗ' : 'Lưu và giữ chỗ') + '</button></div>';
+      }
+      if (['Từ chối', 'Đã hủy'].indexOf(b.status) < 0) h += '<div class="box"><h4>Hủy booking</h4><select id="creason">' + reasons('Hủy') + '</select><button class="btn danger" data-a="cancel">Hủy booking</button></div>';
+    }
+    if (!isLog && !isCS) h += '<p class="muted">Vai trò của bạn chỉ xem.</p>';
+    $('view').innerHTML = h;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-a]'), function (el) { el.onclick = function () { act(el.getAttribute('data-a')); }; });
+  }
+  function act(a) {
+    var p = {};
+    if (a === 'confirm') p.trucks = $('trucks').value;
+    if (a === 'propose') { p.date = $('pdate').value; p.reason = $('preason').value; }
+    if (a === 'reject') p.reason = $('rreason').value;
+    if (a === 'cancel') p.reason = $('creason').value;
+    if (a === 'rebook') { p.date = $('ndate').value; p.tons = $('ntons').value; }
+    Array.prototype.forEach.call(document.querySelectorAll('[data-a]'), function (el) { el.disabled = true; });
+    google.script.run.withSuccessHandler(function (r) { $('msg').className = 'msg ok'; $('msg').textContent = r.msg; load(); })
+      .withFailureHandler(function (e) { $('msg').className = 'msg err'; $('msg').textContent = e.message; render(); }).actOnBooking(ID, a, p);
+  }
+  load();
+</script>
+</body>
+</html>

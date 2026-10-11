@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#17202B;margin:12px}
+  h3{margin:0 0 10px;font-size:15px;letter-spacing:.03em}
+  label{display:block;font-weight:bold;font-size:12px;margin:10px 0 3px}
+  input,select,textarea{width:100%;box-sizing:border-box;padding:6px;border:1px solid #C5CCD3;border-radius:6px;font:inherit}
+  .row{display:flex;gap:8px}.row>div{flex:1}
+  .cap{margin-top:12px;padding:8px;border-radius:6px;background:#F0EBE0;font-weight:bold}
+  .cap.over{background:#F8E1DF;color:#9B2C24}.cap.ok{background:#E2F2E8;color:#1D6B41}
+  .sugg button{margin:4px 4px 0 0;padding:4px 8px;border:1px solid #1F2C3D;background:#fff;border-radius:12px;cursor:pointer;font-size:12px}
+  .btns{display:flex;gap:8px;margin-top:14px}
+  .btn{flex:1;padding:9px;border-radius:18px;border:1px solid #1F2C3D;font-weight:bold;cursor:pointer;background:#fff}
+  .btn.primary{background:#1F2C3D;color:#fff}
+  .btn:disabled{opacity:.5;cursor:default}
+  .msg{margin-top:12px;padding:8px;border-radius:6px}
+  .msg.err{background:#F8E1DF;color:#9B2C24}.msg.ok{background:#E2F2E8;color:#1D6B41}
+  .muted{color:#5A6573;font-size:12px}
+</style>
+</head>
+<body>
+<h3>ĐẶT HÀNG</h3>
+<div class="row">
+  <div><label for="wh">Kho *</label><select id="wh"></select></div>
+  <div><label for="date">Ngày bốc *</label><input id="date" type="date"></div>
+</div>
+<label for="cust">Khách hàng *</label>
+<select id="cust"><option value="">Chọn khách hàng</option></select>
+<div id="custInfo" class="muted"></div>
+<div class="row">
+  <div><label for="tons">Số tấn *</label><input id="tons" inputmode="decimal" placeholder="Ví dụ: 28"></div>
+  <div><label for="ref">Ref đơn hàng (SO) *</label><input id="ref" placeholder="SO-…"></div>
+</div>
+<label for="goods">Hàng hóa (sản phẩm · màu · độ dày × khổ)</label>
+<textarea id="goods" rows="2" placeholder="Ví dụ: Tôn lạnh AZ150 · Xám trắng · 0,45 × 1200"></textarea>
+<label for="region">Khu vực</label><input id="region">
+<label for="note">Ghi chú cho Logistics</label><input id="note">
+<div id="cap" class="cap">Chọn kho, ngày và số tấn để xem sức chứa.</div>
+<div id="sugg" class="sugg"></div>
+<div class="btns">
+  <button class="btn" id="draft">Lưu tạm</button>
+  <button class="btn primary" id="hold">Giữ chỗ</button>
+</div>
+<div id="msg"></div>
+<p class="muted">Giữ chỗ trừ tạm số tấn ngay; Lưu tạm chưa trừ. Logistics xác nhận và gán xe sau.</p>
+<script>
+  var D = null, T = null;
+  var $ = function (id) { return document.getElementById(id); };
+  function fmt(n) { return (Math.round((+n || 0) * 100) / 100).toLocaleString('vi-VN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function dm(k) { return k.slice(8, 10) + '/' + k.slice(5, 7); }
+  function showMsg(t, ok) { $('msg').className = 'msg ' + (ok ? 'ok' : 'err'); $('msg').textContent = t; }
+  function busy(b) { $('draft').disabled = b; $('hold').disabled = b; }
+  google.script.run.withSuccessHandler(function (d) {
+    D = d;
+    $('wh').innerHTML = d.warehouses.map(function (w) { return '<option value="' + w.code + '">' + w.name + '</option>'; }).join('');
+    $('cust').innerHTML += d.customers.map(function (c) { return '<option value="' + c.code + '">' + c.name + ' · ' + c.code + '</option>'; }).join('');
+    $('date').min = d.today; $('date').value = d.today;
+    check();
+  }).withFailureHandler(function (e) { showMsg(e.message); }).getFormData();
+  $('cust').addEventListener('change', function () {
+    var c = D.customers.filter(function (x) { return x.code === $('cust').value; })[0];
+    $('custInfo').textContent = c ? c.segment + ' · ' + (c.addr || '') : '';
+    if (c) { $('region').value = c.region || ''; if (c.wh) $('wh').value = c.wh; }
+    check();
+  });
+  ['wh', 'date', 'tons'].forEach(function (id) { $(id).addEventListener(id === 'tons' ? 'input' : 'change', function () { clearTimeout(T); T = setTimeout(check, 300); }); });
+  function check() {
+    var wh = $('wh').value, date = $('date').value, tons = String($('tons').value).replace(',', '.');
+    if (!wh || !date) return;
+    google.script.run.withSuccessHandler(function (r) {
+      var box = $('cap');
+      if (r.status === 'Không bốc hàng' || r.status === 'Chưa mở lịch') { box.className = 'cap over'; box.textContent = 'Ngày ' + dm(date) + ': ' + r.status + ' — chỉ được Lưu tạm.'; }
+      else { box.className = 'cap ' + (r.enough || !+tons ? 'ok' : 'over');
+        box.textContent = 'Còn đặt được ngày ' + dm(date) + ': ' + fmt(r.avail) + ' t' + (+tons ? ' → sau booking này: ' + fmt(r.after) + ' t · gợi ý ' + r.truckType : ''); }
+      $('sugg').innerHTML = r.sugg.length ? 'Ngày còn đủ chỗ: ' + r.sugg.map(function (s) { return '<button data-d="' + s.date + '">' + dm(s.date) + ' (' + fmt(s.avail) + ' t)</button>'; }).join('') : '';
+      Array.prototype.forEach.call($('sugg').querySelectorAll('button'), function (b) { b.onclick = function () { $('date').value = b.getAttribute('data-d'); check(); }; });
+    }).checkCapacity(wh, date, tons);
+  }
+  function submit(mode) {
+    busy(true); $('msg').className = ''; $('msg').textContent = '';
+    var f = { wh: $('wh').value, date: $('date').value, custCode: $('cust').value, tons: $('tons').value, goods: $('goods').value, ref: $('ref').value, region: $('region').value, note: $('note').value };
+    google.script.run.withSuccessHandler(function (r) {
+      busy(false); showMsg(r.msg, true); $('tons').value = ''; $('ref').value = ''; $('goods').value = ''; $('note').value = ''; check();
+    }).withFailureHandler(function (e) { busy(false); showMsg(e.message); }).submitBooking(f, mode);
+  }
+  $('draft').onclick = function () { submit('draft'); };
+  $('hold').onclick = function () { submit('hold'); };
+</script>
+</body>
+</html>
