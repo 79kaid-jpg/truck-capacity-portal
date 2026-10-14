@@ -11,9 +11,11 @@ Cổng đặt tải xe cho kho Phú Mỹ, Cửa Lò, Hải Phòng. Bản POV ch�
 
 **Bảo mật:** mọi bảng nằm trong schema `app`, không mở ra API, đã bật RLS. Trình duyệt chỉ gọi các hàm trong schema `public`. Mỗi hàm tự kiểm tra vai trò và chỉ trả dữ liệu được phép, ví dụ khách hàng chỉ thấy số tấn còn đặt được và đơn của mình. `web/config.js` chỉ chứa URL và khóa **anon public**, đây là khóa công khai. Không bao giờ dán `service_role` / secret key hay mật khẩu database vào repo.
 
-**Tài liệu liên quan:** Đặc tả yêu cầu (SRS v2.8, mục 13 ghi các bổ sung sau triển khai), Thiết kế kỹ thuật POV (mục 12 ghi bản đã triển khai), UAT checklist 89 kịch bản.
+**Tài liệu liên quan:** Đặc tả yêu cầu (SRS v2.9: mục 13 ghi các bổ sung sau triển khai, mục 14 ghi tính năng mang từ bản Google Sheets), Thiết kế kỹ thuật POV (mục 12 ghi bản đã triển khai), UAT checklist 89 kịch bản.
 
 **Tính năng chính:** lịch số tấn còn đặt được theo kho; CS giữ chỗ / lưu tạm; Logistics khai báo xe theo ngày, tải trọng từng xe, xếp xe, gợi ý gộp xe, từ chối / đề nghị đổi ngày; CS đặt lại booking bị từ chối; khách hàng xem lịch, đơn và thống kê của mình; phân quyền theo vai trò; Login as; CS phụ trách, nghỉ phép và người nhận thay, nhắc việc; Global Search; bộ lọc Danh sách booking; thống kê khách (nút Xe | Khách, DB-05, phạm vi thống kê); xác thực 2 lớp; email thông báo và quên mật khẩu; dashboard DB-01, DB-02, DB-05, DB-06.
+
+**v2.9 (đợt 1, mang từ bản Google Sheets):** nhập nhiều dòng / dán Excel / tải file; giữ chỗ chỉ cần số tấn; ngày bốc gốc và lý do đổi ngày; đơn khẩn theo mốc chốt 16:00, hủy quá cận ngày; giao ngày nghỉ khi có khai báo xe; xác nhận giao hàng + danh sách cuộn; Đã load / Đang giao / Đã giao / Giao không thành công; load thiếu, tách đơn, không giao phần còn lại; đóng / mở xe; email gấp gửi ngay, còn lại gộp tóm tắt 7:00 và 16:00.
 
 ---
 
@@ -164,6 +166,19 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - **Admin duy nhất bị mất điện thoại:** chạy trong SQL Editor:
   `delete from auth.mfa_factors where user_id = (select id from auth.users where email = 'email-admin@...');`
 
+## v2.9 – giao hàng, nhập nhiều dòng, đơn khẩn (SRS mục 14)
+
+- **Nhập nhiều dòng:** Danh sách booking (hoặc Lịch) → **Nhập nhiều dòng**. Dán từ Excel hoặc tải file .xlsx / .csv theo mẫu (Kho · Ngày bốc · Mã KH · Số tấn · Địa chỉ · Ref · Ghi chú; bỏ được 2 cột đầu). Xem trước cộng dồn sức chứa từng kho · ngày; kết quả có dòng không nhận, ngày gợi ý, tải file dòng lỗi, sửa lại trong form.
+- **Giữ chỗ** chỉ bắt buộc số tấn. Địa chỉ giao bắt buộc từ bước Xác nhận giao hàng. Khu vực tự điền theo địa chỉ, để "Chưa phân khu vực" được.
+- **Đổi ngày bốc** booking đã giữ chỗ: chọn lý do + bên yêu cầu (Khách / CS / Logistics). Ngày bốc gốc giữ nguyên để thống kê.
+- **Đơn khẩn:** giữ chỗ / đổi sang một ngày bốc sau giờ chốt (mặc định 16:00) của ngày hôm trước. Admin đặt / bỏ cờ kèm lý do. Hủy booking đã xác nhận sau mốc chốt = **Hủy quá cận ngày giao**.
+- **Ngày nghỉ:** Logistics vẫn khai báo xe được (bắt buộc lý do) → đặt được như ngày thường, ô lịch có nhãn ⚠ CN / ⚠ Lễ, email có "GIAO NGÀY NGHỈ".
+- **Xác nhận giao hàng (CS):** dán bảng cuộn 9 cột (Whs, Order no, Ln, Itmno, Name, Lot number, Allocated qty, Attr value, Customer). Chặn Lot trùng, nhiều khách, Lot đang ở booking khác; cảnh báo khác Mã KH ERP / khác kho → "Đã kiểm tra – vẫn lưu". Thiếu quá ±3% / 0,5 t: Tách đơn (`<mã>-2`, chờ hẹn hoặc có ngày) hoặc Không giao phần còn lại. Dư: tick cập nhật số tấn.
+- **Logistics:** Đã load hàng (bỏ tick cuộn không lên xe + ghi chú) → Đang giao (dự kiến tới) → Đã giao, hoặc Giao không thành công (CS Giao lại / Hủy). Từ Đã load, CS không đổi ngày / số tấn / hủy.
+- **Đóng xe:** popup xe → Đóng xe (tải trọng = số đã xếp, không gợi ý, không xếp thêm) / Mở lại.
+- **Email:** việc gấp (đơn khẩn, hủy cận ngày, giao hàng gấp, load thiếu, giao lỗi, giao ngày nghỉ) gửi ngay; còn lại gộp một email tóm tắt mỗi người lúc 7:00 và 16:00 (trừ Chủ nhật). Hồ sơ cá nhân → mức nhận email (Tất cả / Chỉ việc gấp / Không) và email nhận riêng (Outlook).
+- **Cấu hình mới** (bảng `app.settings`): `cutoff` "16:00", `coilPct` 3, `coilTons` 0.5, `digestTimes` ["07:00","16:00"], `emailUrgent`. Mã kho ERP ở `app.warehouses.erp_code` (PMY = JM2, HPG = JD8, CLO = JD9); Mã KH ERP ở `app.customers.erp_code`.
+
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.
 - Gói Free **không có backup tự động**. Mỗi tuần nên export các bảng chính (Table Editor → schema `app` → Export CSV).
@@ -175,6 +190,7 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 web/                      Giao diện (HTML + JS thuần, không cần build)
   index.html              Khung trang + CSS
   app.js                  Toàn bộ màn hình, gọi Supabase RPC
+  v29.js                  Màn hình v2.9: nhập nhiều dòng, giao hàng, load / giao, đóng xe, cờ khẩn, email
   config.js               URL + anon key (công khai)
   favicon.svg, icon-*.png, apple-touch-icon.png, manifest.webmanifest   Biểu tượng trang / màn hình chính điện thoại
 supabase/
@@ -188,6 +204,7 @@ test/                     Kiểm thử cục bộ (Postgres 16 + Playwright), kh
   00_*, 01_*              Stub Supabase (auth, auth.jwt, mfa_factors, pg_net, Vault, pg_cron)
   10 – 95_*.sql           Test SQL: luồng booking, get_state, phân quyền, Login as, tải trọng xe,
                           định tuyến CS / nhận thay, MFA, đặt lại booking, phạm vi thống kê
+  96_v29.sql              Test SQL v2.9: nhập nhiều dòng, ngày nghỉ, đổi ngày, khẩn, hủy cận ngày, giao hàng, đóng xe, email
   reset.sh                Dựng lại DB test + tài khoản mẫu (phiên mặc định aal2)
-  e2e/all.sh              Chạy 9 bộ Playwright: run, gs, past, mfa, rebook, offday, truckedit, blfilter, salesstats
+  e2e/all.sh              Chạy 10 bộ Playwright: run, gs, past, mfa, rebook, offday, truckedit, blfilter, salesstats, v29
 ```
