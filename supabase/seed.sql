@@ -6,7 +6,8 @@
 insert into app.settings (key, value) values
   ('near', '80'), ('capDK', '30'), ('capCN', '15'), ('split', '15'), ('sla', '60'),
   ('maxStops', '3'), ('fillMin', '70'), ('suggestOn', 'true'), ('sundayOff', 'true'), ('holidays', '[]'),
-  ('capDKMin', '15'), ('capDKMax', '35'), ('capCNMin', '5'), ('capCNMax', '20'), ('escalateHours', '4')
+  ('capDKMin', '15'), ('capDKMax', '35'), ('capCNMin', '5'), ('capCNMax', '20'), ('escalateHours', '4'),
+  ('cutoff', '"16:00"'), ('coilPct', '3'), ('coilTons', '0.5'), ('digestTimes', '["07:00","16:00"]')
 on conflict (key) do nothing;
 
 insert into app.warehouses (code, name, full_name) values
@@ -14,6 +15,10 @@ insert into app.warehouses (code, name, full_name) values
   ('CLO', 'Cửa Lò',   'Kho Cửa Lò'),
   ('HPG', 'Hải Phòng','Kho Hải Phòng')
 on conflict (code) do nothing;
+
+-- Mã kho trong ERP (cột Whs của danh sách cuộn)
+update app.warehouses set erp_code = v.erp from (values ('PMY','JM2'), ('HPG','JD8'), ('CLO','JD9')) v(code, erp)
+ where warehouses.code = v.code and warehouses.erp_code = '';
 
 -- Khu vực = tỉnh (tên cũ) theo từng kho, kèm tỉnh mới sau sáp nhập 01/07/2025 và số ngày đi-về
 insert into app.regions (id, warehouse_code, code, name, new_province, round_trip_days) values
@@ -71,7 +76,23 @@ insert into app.reason_codes (kind, code, name) values
   ('override','OTHER','Lý do khác'),
   ('fleet_cut','MAINT','Bảo dưỡng xe'),
   ('fleet_cut','LONG_TRIP','Xe đi tuyến dài chưa về'),
-  ('fleet_cut','OTHER','Lý do khác')
+  ('fleet_cut','OTHER','Lý do khác'),
+  ('change','CUST_REQ','Khách đổi ngày nhận'),
+  ('change','CUST_NOT_READY','Khách chưa sẵn sàng nhận hàng'),
+  ('change','GOODS_NOT_READY','Hàng chưa sẵn sàng'),
+  ('change','NO_TRUCK','Hết xe ngày cũ'),
+  ('change','WRONG','Nhập sai ngày'),
+  ('change','OTHER','Lý do khác'),
+  ('nodeliver','CUST_CUT','Khách giảm số lượng'),
+  ('nodeliver','NO_STOCK','Không đủ hàng'),
+  ('nodeliver','OTHER','Lý do khác'),
+  ('fail','CUST_CLOSED','Khách không nhận / đóng cửa'),
+  ('fail','WRONG_ADDR','Sai địa chỉ'),
+  ('fail','TRUCK','Sự cố xe'),
+  ('fail','OTHER','Lý do khác'),
+  ('close','FULL','Xe đã đủ hàng'),
+  ('close','ROUTE','Không ghép thêm tuyến khác'),
+  ('close','OTHER','Lý do khác')
 on conflict do nothing;
 
 -- Danh mục quyền tính năng (tên/mô tả được cập nhật khi chạy lại; def_roles = mặc định)
@@ -98,7 +119,10 @@ insert into app.permissions (code, grp, name, descr, sort, def_roles) values
   ('customers.manage','Quản trị',   'Quản lý khách hàng',                  'Thêm khách hàng, địa chỉ, Sales phụ trách', 200, '{admin}'),
   ('users.impersonate','Quản trị',  'Login as người dùng khác',            'Xem và thao tác với tư cách một tài khoản khác tối đa 60 phút; mọi thao tác ghi nhật ký', 205, '{admin}'),
   ('auth.mfa',        'Bảo mật',    'Bắt buộc xác thực 2 lớp (MFA)',       'Đăng nhập phải nhập thêm mã 6 số từ ứng dụng Google / Microsoft Authenticator. Nên bật cho Admin khi chạy thật', 220, '{logistics,cs,admin}'),
-  ('perms.manage',    'Quản trị',   'Phân quyền vai trò',                  'Màn hình này. Admin luôn giữ quyền này', 210, '{admin}')
+  ('perms.manage',    'Quản trị',   'Phân quyền vai trò',                  'Màn hình này. Admin luôn giữ quyền này', 210, '{admin}'),
+  ('delivery.confirm','Giao hàng',  'Xác nhận giao hàng, xử lý phần còn lại', 'Nhập địa chỉ và danh sách cuộn, tách đơn / không giao phần còn lại (BR-43, BR-44, BR-46)', 52, '{cs,admin}'),
+  ('delivery.ship',   'Giao hàng',  'Load, đang giao, đã giao',            'Đã load hàng, Đang giao, Đã giao, Giao không thành công (BR-45)', 112, '{logistics,admin}'),
+  ('booking.urgent',  'Đặt hàng',   'Đặt / bỏ cờ đơn khẩn',                'Ghi đè cờ khẩn tự tính, bắt buộc lý do (BR-41)', 55, '{admin}')
 on conflict (code) do update set grp = excluded.grp, name = excluded.name, descr = excluded.descr, sort = excluded.sort, def_roles = excluded.def_roles;
 
 -- Ma trận mặc định; không ghi đè cấu hình Admin đã chỉnh

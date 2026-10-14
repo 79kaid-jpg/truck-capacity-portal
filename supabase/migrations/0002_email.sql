@@ -23,6 +23,20 @@ create table if not exists app.email_outbox (
   sent_at         timestamptz
 );
 create index if not exists email_outbox_status on app.email_outbox (status, id);
+
+-- BR-49: thông báo không gấp được gom vào email tóm tắt (7:00 và 16:00 ngày làm việc)
+create table if not exists app.email_digest_items (
+  id         bigserial primary key,
+  user_id    uuid not null references app.profiles(user_id) on delete cascade,
+  type       text not null,
+  text       text not null,
+  created_at timestamptz not null default now(),
+  sent_at    timestamptz
+);
+create index if not exists email_digest_pending on app.email_digest_items (user_id) where sent_at is null;
+alter table app.email_digest_items enable row level security;
+revoke all on app.email_digest_items from public, anon, authenticated;
+revoke all on sequence app.email_digest_items_id_seq from public, anon, authenticated;
 alter table app.email_outbox enable row level security;
 revoke all on app.email_outbox from public, anon, authenticated;
 revoke all on sequence app.email_outbox_id_seq from public, anon, authenticated;
@@ -37,6 +51,13 @@ insert into app.settings (key, value) values
 on conflict (key) do nothing;
 
 update app.settings set value = value || '["Nhắc việc"]'::jsonb where key = 'emailTypes' and not (value ? 'Nhắc việc');
+-- v2.9: loại thông báo mới có email; loại gấp gửi ngay, còn lại vào email tóm tắt
+update app.settings set value = (select jsonb_agg(distinct t) from (
+  select jsonb_array_elements_text(value) t union select unnest(array['Đơn khẩn','Hủy cận ngày','Giao hàng gấp','Chi tiết giao hàng',
+    'Load thiếu','Đã load','Đã giao','Giao lỗi','Đang giao'])) x) where key = 'emailTypes';
+insert into app.settings (key, value) values
+  ('emailUrgent', '["Đơn khẩn","Hủy cận ngày","Giao hàng gấp","Load thiếu","Giao lỗi"]')
+on conflict (key) do nothing;
 
 -- Bật/tắt và cấu hình email (chạy trong SQL Editor)
 create or replace function app.setup_email(p_from text, p_site_url text, p_on boolean default true) returns text
@@ -65,17 +86,25 @@ language sql stable security definer set search_path = '' as $$
       || '</div></div>'
 $$;
 
--- Trigger: thông báo mới → hàng đợi email
+-- Trigger: thông báo mới → email ngay (việc gấp) hoặc email tóm tắt (BR-49), theo mức nhận email của từng người
 create or replace function app.enqueue_email() returns trigger
 language plpgsql security definer set search_path = '' as $$
-declare p app.profiles;
+declare p app.profiles; v_urgent boolean;
 begin
   if not coalesce((app.setting('emailOn') #>> '{}')::boolean, false) then return new; end if;
   if not exists (select 1 from jsonb_array_elements_text(coalesce(app.setting('emailTypes'), '[]'::jsonb)) t where t = new.type) then return new; end if;
   select * into p from app.profiles where user_id = new.user_id and active;
-  if not found or coalesce(p.email, '') = '' then return new; end if;
-  insert into app.email_outbox (notification_id, to_email, subject, html)
-  values (new.id, p.email, '[Đặt Xe] ' || new.type || ': ' || left(new.text, 80), app.email_html(p.full_name, new.type, new.text, new.link));
+  if not found or coalesce(coalesce(p.alt_email, p.email), '') = '' or p.email_level = 'none' then return new; end if;
+  v_urgent := new.text like '%GIAO NGÀY NGHỈ%'
+              or exists (select 1 from jsonb_array_elements_text(coalesce(app.setting('emailUrgent'), '[]'::jsonb)) t where t = new.type);
+  if v_urgent then
+    insert into app.email_outbox (notification_id, to_email, subject, html)
+    values (new.id, coalesce(p.alt_email, p.email),
+            '[Đặt Xe] ' || case when new.text like '%GIAO NGÀY NGHỈ%' and new.text not like '⚠%' then '⚠ GIAO NGÀY NGHỈ · ' else '' end || new.type || ': ' || left(new.text, 80),
+            app.email_html(p.full_name, new.type, new.text, new.link));
+  elsif p.email_level = 'all' then
+    insert into app.email_digest_items (user_id, type, text) values (p.user_id, new.type, new.text);
+  end if;
   return new;
 end $$;
 drop trigger if exists notifications_email on app.notifications;
@@ -130,6 +159,36 @@ revoke all on function app.email_html(text, text, text, jsonb) from public, anon
 revoke all on function app.enqueue_email() from public, anon, authenticated;
 revoke all on function app.send_emails() from public, anon, authenticated;
 
+-- Email tóm tắt: mỗi người một email gom các thông báo không gấp. Cron chạy đầu mỗi giờ,
+-- chỉ gửi khi giờ Việt Nam trùng một mốc trong digestTimes (mặc định 07:00, 16:00), trừ Chủ nhật.
+create or replace function app.send_digests(p_force boolean default false) returns int
+language plpgsql security definer set search_path = '' as $$
+declare r record; n int := 0; v_now timestamp := now() at time zone 'Asia/Ho_Chi_Minh'; v_body text; v_ids bigint[];
+begin
+  if not p_force then
+    if extract(dow from v_now) = 0 then return 0; end if;
+    if not exists (select 1 from jsonb_array_elements_text(coalesce(app.setting('digestTimes'), '["07:00","16:00"]'::jsonb)) t
+                    where left(t, 2) = to_char(v_now, 'HH24')) then return 0; end if;
+  end if;
+  for r in select d.user_id, p.full_name, coalesce(p.alt_email, p.email) as email
+             from app.email_digest_items d join app.profiles p on p.user_id = d.user_id
+            where d.sent_at is null and p.active and p.email_level = 'all'
+            group by d.user_id, p.full_name, p.alt_email, p.email loop
+    select array_agg(id order by id),
+           string_agg('• [' || type || '] ' || text, chr(10) order by id)
+      into v_ids, v_body
+      from (select * from app.email_digest_items where user_id = r.user_id and sent_at is null order by id limit 100) x;
+    insert into app.email_outbox (to_email, subject, html)
+    values (r.email, '[Đặt Xe] Tóm tắt ' || to_char(v_now, 'HH24:MI DD/MM') || ': ' || cardinality(v_ids) || ' cập nhật',
+            replace(app.email_html(r.full_name, 'Tóm tắt', v_body, null), chr(10), '<br>'));
+    update app.email_digest_items set sent_at = now() where id = any(v_ids);
+    n := n + 1;
+  end loop;
+  update app.email_digest_items set sent_at = now() where sent_at is null and user_id in (select user_id from app.profiles where email_level <> 'all' or not active);
+  return n;
+end $$;
+revoke all on function app.send_digests(boolean) from public, anon, authenticated;
+
 -- Lịch chạy mỗi phút
 do $$ begin
   perform cron.unschedule('send-emails');
@@ -141,6 +200,11 @@ do $$ begin
   perform cron.unschedule('escalate');
 exception when others then null; end $$;
 select cron.schedule('escalate', '7 * * * *', 'select app.escalate()');
+
+do $$ begin
+  perform cron.unschedule('email-digest');
+exception when others then null; end $$;
+select cron.schedule('email-digest', '0 * * * *', 'select app.send_digests()');
 
 -- Admin: thống kê (thêm phần email) và gửi email thử
 create or replace function public.admin_stats() returns jsonb
