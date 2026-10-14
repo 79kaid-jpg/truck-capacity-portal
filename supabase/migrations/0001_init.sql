@@ -727,7 +727,7 @@ begin
     'perms', to_jsonb(app.my_perms(me.role)),
     'imp', case when app.impersonating() then (select jsonb_build_object('by', a.full_name, 'expiresAt', extract(epoch from i.expires_at))
                 from app.impersonations i join app.profiles a on a.user_id = i.admin_id where i.admin_id = app.real_uid()) end,
-    'warehouses', (select jsonb_agg(jsonb_build_object('id', code, 'name', name, 'full', full_name) order by code) from app.warehouses where active),
+    'warehouses', (select jsonb_agg(jsonb_build_object('id', code, 'name', name, 'full', full_name, 'erp', erp_code) order by code) from app.warehouses where active),
     'notifs', (select coalesce(jsonb_agg(jsonb_build_object('id', n.id, 'type', n.type, 'text', n.text, 'link', n.link,
                  'at', extract(epoch from n.created_at), 'read', n.read_at is not null) order by n.created_at desc), '[]')
                from (select * from app.notifications where user_id = me.user_id order by created_at desc limit 100) n)
