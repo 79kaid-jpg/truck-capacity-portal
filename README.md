@@ -296,6 +296,21 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - Khung "Đơn của tôi": KPI tháng + đơn 14 ngày tới mọi kho. Khách không còn thấy tooltip nội bộ. Không cần SQL.
 - Test: `test/e2e/v40.mjs`.
 
+## v3.12 — Hướng dẫn riêng cho khách
+- Khách (và Admin khi Xem như khách) chỉ tải `web/guide-kh.html`. Ảnh: `node test/e2e/guide_kh_shots.mjs` (lưu `web/guide/kh-*.jpg`). Không cần SQL.
+
+## v3.13 — Yêu cầu đặt hàng, phiên bản mới, PWA, sao lưu tự động
+**Chạy `supabase/setup_all.sql` trước khi gộp nhánh** (bảng `app.order_requests`, RPC `req_create`, `req_update`, quyền `req.create`, `req.handle`).
+- **Yêu cầu đặt hàng 💬** (`web/v41.js`): khách / Sales ghi nhanh nhu cầu tự do ("20 MT HC 0.5 xanh dương…"), hiện chip tím trên ô ngày, CS "Tạo đơn từ yêu cầu" (lưới điền sẵn) / "Đã tạo đơn" / "Không nhận" (bắt buộc lý do); thông báo 2 chiều. Test: `test/99b_req.sql`, `test/e2e/v41.mjs`.
+- **Phiên bản mới** (`web/pwa.js`, `web/version.json`): tự kiểm tra 5 phút/lần, hiện "Đã có phiên bản mới → Tải lại". Mỗi lần phát hành: `bash tools/bump-version.sh 3.14.0 "ghi chú"`. Thêm file JS mới thì thêm vào `index.html` **và** danh sách `SHELL` trong `web/sw.js`. `web/_headers`: Cloudflare không cho trình duyệt giữ bản cũ.
+- **PWA** (`web/sw.js`): cài lên màn hình chính; mất mạng vẫn xem lịch lần tải gần nhất (lưu trên máy, xóa khi đăng xuất), thao tác bị khóa. Test: `test/e2e/pwa.mjs`.
+- **Sao lưu tự động** (`.github/workflows/backup.yml`): tối Chủ nhật 22:00 xuất schema `app` + tài khoản, mã hóa AES-256, lưu 90 ngày ở GitHub → Actions → "Sao lưu dữ liệu" → Artifacts.
+  1. Supabase → **Connect** → **Session pooler** → copy URI, thay `[YOUR-PASSWORD]` bằng mật khẩu database.
+  2. GitHub repo → Settings → Secrets and variables → Actions → **New repository secret**: `SUPABASE_DB_URL` và `BACKUP_PASSWORD` (≥ 12 ký tự, cất kỹ).
+  3. Actions → "Sao lưu dữ liệu" → **Run workflow** để thử ngay.
+  - Khôi phục: tải artifact, `gpg -d dat-xe-YYYY-MM-DD.tar.gz.gpg | tar -xz`, rồi `pg_restore --clean --if-exists --no-owner -d "$DB" app.dump`.
+  - GitHub tắt lịch chạy nếu repo không có commit 60 ngày: vào Actions bấm Enable lại.
+
 
 
 ## Lưu ý gói miễn phí
@@ -318,6 +333,10 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v38.js                  Xem như khách hàng (chỉ xem), khung Hướng dẫn
   v39.js                  Lịch sử màn hình (B B / B N, Back / Forward)
   v40.js                  Lịch khách hàng nhiều kho
+  v41.js                  Yêu cầu đặt hàng (💬)
+  pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
+  v41.js                  Yêu cầu đặt hàng (💬)
+  pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   guide.html, guide/      Nội dung Hướng dẫn sử dụng + ảnh minh họa
   config.js               URL + anon key (công khai)
   favicon.svg, icon-*.png, apple-touch-icon.png, manifest.webmanifest   Biểu tượng trang / màn hình chính điện thoại

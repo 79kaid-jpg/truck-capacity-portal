@@ -1,0 +1,9 @@
+/*
+  Cache-Control: no-cache
+/guide/*
+  Cache-Control: public, max-age=86400
+/icon-*
+  Cache-Control: public, max-age=604800
+/sw.js
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /

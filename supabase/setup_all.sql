@@ -135,6 +135,24 @@ create table if not exists app.impersonations (
   expires_at timestamptz not null
 );
 
+-- v3.13: Yêu cầu đặt hàng (khách / Sales ghi nhanh, CS xử lý)
+create table if not exists app.order_requests (
+  id          bigserial primary key,
+  customer_id uuid not null references app.customers(id) on delete cascade,
+  wh          text not null,
+  day         date not null,
+  tons        numeric(10,2),
+  body        text not null,
+  status      text not null default 'new' check (status in ('new','done','declined','cancelled')),
+  created_by  uuid not null,
+  created_at  timestamptz not null default now(),
+  handled_by  uuid,
+  handled_at  timestamptz,
+  reply       text,
+  booking_id  text
+);
+create index if not exists order_requests_day on app.order_requests (day, status);
+
 -- v3.8: Admin "Xem như khách hàng" (chỉ xem) – không cần khách có tài khoản
 create table if not exists app.cust_views (
   admin_id    uuid primary key references app.profiles(user_id) on delete cascade,
@@ -786,6 +804,9 @@ begin
     'imp', case when app.impersonating() then (select jsonb_build_object('by', a.full_name, 'expiresAt', extract(epoch from i.expires_at))
                 from app.impersonations i join app.profiles a on a.user_id = i.admin_id where i.admin_id = app.real_uid()) end,
     'warehouses', (select jsonb_agg(jsonb_build_object('id', code, 'name', name, 'full', full_name, 'erp', erp_code, 'active', active) order by code) from app.warehouses),
+    'reqs', (select coalesce(jsonb_agg(app.req_json(r) order by r.day, r.id), '[]') from app.order_requests r
+              where r.day between p_from - 7 and p_to and (v_internal or r.customer_id = me.customer_id)
+                and (r.status = 'new' or r.handled_at > now() - interval '14 days' or r.day >= app.today())),
     'custView', case when v_cv.admin_id is not null then jsonb_build_object('customerId', v_cv.customer_id, 'name', v_cvname, 'expiresAt', extract(epoch from v_cv.expires_at)) end,
     'notifs', case when v_cv.admin_id is not null then '[]'::jsonb else (select coalesce(jsonb_agg(jsonb_build_object('id', n.id, 'type', n.type, 'text', n.text, 'link', n.link,
                  'at', extract(epoch from n.created_at), 'read', n.read_at is not null) order by n.created_at desc), '[]')
@@ -2722,7 +2743,7 @@ begin perform nextval('app.cat_seq'); return null; end $$;
 do $$
 declare t text;
 begin
-  foreach t in array array['bookings','booking_lines','allocations','daily_fleet','truck_days','delivery_items','profiles',
+  foreach t in array array['bookings','order_requests','booking_lines','allocations','daily_fleet','truck_days','delivery_items','profiles',
                            'regions','region_neighbors','warehouses','settings','holidays','reason_codes'] loop
     if to_regclass('app.' || t) is not null then
       execute format('drop trigger if exists zz_bump_data on app.%I', t);
@@ -3063,6 +3084,89 @@ begin
   end if;
 end $$;
 
+
+-- v3.13: Yêu cầu đặt hàng ----------------------------------------------------
+create or replace function app.req_json(r app.order_requests) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object('id', r.id, 'customerId', r.customer_id, 'wh', r.wh, 'date', r.day, 'tons', r.tons, 'body', r.body,
+    'status', r.status, 'by', r.created_by, 'byName', (select full_name from app.profiles where user_id = r.created_by),
+    'byCust', (select role = 'customer' from app.profiles where user_id = r.created_by),
+    'at', extract(epoch from r.created_at), 'handledBy', (select full_name from app.profiles where user_id = r.handled_by),
+    'handledAt', extract(epoch from r.handled_at), 'reply', r.reply, 'bookingId', r.booking_id)
+$$;
+
+create or replace function public.req_create(p jsonb) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare m app.profiles; v_cust uuid; v_day date := (p->>'day')::date; v_wh text := p->>'wh'; v_t numeric := nullif(p->>'tons', '')::numeric;
+        v_body text := trim(coalesce(p->>'body', '')); r app.order_requests; c app.customers; v_txt text;
+begin
+  select * into m from app.profiles where user_id = app.uid() and active;
+  if not found then raise exception 'Tài khoản chưa được cấp quyền.' using errcode = '42501'; end if;
+  if exists (select 1 from app.cust_views v where v.admin_id = app.real_uid() and v.expires_at > now()) then
+    raise exception 'Đang ở chế độ Xem như khách hàng (chỉ xem). Bấm Thoát trên thanh màu cam trước khi thao tác.' using errcode = '42501';
+  end if;
+  if m.role = 'customer' then v_cust := m.customer_id;
+  else
+    perform app.require_perm('req.create');
+    v_cust := (p->>'customerId')::uuid;
+    perform app.check_scope(m, v_cust);
+  end if;
+  select * into c from app.customers where id = v_cust;
+  if not found then raise exception 'Chọn khách hàng.'; end if;
+  if v_day is null or v_day < app.today() then raise exception 'Chọn ngày bốc từ hôm nay trở đi.'; end if;
+  if not exists (select 1 from app.warehouses where code = v_wh and active) then raise exception 'Chọn kho.'; end if;
+  if length(v_body) < 3 then raise exception 'Ghi nội dung yêu cầu (sản phẩm, màu, độ dày, số MT…).'; end if;
+  if length(v_body) > 2000 then raise exception 'Nội dung quá dài (tối đa 2000 ký tự).'; end if;
+  if v_t is not null and (v_t <= 0 or v_t > 5000) then raise exception 'Số MT không hợp lệ.'; end if;
+  insert into app.order_requests (customer_id, wh, day, tons, body, created_by) values (v_cust, v_wh, v_day, v_t, v_body, m.user_id) returning * into r;
+  v_txt := 'Yêu cầu đặt hàng · ' || c.name || ' · ' || v_wh || ' ' || app.dm(v_day) || coalesce(' · ' || trim(to_char(v_t, 'FM999G990D00')) || ' MT', '') || ': ' || left(v_body, 120);
+  -- CS phụ trách (nghỉ → người nhận thay; không có → mọi CS) + Sales phụ trách; không gửi lại cho người gửi
+  perform app.notify(array(select x from unnest(
+      case when c.cs_user_id is not null and exists (select 1 from app.profiles where user_id = c.cs_user_id and active and not app.is_away(user_id))
+             then array[c.cs_user_id]
+           when c.cs_user_id is not null and exists (select 1 from app.profiles where user_id = c.cs_user_id and active and delegate_id is not null)
+             then array[(select delegate_id from app.profiles where user_id = c.cs_user_id)]
+           else array(select user_id from app.profiles where role = 'cs' and active and not app.is_away(user_id)) end
+      || array[c.sales_user_id]) x where x is not null and x <> m.user_id),
+    'Yêu cầu', v_txt, jsonb_build_object('req', r.id, 'day', v_day, 'wh', v_wh));
+  insert into app.audit_log (entity_id, detail, actor) values ('REQ-' || r.id, m.full_name || ' gửi ' || v_txt, m.user_id);
+  return app.req_json(r);
+end $$;
+
+-- p_status: done | declined (CS) · cancelled (người gửi hoặc CS)
+create or replace function public.req_update(p_id bigint, p_status text, p_reply text default null, p_booking text default null) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare m app.profiles; r app.order_requests; c app.customers; v_txt text;
+begin
+  select * into m from app.profiles where user_id = app.uid() and active;
+  if not found then raise exception 'Tài khoản chưa được cấp quyền.' using errcode = '42501'; end if;
+  if exists (select 1 from app.cust_views v where v.admin_id = app.real_uid() and v.expires_at > now()) then
+    raise exception 'Đang ở chế độ Xem như khách hàng (chỉ xem). Bấm Thoát trên thanh màu cam trước khi thao tác.' using errcode = '42501';
+  end if;
+  select * into r from app.order_requests where id = p_id for update;
+  if not found then raise exception 'Không tìm thấy yêu cầu.'; end if;
+  if r.status <> 'new' then raise exception 'Yêu cầu này đã được xử lý.'; end if;
+  if p_status not in ('done','declined','cancelled') then raise exception 'Trạng thái không hợp lệ.'; end if;
+  if p_status = 'cancelled' then
+    if r.created_by <> m.user_id and not app.role_has(m.role, 'req.handle') then raise exception 'Chỉ người gửi hoặc CS được hủy yêu cầu.' using errcode = '42501'; end if;
+  else
+    perform app.require_perm('req.handle');
+    if p_status = 'declined' and length(trim(coalesce(p_reply, ''))) < 3 then raise exception 'Ghi lý do không nhận để báo lại người gửi.'; end if;
+  end if;
+  update app.order_requests set status = p_status, handled_by = m.user_id, handled_at = now(), reply = nullif(trim(coalesce(p_reply, '')), ''),
+         booking_id = nullif(p_booking, '') where id = p_id returning * into r;
+  select * into c from app.customers where id = r.customer_id;
+  v_txt := case p_status when 'done' then 'Đã nhận yêu cầu đặt hàng' when 'declined' then 'Không nhận yêu cầu đặt hàng' else 'Đã hủy yêu cầu đặt hàng' end
+           || ' · ' || c.name || ' · ' || r.wh || ' ' || app.dm(r.day) || coalesce(' · booking ' || r.booking_id, '') || coalesce(': ' || r.reply, '');
+  if r.created_by <> m.user_id then perform app.notify(array[r.created_by], 'Yêu cầu', v_txt, jsonb_build_object('req', r.id, 'day', r.day, 'wh', r.wh)); end if;
+  if p_status <> 'cancelled' then
+    perform app.notify(array(select x from unnest(app.customer_users(r.customer_id) || array[c.sales_user_id]) x where x is not null and x <> m.user_id and x <> r.created_by),
+                       'Yêu cầu', v_txt, jsonb_build_object('req', r.id, 'day', r.day, 'wh', r.wh));
+  end if;
+  insert into app.audit_log (entity_id, detail, actor) values ('REQ-' || r.id, m.full_name || ': ' || v_txt, m.user_id);
+  return app.req_json(r);
+end $$;
+
 -- ---------------------------------------------------------------------
 -- 8. Quyền gọi hàm
 -- ---------------------------------------------------------------------
@@ -3082,7 +3186,7 @@ begin
        'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa','list_bookings','booking_stats',
        'bulk_create_bookings','suggest_days','set_urgent','confirm_delivery','get_coils','mark_loaded','resolve_short','mark_transit',
        'mark_delivered','mark_failed','close_truck','set_email_prefs','send_to_logistics','save_warehouse','change_booking_wh',
-       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop')
+       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop','req_create','req_update')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);
@@ -3465,6 +3569,8 @@ insert into app.permissions (code, grp, name, descr, sort, def_roles) values
   ('booking.urgent',  'Đặt hàng',   'Đặt / bỏ cờ đơn khẩn',                'Ghi đè cờ khẩn tự tính, bắt buộc lý do (BR-41)', 55, '{admin}'),
   ('config.shortcuts','Cấu hình','Phím tắt','Đặt phím tắt mặc định của công ty; reset phím tắt của một người hoặc mọi người',127,'{admin}'),
   ('config.targets','Cấu hình','Mục tiêu','Nhập mục tiêu tấn theo tháng × segment (tab Mục tiêu của Bảng thống kê)',126,'{admin}'),
+  ('req.create','Đặt hàng','Gửi yêu cầu đặt hàng','Ghi nhanh yêu cầu của khách (ví dụ "20 MT HC 0.5 xanh dương") lên lịch để CS tạo đơn',31,'{sales,cs,admin}'),
+  ('req.handle','Đặt hàng','Xử lý yêu cầu đặt hàng','Đánh dấu yêu cầu đã tạo đơn / không nhận (kèm lý do)',32,'{cs,admin}'),
   ('config.warehouses','Cấu hình',  'Kho',                                 'Thêm kho, sửa tên, mã ERP, ngừng dùng kho', 125, '{logistics,admin}')
 on conflict (code) do update set grp = excluded.grp, name = excluded.name, descr = excluded.descr, sort = excluded.sort, def_roles = excluded.def_roles;
 

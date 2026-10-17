@@ -32,19 +32,21 @@ function cAllCell(date){const d=+date.slice(8);const past=date<TODAY;const today
  const lines=per.map(({w,m})=>{const full=m.avail<=0||m.status==='full';const col=full?'var(--muted)':CAP_COL[m.status]||'var(--ok)';
   return `<b>${w}</b><span class="v num ${full?'full':''}">${full?'Đã đầy':'còn '+t2(m.avail)+' MT'}</span><i class="dot" style="background:${col}" title="${w}: ${full?'Đã đầy':'còn '+t2(m.avail)+' MT'}"></i>`;}).join('');
  const badges=Object.entries(byWh).map(([w,l])=>{const worst=l.map(cBadgeCls).sort((a,b)=>['bad','warn','hold','ok'].indexOf(a)-['bad','warn','hold','ok'].indexOf(b))[0];
-  return `<span class="cbadge ${worst}">📦 ${w} · ${l.length} đơn · ${t2(l.reduce((s,b)=>s+bkTotal(b),0))} MT</span>`;}).join('');
+  const lab=worst==='bad'?' · Bị từ chối':worst==='warn'?' · Đề nghị đổi ngày':'';return `<span class="cbadge ${worst}">📦 ${w} · ${l.length} đơn · ${t2(l.reduce((s,b)=>s+bkTotal(b),0))} MT${lab}</span>`;}).join('');
  const off=!per.length;const allOff=WH.every(w=>dayM(w.id,date).off);
  return `<div class="cell call ${mine.length?'mine':''} ${past?'past':''} ${today?'today':''} ${off?'undecl':''}" data-a="custDay" data-d="${date}" tabindex="0" role="button" aria-label="Ngày ${dmy(date)}">
   <div class="ctop"><span class="dnum ${off?'lite':''}">${d}</span><span class="wdmobile small muted">${WDS[dow(date)]} · ${dm(date)}</span></div>
   ${off?`<div class="kv">${allOff?'Không bốc hàng':'Chưa mở lịch xe'}</div>`:`<div class="cwl">${lines}</div>`}${badges}</div>`;}
 function cSidePanel(){const[y,m]=V.ym;const ym=`${y}-${pad(m)}`;const mine=cMine().filter(b=>V.whAll||b.wh===V.wh);
  const month=mine.filter(b=>b.date.startsWith(ym)&&!['cancelled'].includes(b.status));
- const holdN=month.filter(b=>b.status==='hold').length;const okN=month.filter(b=>DONE_ST.includes(b.status)).length;
- const tons=month.filter(b=>!['rejected','latecancel'].includes(b.status)).reduce((s,b)=>s+bkTotal(b),0);
+ const sel=month.filter(b=>['ok','hold','resched','rejected','loaded','transit','delivered'].includes(b.status));const all=sel.reduce((s,b)=>s+bkTotal(b),0);
+ const sum=f=>{const l=sel.filter(f);return{n:l.length,t:l.reduce((s,b)=>s+bkTotal(b),0)};};
+ const rows=[['ok','Đã xếp xe',b=>DONE_ST.includes(b.status)],['hold','Chờ xếp xe',b=>b.status==='hold'],['resched','Đề nghị đổi ngày',b=>b.status==='resched'],['rejected','Bị từ chối',b=>b.status==='rejected']].map(([k,l,f])=>({k,l,...sum(f)})).filter(r=>r.n||r.k==='ok'||r.k==='hold');
  const end=addDays(TODAY,13);const up=mine.filter(b=>b.date>=TODAY&&b.date<=end&&!['cancelled'].includes(b.status)).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.wh<b.wh?-1:1);
  const sp=user(cust(me().customerId).salesId);
  return `<aside class="stats cmy"><h3>ĐƠN CỦA TÔI${V.whAll?' · TẤT CẢ KHO':' · '+esc(V.wh)}</h3>
-  <div class="kpi num"><div><b>${holdN}</b><span>CHỜ XẾP XE</span></div><div><b>${okN}</b><span>ĐÃ XẾP XE</span></div><div><b>${k1(tons)}</b><span>MT THÁNG ${pad(m)}</span></div></div>
+  <div class="bignum num"><small>TỔNG SỐ TẤN ĐÃ ĐẶT</small>${t2(all)}<small style="display:inline;margin-left:4px">MT</small></div>
+  <div class="cstat">${rows.map(r=>`<div class="cstat-row"><span class="st st-${r.k}">${r.l}</span><span class="num"><b>${t2(r.t)} MT</b> <span class="muted small">· ${r.n} đơn</span></span></div>`).join('')}</div>
   <div><div class="lbl">14 ngày tới (${dm(TODAY)} – ${dm(end)})</div>${up.length?`<div class="cbklist">${up.map(b=>`<button type="button" class="cbk" data-a="custDay" data-d="${b.date}" data-w="${b.wh}" title="Xem đơn ngày ${dmy(b.date)} kho ${b.wh}"><span class="num">${dm(b.date)}</span><span class="num"><b>${b.wh}</b> · ${t2(bkTotal(b))}</span><span class="st st-${stKey(b)}">${ST_CUST[stKey(b)]}</span></button>`).join('')}</div>`:'<div class="muted small">Chưa có đơn nào trong 14 ngày tới.</div>'}</div>
   <div><div class="lbl">Sales phụ trách</div><div>${esc(sp.name)}</div><div class="muted small">${esc(sp.phone||'')} · ${esc(sp.email)}</div><div class="muted small" style="margin-top:4px">Muốn đặt thêm hoặc đổi lịch, liên hệ Sales.</div></div></aside>`;}
 {const vc0=vCalendar;vCalendar=function(){if(role()!=='customer')return vc0();cWhInit();

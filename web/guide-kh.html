@@ -2,7 +2,7 @@
 <section id="kh-gioi-thieu" data-g="Bắt đầu" data-t="Cổng Đặt xe là gì">
 <h2>Cổng Đặt xe BlueScope</h2>
 <p>Đây là nơi bạn theo dõi <b>lịch bốc hàng</b> các đơn của công ty mình tại kho BlueScope: ngày nào kho còn nhận được bao nhiêu hàng, đơn nào đã có xe, đơn nào đang chờ, đơn nào được đề nghị đổi ngày.</p>
-<div class="tip">Đơn hàng do <b>CS / Sales BlueScope</b> đặt cho bạn. Muốn đặt thêm, đổi ngày hay hủy đơn, vui lòng liên hệ <b>Sales phụ trách</b> (tên và số điện thoại luôn hiện ở khung bên phải).</div>
+<div class="tip">Đơn hàng do <b>CS / Sales BlueScope</b> tạo cho bạn. Muốn đặt thêm, bấm <b>+ Yêu cầu đặt hàng</b> ghi nhanh nhu cầu (xem mục <a data-gd="link" data-s="kh-yeu-cau">Gửi yêu cầu đặt hàng</a>); đổi ngày hay hủy đơn thì liên hệ <b>Sales phụ trách</b> (tên và số điện thoại ở khung bên phải).</div>
 <p>Đơn vị khối lượng: <b>MT</b> (metric tấn).</p>
 </section>
 
@@ -58,7 +58,7 @@
 <section id="kh-don-cua-toi" data-g="Đọc màn hình" data-t="Khung Đơn của tôi">
 <h2>Khung "Đơn của tôi"</h2>
 <img src="guide/kh-don-cua-toi.jpg" alt="Khung Đơn của tôi">
-<ul><li><b>3 con số</b>: số đơn <b>chờ xếp xe</b>, số đơn <b>đã xếp xe</b> và tổng <b>MT</b> trong tháng đang xem (không tính đơn đã hủy / bị từ chối).</li>
+<ul><li><b>Tổng số tấn đã đặt</b> trong tháng đang xem và từng trạng thái: <b>Đã xếp xe</b>, <b>Chờ xếp xe</b>, <b>Đề nghị đổi ngày</b>, <b>Bị từ chối</b> (số MT · số đơn). Không tính đơn đã hủy.</li>
 <li><b>14 ngày tới</b>: đơn từ hôm nay đến 13 ngày sau ở mọi kho, gồm ngày, kho, MT, trạng thái. Bấm một dòng để xem chi tiết.</li>
 <li><b>Sales phụ trách</b>: người liên hệ khi cần đặt thêm, đổi ngày hay hỏi về đơn.</li></ul>
 <p>Khi đang xem một kho, khung này chỉ tính đơn của kho đó.</p>
@@ -94,10 +94,33 @@
 <li>Khung <b>Đơn của tôi</b> nằm cuối trang.</li></ul>
 </section>
 
+<section id="kh-yeu-cau" data-g="Đặt hàng" data-t="Gửi yêu cầu đặt hàng">
+<h2>Gửi yêu cầu đặt hàng</h2>
+<p>Khi cần thêm hàng, bạn ghi nhanh nhu cầu ngay trên cổng thay vì gọi điện. CS BlueScope nhận thông báo, tạo đơn rồi báo lại.</p>
+<ol><li>Trên lịch, bấm <b>+ Yêu cầu đặt hàng</b>.</li>
+<li>Chọn <b>Kho</b> và <b>Ngày bốc</b>; ngay bên dưới hiện số MT kho còn nhận được ngày đó.</li>
+<li>Ghi <b>Nội dung</b> tự nhiên như nhắn tin, ví dụ: <i>"20 MT HC 0.5 Xanh dương, 30 MT Titan 0.45 Trắng sứ, giao Bình Dương, liên hệ anh Ánh 09xx"</i>.</li>
+<li>Ghi <b>Tổng MT</b> nếu biết, rồi bấm <b>Gửi yêu cầu</b>.</li></ol>
+<img src="guide/yeu-cau-gui.jpg" alt="Gửi yêu cầu đặt hàng">
+<ul><li>Ngày có yêu cầu hiện biểu tượng <b>💬</b> tím trên lịch (số yêu cầu · tổng MT). Bấm vào để xem.</li>
+<li>Trạng thái: <b>Chờ CS xử lý</b> → <b>Đã tạo đơn</b> (kèm mã booking) hoặc <b>Không nhận</b> (kèm lý do). Bạn nhận thông báo 🔔 khi có kết quả.</li>
+<li>Yêu cầu <b>chưa giữ chỗ</b> trên lịch: chỉ khi CS tạo đơn thì hàng mới vào lịch.</li>
+<li>Gửi nhầm: mở yêu cầu và bấm <b>Hủy yêu cầu</b> (khi CS chưa xử lý).</li></ul>
+</section>
+
+<section id="kh-cai-dat" data-g="Đặt hàng" data-t="Cài lên điện thoại">
+<h2>Cài lên điện thoại, dùng khi mất sóng</h2>
+<ul><li><b>Android (Chrome)</b>: mở cổng → menu ⋮ → <b>Cài đặt ứng dụng</b> / <b>Thêm vào màn hình chính</b>.</li>
+<li><b>iPhone (Safari)</b>: mở cổng → nút Chia sẻ ⬆ → <b>Thêm vào MH chính</b>.</li>
+<li>Biểu tượng <b>Đặt Xe</b> xuất hiện như một ứng dụng, mở toàn màn hình.</li>
+<li>Khi mất sóng, cổng vẫn hiện <b>lịch lần tải gần nhất</b> với thanh cam "Mất kết nối — đang xem dữ liệu lúc …". Có sóng lại thì tự cập nhật.</li>
+<li>Khi có bản cập nhật, góc dưới hiện "Đã có phiên bản mới" → bấm <b>Tải lại</b>.</li></ul>
+</section>
+
 <section id="kh-hoi-dap" data-g="Hỏi đáp" data-t="Câu hỏi thường gặp">
 <h2>Câu hỏi thường gặp</h2>
 <h3>Tôi muốn đặt thêm hàng hoặc đổi ngày?</h3>
-<p>Liên hệ <b>Sales phụ trách</b> (khung bên phải). Sales / CS sẽ đặt hoặc sửa đơn; lịch của bạn tự cập nhật trong vòng 30 giây.</p>
+<p>Đặt thêm: bấm <b>+ Yêu cầu đặt hàng</b> trên lịch. Đổi ngày / hủy đơn: liên hệ <b>Sales phụ trách</b> (khung bên phải). Lịch tự cập nhật trong vòng 30 giây.</p>
 <h3>"Còn 0 MT" / "Đã đầy" nghĩa là sao?</h3>
 <p>Kho đã kín lịch ngày đó. Bạn xem các ngày hoặc kho khác còn chỗ rồi báo Sales.</p>
 <h3>Vì sao đơn "Chờ xếp xe" lâu?</h3>
@@ -107,5 +130,5 @@
 <h3>Quên mật khẩu?</h3>
 <p>Bấm "Quên mật khẩu?" ở màn đăng nhập, mở email và làm theo link.</p>
 <h3>Màn hình cũ, không thấy thay đổi mới?</h3>
-<p>Nhấn <b>Ctrl+F5</b> (máy tính) hoặc kéo xuống để tải lại (điện thoại).</p>
+<p>Khi có bản mới, góc dưới màn hình hiện "Đã có phiên bản mới": bấm <b>Tải lại</b>. Nếu vẫn chưa thấy, nhấn <b>Ctrl+F5</b> (máy tính) hoặc kéo xuống để tải lại (điện thoại).</p>
 </section>

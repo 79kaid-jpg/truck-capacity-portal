@@ -36,7 +36,7 @@ check('stats: tổng đã đặt 74', /TỔNG SỐ TẤN ĐÃ ĐẶT\s*74,00/.te
 check('stats: đã xếp xe 54 · 2 đơn', /Đã xếp xe\s*54,00 MT · 2 đơn/.test(st));
 check('stats: bị từ chối 20 · 1 đơn', /Bị từ chối\s*20,00 MT · 1 đơn/.test(st));
 check('stats: list 3 đơn', (await p.locator('.cbk').count()) === 3);
-check('cell shows "Bị từ chối: 20,00 t"', (await p.locator('.cell', { hasText: 'Bị từ chối: 20,00 MT' }).count()) === 1);
+check('cell shows "Bị từ chối: 20,00 t"', (await p.locator('.cbadge.bad', { hasText: '20,00 MT · Bị từ chối' }).count()) === 1);
 await p.screenshot({ path: `${OUT}/rb-1-customer-stats.png`, fullPage: true });
 await p.locator('.cbk', { hasText: 'Từ chối' }).click(); await p.waitForTimeout(200);
 check('list item opens day modal with reason', /Hết xe ngày này/.test(await p.locator('.modal').innerText()));
