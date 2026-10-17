@@ -276,6 +276,7 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - **Hướng dẫn sử dụng** (`web/guide.html`, ảnh minh họa trong `web/guide/*.jpg`):
   - Mở bằng nút ❓ Hướng dẫn trên thanh trên cùng, phím `G` → `H`, hoặc link "Hướng dẫn màn này" ở từng màn hình.
   - Hiện ở khung bên phải, có ô tìm (gõ không dấu được), tự mở mục đúng vai trò người đọc, có nút In / PDF.
+  - Kéo cạnh trái để đổi độ rộng; có nút ⛶ toàn màn hình và A− / A+ cỡ chữ. Trình duyệt nhớ độ rộng và cỡ chữ. Khung hẹp thì danh mục thành ô chọn mục.
   - Sửa nội dung trực tiếp trong `guide.html`. Khi giao diện đổi, chụp lại ảnh bằng `node test/e2e/guide_shots.mjs`.
 - **Xem như khách hàng** (Admin, quyền `users.impersonate`):
   - Mở bằng nút 👁 ở tab Khách hàng, hoặc tìm khách bằng Ctrl+K.

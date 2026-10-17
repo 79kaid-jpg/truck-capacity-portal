@@ -54,6 +54,17 @@ await session('cs@demo.vn', async p => {
   await p.fill('#guide [data-gd="q"]', ''); await p.waitForTimeout(400);
   await p.locator('#guide nav a', { hasText: 'Xác nhận giao hàng' }).click(); await p.waitForTimeout(300);
   ok(await p.locator('#guide article img').count() > 0 && await p.locator('#guide article img').first().evaluate(i => i.complete && i.naturalWidth > 0), 'mục có ảnh minh họa tải được');
+  S('resize'); const w0 = (await p.locator('#guide').boundingBox()).width; const gb = await p.locator('#guide .grip').boundingBox();
+  await p.mouse.move(gb.x + 4, gb.y + 300); await p.mouse.down(); await p.mouse.move(gb.x - 400, gb.y + 300, { steps: 8 }); await p.mouse.up(); await p.waitForTimeout(200);
+  const w1 = (await p.locator('#guide').boundingBox()).width; ok(w1 > w0 + 300, 'kéo cạnh trái → rộng hơn', `${w0} → ${w1}`); await shot(p, 'guide-wide');
+  const f0 = await p.locator('#guide article').evaluate(e => parseFloat(getComputedStyle(e).fontSize)); await p.click('#guide [data-gd="zi"]'); await p.click('#guide [data-gd="zi"]');
+  ok(await p.locator('#guide article').evaluate(e => parseFloat(getComputedStyle(e).fontSize)) === f0 + 2, 'A+ phóng chữ');
+  await p.click('#guide [data-gd="max"]'); await p.waitForTimeout(200); ok((await p.locator('#guide').boundingBox()).width >= 1439, 'toàn màn hình'); await p.click('#guide [data-gd="max"]');
+  const gb2 = await p.locator('#guide .grip').boundingBox(); await p.mouse.move(gb2.x + 4, gb2.y + 300); await p.mouse.down(); await p.mouse.move(1440 - 380, gb2.y + 300, { steps: 8 }); await p.mouse.up(); await p.waitForTimeout(200);
+  ok(await p.locator('#guide .gsel').isVisible() && !(await p.locator('#guide nav').isVisible()), 'khung hẹp → danh mục thành ô chọn');
+  await p.selectOption('#guide .gsel', 'keys'); await p.waitForTimeout(200); ok(/Phím tắt/.test(await p.locator('#guide article h2').first().innerText()), 'ô chọn mục hoạt động');
+  await p.keyboard.press('Escape'); await p.click('.top [data-a="guide"]'); await p.waitForTimeout(300);
+  ok(Math.abs((await p.locator('#guide').boundingBox()).width - 380) < 6, 'mở lại giữ độ rộng');
   await p.keyboard.press('Escape'); await p.waitForTimeout(200); ok(await p.locator('#guide').count() === 0, 'Esc đóng hướng dẫn');
   await p.locator('body').click({ position: { x: 5, y: 5 } }); await p.keyboard.press('g'); await p.keyboard.press('h'); await p.waitForTimeout(400);
   ok(await p.locator('#guide').count() === 1, 'G rồi H mở hướng dẫn');
