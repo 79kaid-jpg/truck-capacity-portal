@@ -8,7 +8,8 @@ insert into app.settings (key, value) values
   ('maxStops', '3'), ('fillMin', '70'), ('suggestOn', 'true'), ('sundayOff', 'true'), ('holidays', '[]'),
   ('capDKMin', '15'), ('capDKMax', '35'), ('capCNMin', '5'), ('capCNMax', '20'), ('escalateHours', '4'),
   ('cutoff', '"16:00"'), ('coilPct', '3'), ('coilTons', '0.5'), ('digestTimes', '["07:00","16:00"]'),
-  ('requirePicking', 'true'), ('shipRemindHours', '6'), ('shipAdminDays', '2')
+  ('requirePicking', 'true'), ('shipRemindHours', '6'), ('shipAdminDays', '2'),
+  ('chatOn', 'true'), ('chatRoles', '["cs","sales","logistics","admin"]'), ('chatDaily', '150')
 on conflict (key) do nothing;
 
 insert into app.warehouses (code, name, full_name) values

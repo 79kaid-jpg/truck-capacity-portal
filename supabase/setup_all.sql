@@ -86,6 +86,15 @@ alter table app.profiles  add column if not exists manager_id uuid references ap
 alter table app.profiles  add column if not exists notify_team boolean not null default false;
 -- v3.18: tài khoản do Admin tạo → bắt đổi mật khẩu lần đầu; tên người đã xóa vẫn hiện trong lịch sử
 alter table app.profiles  add column if not exists must_change_pw boolean not null default false;
+-- v3.19: Chatbot
+alter table app.customers add column if not exists chat_enabled boolean not null default false;
+create table if not exists app.chat_log (
+  id      bigserial primary key,
+  user_id uuid not null,
+  at      timestamptz not null default now(),
+  tools   text[] not null default '{}'
+);
+create index if not exists chat_log_user_at on app.chat_log (user_id, at);
 create table if not exists app.deleted_users (
   user_id    uuid primary key,
   full_name  text not null,
@@ -854,7 +863,8 @@ begin
                              'awayFrom', me.away_from, 'awayTo', me.away_to, 'delegateId', me.delegate_id,
                              'mfa', app.has_mfa(me.user_id), 'mfaReq', app.role_has(me.role, 'auth.mfa'), 'statScope', app.stat_scope(me),
                              'emailLevel', me.email_level, 'altEmail', me.alt_email, 'shortcuts', me.shortcuts,
-                             'team', to_jsonb(app.team_ids(me)), 'managerId', me.manager_id, 'notifyTeam', me.notify_team, 'mustChangePw', me.must_change_pw),
+                             'team', to_jsonb(app.team_ids(me)), 'managerId', me.manager_id, 'notifyTeam', me.notify_team, 'mustChangePw', me.must_change_pw,
+                             'chat', app.chat_allowed(me)),
     'cfg', v_cfg,
     'perms', to_jsonb(app.my_perms(me.role)),
     'imp', case when app.impersonating() then (select jsonb_build_object('by', a.full_name, 'expiresAt', extract(epoch from i.expires_at))
@@ -918,7 +928,7 @@ begin
                 'last', (select (u.last_sign_in_at at time zone 'Asia/Ho_Chi_Minh')::date from auth.users u where u.id = p.user_id)) order by p.full_name), '[]')
               from app.profiles p),
     'catKey', v_cat,
-    'customers', case when p_cat = v_cat then null else (select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'code', c.code, 'name', c.name, 'segment', c.segment, 'salesId', c.sales_user_id, 'csId', c.cs_user_id, 'active', c.active,
+    'customers', case when p_cat = v_cat then null else (select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'code', c.code, 'name', c.name, 'segment', c.segment, 'salesId', c.sales_user_id, 'csId', c.cs_user_id, 'active', c.active, 'chatOn', c.chat_enabled,
                     'erp', c.erp_code, 'defWh', c.default_wh,
                     'addresses', (select coalesce(jsonb_agg(jsonb_build_object('id', a.id, 'label', a.label, 'province', a.province, 'ward', a.ward,
                                     'regions', (select coalesce(jsonb_object_agg(ar.warehouse_code, ar.region_id), '{}') from app.address_regions ar where ar.address_id = a.id))
@@ -1543,7 +1553,7 @@ begin
   me := app.require_perm('config.general');
   for k in select jsonb_object_keys(p) loop
     if k not in ('near','capDK','capCN','split','sla','maxStops','fillMin','suggestOn','sundayOff','holidays','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours',
-                 'shipRemindHours','shipAdminDays','requirePicking') then
+                 'shipRemindHours','shipAdminDays','requirePicking','chatOn','chatRoles','chatDaily') then
       raise exception 'Cấu hình % không hợp lệ.', k;
     end if;
     -- v3.15: bật/tắt bắt buộc picking list – chỉ Admin
@@ -1553,7 +1563,7 @@ begin
       insert into app.audit_log (entity_id, detail, actor) values ('config', me.full_name || case when (p->>k)::boolean then ' BẬT' else ' TẮT' end
         || ' bắt buộc CS nhập danh sách cuộn (picking list) trước khi load hàng', me.user_id);
     end if;
-    if k in ('near','capDK','capCN','split','sla','maxStops','fillMin','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours','shipRemindHours','shipAdminDays') and not ((p->>k)::numeric > 0) then
+    if k in ('near','capDK','capCN','split','sla','maxStops','fillMin','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours','shipRemindHours','shipAdminDays','chatDaily') and not ((p->>k)::numeric > 0) then
       raise exception 'Giá trị % phải lớn hơn 0.', k;
     end if;
     -- Không đánh dấu nghỉ một ngày đang có booking (khách sẽ không thấy đơn của mình trên lịch)
@@ -3401,6 +3411,55 @@ begin
   return jsonb_build_object('email', u.email, 'transferred', v_need > 0);
 end $$;
 
+
+-- v3.19: Chatbot ------------------------------------------------------------------
+create or replace function app.chat_allowed(m app.profiles) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select coalesce((app.setting('chatOn') #>> '{}')::boolean, true)
+     and case when m.role = 'customer' then coalesce((select chat_enabled from app.customers where id = m.customer_id), false)
+              else m.role in (select jsonb_array_elements_text(coalesce(app.setting('chatRoles'), '["cs","sales","logistics","admin"]'::jsonb))) end
+$$;
+
+-- Gọi trước mỗi lượt hỏi AI (Cloudflare Function gọi bằng token của người dùng): kiểm tra quyền + hạn mức ngày, ghi nhật ký
+create or replace function public.chat_use(p_tools text[] default '{}') returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; v_lim int := coalesce(app.setn('chatDaily'), 150)::int; v_used int;
+begin
+  select * into me from app.profiles where user_id = app.uid() and active;
+  if not found then raise exception 'Tài khoản chưa được cấp quyền.' using errcode = '42501'; end if;
+  if exists (select 1 from app.cust_views v where v.admin_id = app.real_uid() and v.expires_at > now()) then
+    raise exception 'Đang ở chế độ Xem như khách hàng: chatbot tạm tắt.' using errcode = '42501';
+  end if;
+  if not app.chat_allowed(me) then raise exception 'Chatbot chưa được bật cho tài khoản của bạn.' using errcode = '42501'; end if;
+  select count(*) into v_used from app.chat_log where user_id = me.user_id and at >= (app.today()::timestamp at time zone 'Asia/Ho_Chi_Minh');
+  if v_used >= v_lim then raise exception 'Bạn đã dùng hết % lượt chatbot hôm nay. Mai dùng tiếp nhé.', v_lim using errcode = '42501'; end if;
+  insert into app.chat_log (user_id, tools) values (me.user_id, coalesce(p_tools, '{}'));
+  return jsonb_build_object('left', v_lim - v_used - 1, 'limit', v_lim);
+end $$;
+
+create or replace function public.set_customer_chat(p_customer uuid, p_on boolean) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; v_name text;
+begin
+  me := app.require_perm('customers.manage');
+  update app.customers set chat_enabled = coalesce(p_on, false) where id = p_customer returning name into v_name;
+  if v_name is null then raise exception 'Không tìm thấy khách hàng.'; end if;
+  insert into app.audit_log (entity_id, detail, actor) values ('chat', me.full_name || case when p_on then ' bật' else ' tắt' end || ' chatbot cho khách ' || v_name, me.user_id);
+end $$;
+
+create or replace function public.chat_stats() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare me app.profiles;
+begin
+  me := app.require_perm('config.general');
+  return jsonb_build_object(
+    'days', (select coalesce(jsonb_agg(jsonb_build_array(d, n) order by d), '[]') from (
+              select (at at time zone 'Asia/Ho_Chi_Minh')::date d, count(*) n from app.chat_log where at > now() - interval '14 days' group by 1) x),
+    'top', (select coalesce(jsonb_agg(jsonb_build_array(app.uname(user_id), n) order by n desc), '[]') from (
+              select user_id, count(*) n from app.chat_log where at > now() - interval '7 days' group by 1 order by 2 desc limit 5) y),
+    'today', (select count(*) from app.chat_log where at >= (app.today()::timestamp at time zone 'Asia/Ho_Chi_Minh')));
+end $$;
+
 -- ---------------------------------------------------------------------
 -- 8. Quyền gọi hàm
 -- ---------------------------------------------------------------------
@@ -3420,7 +3479,7 @@ begin
        'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa','list_bookings','booking_stats',
        'bulk_create_bookings','suggest_days','set_urgent','confirm_delivery','get_coils','mark_loaded','resolve_short','mark_transit',
        'mark_delivered','mark_failed','close_truck','set_email_prefs','send_to_logistics','save_warehouse','change_booking_wh',
-       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop','req_create','req_update','admin_create_user','admin_reset_password','my_pw_changed','admin_user_refs','admin_delete_user')
+       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop','req_create','req_update','admin_create_user','admin_reset_password','my_pw_changed','admin_user_refs','admin_delete_user','chat_use','set_customer_chat','chat_stats')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);
@@ -3686,7 +3745,8 @@ insert into app.settings (key, value) values
   ('maxStops', '3'), ('fillMin', '70'), ('suggestOn', 'true'), ('sundayOff', 'true'), ('holidays', '[]'),
   ('capDKMin', '15'), ('capDKMax', '35'), ('capCNMin', '5'), ('capCNMax', '20'), ('escalateHours', '4'),
   ('cutoff', '"16:00"'), ('coilPct', '3'), ('coilTons', '0.5'), ('digestTimes', '["07:00","16:00"]'),
-  ('requirePicking', 'true'), ('shipRemindHours', '6'), ('shipAdminDays', '2')
+  ('requirePicking', 'true'), ('shipRemindHours', '6'), ('shipAdminDays', '2'),
+  ('chatOn', 'true'), ('chatRoles', '["cs","sales","logistics","admin"]'), ('chatDaily', '150')
 on conflict (key) do nothing;
 
 insert into app.warehouses (code, name, full_name) values
