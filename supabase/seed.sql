@@ -7,7 +7,8 @@ insert into app.settings (key, value) values
   ('near', '80'), ('capDK', '30'), ('capCN', '15'), ('split', '15'), ('sla', '60'),
   ('maxStops', '3'), ('fillMin', '70'), ('suggestOn', 'true'), ('sundayOff', 'true'), ('holidays', '[]'),
   ('capDKMin', '15'), ('capDKMax', '35'), ('capCNMin', '5'), ('capCNMax', '20'), ('escalateHours', '4'),
-  ('cutoff', '"16:00"'), ('coilPct', '3'), ('coilTons', '0.5'), ('digestTimes', '["07:00","16:00"]')
+  ('cutoff', '"16:00"'), ('coilPct', '3'), ('coilTons', '0.5'), ('digestTimes', '["07:00","16:00"]'),
+  ('requirePicking', 'true'), ('shipRemindHours', '6'), ('shipAdminDays', '2')
 on conflict (key) do nothing;
 
 insert into app.warehouses (code, name, full_name) values

@@ -74,7 +74,7 @@ function bkHead29(b){if(!internal()||!ownsCust(b.customerId))return '';const out
  if(can('booking.edit')&&b.status==='failed')out.push(`<button class="btn" data-a="v9Redeliver" data-id="${b.id}">Giao lại</button>`);
  if(can('booking.cancel')&&b.status==='failed')out.push(`<button class="btn danger" data-a="v9CancelFailed" data-id="${b.id}">Hủy</button>`);
  if(can('delivery.ship')){
-  if(b.status==='ok'&&b.coils)out.push(`<button class="btn" data-a="v9Ship" data-k="load" data-id="${b.id}">Đã bốc hàng</button>`);
+  if(b.status==='ok'&&(b.coils||S.cfg.requirePicking===false))out.push(`<button class="btn" data-a="v9Ship" data-k="load" data-id="${b.id}">Đã bốc hàng</button>`);
   if(b.status==='loaded')out.push(`<button class="btn ghost" data-a="v9Ship" data-k="transit" data-id="${b.id}">Đang giao</button>`);
   if(['loaded','transit'].includes(b.status))out.push(`<button class="btn" data-a="v9Ship" data-k="delivered" data-id="${b.id}">Đã giao</button><button class="btn danger" data-a="v9Ship" data-k="failed" data-id="${b.id}">Giao không thành công</button>`);
  }
@@ -89,7 +89,7 @@ function bkInfo29(b){const rows=[];const root=b.parent||b.id;
  if(b.parent)rows.push(['Đơn gốc',`<button class="linkbtn" data-a="openBk" data-id="${b.parent}">${b.parent}</button>`]);
  if(kids.length)rows.push([b.parent?'Đơn tách khác':'Đơn tách',kids.map(k=>`<button class="linkbtn" data-a="openBk" data-id="${k.id}">${k.id}</button> <span class="st st-${stKey(k)}">${ST_LABEL[stKey(k)]}</span> <span class="num">${t2(bkTotal(k))} MT</span>`).join('<br>')]);
  if(b.coils)rows.push(['Danh sách cuộn',`<span class="num">${b.coils} cuộn · ${t2(+b.coilTons||0)} MT</span> · có lúc ${hm29(b.deliveryAt)} <button class="linkbtn" data-a="v9Coils" data-id="${b.id}">Xem</button>`]);
- else if(['hold','ok'].includes(b.status))rows.push(['Danh sách cuộn','<span class="muted">Chưa có – CS bấm <b>Xác nhận giao hàng</b> khi có file cuộn</span>']);
+ else if(['hold','ok'].includes(b.status))rows.push(['Danh sách cuộn',S.cfg.requirePicking===false?'<span class="muted">Chưa có – <b>đang tạm không bắt buộc</b>, Logistics load được luôn</span>':'<span class="muted">Chưa có – CS bấm <b>Xác nhận giao hàng</b> khi có file cuộn</span>']);
  if(b.loadedAt)rows.push(['Bốc xong',`${hm29(b.loadedAt)}${b.loadNote?' · '+esc(b.loadNote):''}`]);
  if((+b.shortTons||0)>0)rows.push(['Load thiếu',`<span class="err">${t2(+b.shortTons)} MT – chờ CS tách đơn hoặc không giao</span>`]);
  if(b.eta)rows.push(['Dự kiến tới',hm29(b.eta)]);

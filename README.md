@@ -314,6 +314,14 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 ## v3.14 — Menu ô ngày
 - Bấm 1 lần vào ô lịch: menu nhanh theo quyền (Yêu cầu đặt hàng ngày này, Đặt hàng, Xem yêu cầu, Chi tiết ngày / đội xe; khách: Yêu cầu, Xem đơn của tôi). Chỉ một lựa chọn thì chạy luôn. Bấm đúp: vào thẳng chi tiết ngày. Phím Y: yêu cầu cho ô đang chọn. Không cần SQL. Test: `test/e2e/v42.mjs`.
 
+## v3.15 — Phạm vi Sales / RSM, picking list tùy chọn, nhắc xác nhận giao
+**Chạy `supabase/setup_all.sql` trước khi gộp.**
+- Bảo mật: yêu cầu đặt hàng chỉ trả về trong phạm vi (Sales: khách mình + yêu cầu mình gửi). Hàm chung `app.sees_sales`, `app.in_team`, `app.team_ids`.
+- RSM: `profiles.manager_id`, phạm vi `team`, `notify_team` (nhận Từ chối / Đổi ngày của nhóm). Bảng thống kê lọc theo Sales.
+- `requirePicking` (chỉ Admin, ghi nhật ký): tắt thì `mark_loaded` không cần danh sách cuộn.
+- Đang giao báo thêm Sales. `app.escalate` nhắc Logistics đơn Đã load / Đang giao quá hạn (mỗi ngày 1 lần, 7h–20h; `shipRemindHours`, `shipAdminDays`). Ngoại lệ "Chưa xác nhận giao".
+- Test: `test/99c_scope.sql`, `test/e2e/v43.mjs`.
+
 
 
 ## Lưu ý gói miễn phí
@@ -338,6 +346,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v40.js                  Lịch khách hàng nhiều kho
   v41.js                  Yêu cầu đặt hàng (💬)
   v42.js                  Menu ô ngày (bấm 1 lần / bấm đúp)
+  v43.js                  Picking list tùy chọn, nhắc xác nhận giao
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng

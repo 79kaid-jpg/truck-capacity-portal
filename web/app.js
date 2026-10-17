@@ -137,8 +137,8 @@ const stopsOk=(code,b)=>{const s=truckStops(code,b.id);return s.has(addrKey(b))|
 const custColor=id=>`var(--c${(S.customers.findIndex(c=>c.id===id)%6)+1})`;
 
 function visibleBk(b){const u=me();if(b.status==='draft')return b.csId===u.id;
- if(u.role==='customer')return b.customerId===u.customerId;if(u.role==='sales')return cust(b.customerId).salesId===u.id;return true;}
-const ownsCust=cid=>role()!=='sales'||cust(cid).salesId===V.me;
+ if(u.role==='customer')return b.customerId===u.customerId;if(u.role==='sales')return (u.team||[u.id]).includes(cust(b.customerId).salesId);return true;}
+const ownsCust=cid=>role()!=='sales'||(me().team||[V.me]).includes(cust(cid).salesId);
 
 function dayM(wh,date){
  if(S.me.role==='customer'){const c=S.cal[wh+'|'+date]||{avail:0,status:isHoliday(wh,date)?'off':'none',declared:false,off:isHoliday(wh,date)};return{trucks:[],cap:0,loaded:0,held:0,free:0,avail:+c.avail,usage:0,status:c.status,uDK:0,uCN:0,nDK:0,nCN:0,holds:[],reason:'',declared:c.declared,off:c.off};}
@@ -300,7 +300,7 @@ function dayCell(date){
   <div class="cacts">${can('day.view')?`<button class="btn sm" data-a="openDay" data-d="${date}">Chi tiết</button>`:''}${can('booking.create')&&!past?`<button class="btn ghost sm" data-a="newBk" data-d="${date}">+ Đặt hàng</button>`:''}</div></div>`;
 }
 /* ---------- Thống kê đặt hàng theo khách (cột "Khách" trên lịch, DB-05) ---------- */
-const SCOPE_LABEL={own:'Khách bạn phụ trách',DD:'Toàn bộ khách Dân dụng',DA:'Toàn bộ khách Dự án',EX:'Toàn bộ khách Export',all:'Tất cả khách hàng'};
+const SCOPE_LABEL={own:'Khách bạn phụ trách',DD:'Toàn bộ khách Dân dụng',DA:'Toàn bộ khách Dự án',EX:'Toàn bộ khách Export',all:'Tất cả khách hàng',team:'Nhóm của tôi (RSM)'};
 // Tải số liệu tổng hợp theo khoảng ngày (máy chủ áp phạm vi thống kê của người dùng); cache theo khoảng + phiên bản dữ liệu
 function csData(from,to){const key=from+'|'+to+'|'+S.ver;if(V.cs&&V.cs.key===key)return V.cs.data;
  if(V.csLoading!==key){V.csLoading=key;rpc('booking_stats',{p_from:from,p_to:to}).then(d=>{V.cs={key,data:d};V.csLoading=null;render();}).catch(e=>{V.cs={key,data:{err:e.message,rows:[],customers:[],scope:'own'}};V.csLoading=null;render();});}
@@ -1002,7 +1002,9 @@ function mUserNew(){const M=V.modal;const f=M.f;
  <div class="field"><label for="un-p">Số điện thoại ${f.role==='sales'?'<span class="req">*</span>':''}</label><input id="un-p" class="inp" data-f="un" data-k="phone" value="${esc(f.phone)}"></div>
  ${f.role==='sales'?`<div class="field"><label for="un-s">Segment <span class="req">*</span></label><select id="un-s" class="inp" data-f="un" data-k="segment"><option value="DD" ${f.segment==='DD'?'selected':''}>Dân dụng</option><option value="DA" ${f.segment==='DA'?'selected':''}>Dự án</option><option value="EX" ${f.segment==='EX'?'selected':''}>Export</option></select></div>`:''}
  ${f.role==='customer'?`<div class="field"><label for="un-c">Công ty khách hàng <span class="req">*</span></label><select id="un-c" class="inp" data-f="un" data-k="customerId"><option value="">Chọn</option>${S.customers.map(c=>`<option value="${c.id}" ${f.customerId===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>`:''}
- ${f.role!=='customer'?`<div class="field"><label for="un-sc">Phạm vi thống kê</label><select id="un-sc" class="inp" data-f="un" data-k="statScope"><option value="">Mặc định (${f.role==='sales'?'khách mình phụ trách':'tất cả khách'})</option>${Object.entries(SCOPE_LABEL).filter(([k])=>k!=='own'||f.role==='sales').map(([k,l])=>`<option value="${k}" ${f.statScope===k?'selected':''}>${l}</option>`).join('')}</select><span class="small muted">Chỉ đổi số liệu thống kê (cột Khách trên lịch, DB-05); không mở quyền xem chi tiết hay sửa booking.</span></div>`:''}
+ ${f.role!=='customer'?`<div class="field"><label for="un-sc">Phạm vi thống kê</label><select id="un-sc" class="inp" data-f="un" data-k="statScope"><option value="">Mặc định (${f.role==='sales'?'khách mình phụ trách':'tất cả khách'})</option>${Object.entries(SCOPE_LABEL).filter(([k])=>(k!=='own'&&k!=='team')||f.role==='sales').map(([k,l])=>`<option value="${k}" ${f.statScope===k?'selected':''}>${l}</option>`).join('')}</select><span class="small muted">Chỉ đổi số liệu thống kê (cột Khách trên lịch, DB-05). Riêng <b>Nhóm của tôi (RSM)</b>: thấy đầy đủ khách, đơn, yêu cầu của mình và các Sales có Quản lý trực tiếp là người này.</span></div>`:''}
+ ${f.role==='sales'?`<div class="field"><label for="un-mg">Quản lý trực tiếp (RSM)</label><select id="un-mg" class="inp" data-f="un" data-k="managerId"><option value="">— Không —</option>${S.users.filter(x=>x.role==='sales'&&x.active!==false&&x.email!==f.email).sort((a,b)=>a.name.localeCompare(b.name,'vi')).map(x=>`<option value="${x.id}" ${f.managerId===x.id?'selected':''}>${esc(x.name)}${x.statScope==='team'?' · RSM':''}</option>`).join('')}</select><span class="small muted">RSM cần Phạm vi thống kê = Nhóm của tôi.</span></div>
+ <div class="field"><label class="row" style="gap:6px"><input type="checkbox" data-f="unc" data-k="notifyTeam" ${f.notifyTeam?'checked':''}> RSM: nhận thông báo khi đơn của nhóm bị từ chối / đề nghị đổi ngày</label></div>`:''}
  <div class="field"><label for="un-w">Kho mặc định <span class="req">*</span></label><select id="un-w" class="inp" data-f="un" data-k="wh">${WH.map(w=>`<option value="${w.id}" ${f.wh===w.id?'selected':''}>${w.name}</option>`).join('')}</select></div></div>
  ${M.err?`<div class="err" style="margin-top:8px">${esc(M.err)}</div>`:''}<p class="small muted">Gửi email và mật khẩu tạm cho người dùng; họ tự đổi mật khẩu trong Hồ sơ cá nhân.</p>${M.edit&&f.role==='cs'&&S.users.find(x=>x.email===f.email)?awayForm(S.users.find(x=>x.email===f.email),'admin'):''}
  <div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button><button class="btn" data-a="unSave">${M.edit?'Lưu':'Cấp quyền'}</button></div>`;}
@@ -1180,11 +1182,11 @@ const A={
  uTab:d=>{V.uTab=d.t;render();},
  userToggle:d=>{V.userErr='';mutate('admin_toggle_user',{p_user:d.id},{err:m=>V.userErr=m,ok:r=>toast(r==='locked'?'Đã khóa tài khoản':'Đã mở khóa tài khoản')});},
  userNew:()=>{V.modal={type:'userNew',f:{name:'',email:'',role:'cs',phone:'',segment:'DD',customerId:'',wh:'JM2'},err:''};render();},
- userEdit:d=>{const u=user(d.id);V.modal={type:'userNew',edit:true,f:{name:u.name,email:u.email,role:u.role,phone:u.phone||'',segment:u.segment||'DD',customerId:u.customerId||'',wh:u.wh||'JM2',statScope:u.statScope||''},err:''};render();},
+ userEdit:d=>{const u=user(d.id);V.modal={type:'userNew',edit:true,f:{name:u.name,email:u.email,role:u.role,phone:u.phone||'',segment:u.segment||'DD',customerId:u.customerId||'',wh:u.wh||'JM2',statScope:u.statScope||'',managerId:u.managerId||'',notifyTeam:!!u.notifyTeam},err:''};render();},
  unSave:()=>{const M=V.modal;const f=M.f;if(!f.name.trim()||!/^\S+@\S+\.\S+$/.test(f.email)){M.err='Nhập họ tên và email hợp lệ.';return render();}
   if(!M.edit&&S.users.some(u=>u.email.toLowerCase()===f.email.trim().toLowerCase())){M.err='Email này đã có vai trò. Bấm Sửa ở dòng tương ứng để đổi.';return render();}
   if(f.role==='sales'&&!f.phone.trim()){M.err='Sales cần số điện thoại (hiển thị cho khách).';return render();}if(f.role==='customer'&&!f.customerId){M.err='Chọn công ty khách hàng.';return render();}
-  mutate('admin_upsert_profile',{p:{email:f.email.trim(),name:f.name.trim(),role:f.role,phone:f.phone,segment:f.segment,customer_id:f.customerId,wh:f.wh,stat_scope:f.statScope||''}},
+  mutate('admin_upsert_profile',{p:{email:f.email.trim(),name:f.name.trim(),role:f.role,phone:f.phone,segment:f.segment,customer_id:f.customerId,wh:f.wh,stat_scope:f.statScope||'',manager_id:f.managerId||'',notify_team:!!f.notifyTeam}},
    {err:m=>M.err=m,ok:()=>{V.modal=null;toast((M.edit?'Đã cập nhật ':'Đã cấp quyền cho ')+f.email.trim());}});},
  loginAs:d=>{const u=user(d.id);mutate('impersonate_start',{p_user:d.id},{ok:r=>{V.view='calendar';V.modal=null;V.asg=null;V.menu=false;V.wh=me().wh||'JM2';V.fleetEdit={};render();window.scrollTo(0,0);toast(`Đang Login as ${r.name} trong ${r.minutes} phút`);}});},
  impStop:()=>mutate('impersonate_stop',{},{ok:()=>{V.view='users';V.uTab='users';V.modal=null;V.asg=null;V.wh=me().wh||'JM2';render();toast('Đã thoát Login as');}}),
@@ -1465,6 +1467,7 @@ document.addEventListener('change',e=>{const el=e.target;const a=el.dataset.a;
  if(f==='cfg'){const v=num(el.value);if(v>0)mutate('update_settings',{p:{[el.dataset.k]:v}},{ok:()=>toast('Đã lưu cấu hình')});else toast('Giá trị phải lớn hơn 0.');return;}
  if(f==='newReg'){V.newReg={...(V.newReg||{}),[el.dataset.k]:el.value};return;}
  if(f==='newRegNb'){const N=V.newReg||{};const s=new Set(N.nb||[]);el.checked?s.add(el.value):s.delete(el.value);V.newReg={...N,nb:[...s]};return;}
+ if(f==='unc'){V.modal.f[el.dataset.k]=el.checked;return;}
  if(f==='un'){V.modal.f[el.dataset.k]=el.value;if(el.dataset.k==='role')render();return;}
  if(f==='cn'){V.modal.f[el.dataset.k]=el.value;if(['segment','province'].includes(el.dataset.k)){if(el.dataset.k==='segment')V.modal.f.salesId='';if(el.dataset.k==='province'){const c=S.regions.filter(r=>r.active&&r.newProvince===el.value);V.modal.f.region=c.length===1?c[0].id:'';}render();}return;}
  if(f==='hol'){V.hol=el.value;return;}
