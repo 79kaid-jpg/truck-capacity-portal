@@ -43,6 +43,8 @@ await session('log@demo.vn', async p => {
   S('fab'); ok(await p.locator('#chatFab').count() === 1, 'Logistics thấy nút trợ lý');
   await p.click('#chatFab'); ok(await p.locator('#chatPanel .cs button').count() >= 3, 'mở khung chat + câu gợi ý');
   ok(await p.evaluate(() => sysPrompt().includes('suggest_trucks') && sysPrompt().includes('find_trucks')), 'Logistics có công cụ tìm xe, gợi ý xe');
+  S('parse'); ok(await p.evaluate(() => { const a = parseReply('{"tool":"capacity","args":"{\\"date\\":\\"2026-10-19\\"}"}'), b = parseReply({ answer: ['x', 'y'] }), c = parseReply('{"name":"find_trucks","arguments":"{}"}'), d = parseReply('Xin chào');
+    return a.tool === 'capacity' && a.args.date === '2026-10-19' && b.answer === 'x\ny' && c.tool === 'find_trucks' && d.answer === 'Xin chào'; }), 'đọc được mọi kiểu trả lời của AI');
   S('suggest'); globalThis.__plan = () => ({ tool: 'suggest_trucks', args: { booking_id: hold } });
   await ask(p, 'Gợi ý xe cho ' + hold);
   ok(await p.evaluate(() => V.view) === 'day' && await p.locator('.tcard.sugg').count() >= 1, 'gợi ý xe → mở màn đội xe, viền chạy quanh xe');

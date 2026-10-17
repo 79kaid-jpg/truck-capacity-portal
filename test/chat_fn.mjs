@@ -17,4 +17,7 @@ ok(seen.url === 'https://abc.supabase.co/rest/v1/rpc/chat_use' && seen.o.headers
 ok(AI.last.inp.messages.length === 2 && AI.last.inp.messages[1].content.length === 6000, 'lọc role lạ, cắt tin quá dài');
 quotaOk = false; r = await onRequestPost({ request: req({ messages: [{ role: 'user', content: 'hi' }] }), env: { AI, ASSETS: assets } });
 ok(r.status === 403 && /hết 10 lượt/.test((await r.json()).error), 'hết lượt → 403 kèm lý do');
+quotaOk = true; const AI2 = { run: async () => ({ response: { tool: 'capacity', args: { date: '2026-10-19' } } }) };
+r = await onRequestPost({ request: req({ messages: [{ role: 'user', content: 'hi' }] }), env: { AI: AI2, ASSETS: assets } });
+ok(JSON.parse((await r.json()).text).tool === 'capacity', 'AI trả object → chuyển thành chuỗi JSON (không còn [object Object])');
 console.log(`${pass} OK, ${fail} lỗi`); if (fail) process.exit(1);
