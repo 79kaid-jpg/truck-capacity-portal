@@ -52,6 +52,7 @@ class H(http.server.SimpleHTTPRequestHandler):
                     try:
                         c.execute("select set_config('request.jwt.claim.sub', %s, true)", (body.get('uid') or '',))
                         c.execute("select set_config('request.jwt.claim.aal', %s, true)", (body.get('aal') or 'aal1',))
+                        c.execute("select set_config('request.headers', %s, true)", (json.dumps(body.get('headers') or {}),))
                         c.execute("set local role authenticated")
                         c.execute(f"select to_jsonb(public.{fn}({', '.join(parts)}))", vals)
                         out = c.fetchone()[0]; c.execute("commit")

@@ -37,7 +37,7 @@ await p.context().close();
 // 3. CS sửa booking đã xác nhận trong ngày nghỉ sang ngày khác
 p = await open('cs@demo.vn');
 await p.evaluate(d => { V.view = 'day'; V.day = d; render(); }, D); await p.waitForTimeout(200);
-const okr = p.locator('tr.click[data-a="openBk"]', { hasText: 'Đã xác nhận' }).first();
+const okr = p.locator('tr.click[data-a="openBk"]', { hasText: /Đã xếp xe|Đã xác nhận giao hàng/ }).first();
 check('CS sees confirmed booking in off-day list', (await okr.count()) === 1);
 if (await okr.count()) { await okr.click(); await p.waitForTimeout(200); check('CS can edit it', (await p.locator('[data-a="editBk"]').count()) === 1); }
 await p.context().close();

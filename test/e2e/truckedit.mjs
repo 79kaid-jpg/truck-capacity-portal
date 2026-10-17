@@ -18,7 +18,7 @@ await p.screenshot({ path: '/tmp/e2e-shots/te-1-popup.png' });
 const id = await p.locator('.modal [data-a="editBk"]').first().getAttribute('data-id');
 await p.locator('.modal [data-a="editBk"]').first().click(); await p.waitForTimeout(200);
 check('edit form opens', /SỬA BOOKING/.test(await p.locator('.modal').innerText()));
-const t = p.locator('input[data-f="bfl"][data-k="t"]').first(); const v = +(await t.inputValue()).replace(',', '.');
+const t = p.locator('input[data-f="bft"]').first(); const v = +(await t.inputValue()).replace(',', '.');
 await t.fill(String(v - 1)); await t.dispatchEvent('input');
 await p.click('.modal [data-a="bfHold"]'); await p.waitForTimeout(600);
 const st = await p.evaluate(x => { const b = bkById(x); return [b.status, bkTotal(b), allocSum(b.id)]; }, id);

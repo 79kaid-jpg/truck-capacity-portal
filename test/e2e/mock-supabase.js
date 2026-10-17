@@ -13,4 +13,4 @@ window.supabase={createClient(){const K='mock-session';const get=()=>{try{return
    enroll:async({friendlyName})=>post('/auth/mfa/enroll',{uid:uid(),name:friendlyName}),
    unenroll:async({factorId})=>post('/auth/mfa/unenroll',{uid:uid(),factorId}),
    challengeAndVerify:async({factorId,code})=>{const r=await post('/auth/mfa/verify',{uid:uid(),factorId,code});if(r.error)return r;put({...get(),aal:'aal2'});return r;}}},
-  rpc:async(fn,args)=>post('/rpc/'+fn,{uid:uid(),aal:(get()||{}).aal,args})};}};
+  rpc:(fn,args)=>{const h={};const q={setHeader(k,v){h[k.toLowerCase()]=v;return q;},then(ok,ko){return post('/rpc/'+fn,{uid:uid(),aal:(get()||{}).aal,args,headers:h}).then(ok,ko);}};return q;}};}};
