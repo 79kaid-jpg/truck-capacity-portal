@@ -10,7 +10,14 @@
 .g30 .inp{padding:6px 8px;min-height:34px;font-size:1em}
 .g30 tr.bad td{background:var(--bad-bg)}
 .g30 tr.hol td.c-day input{color:var(--bad);font-weight:700}
-.g30 .nm{min-width:150px;font-weight:600}
+.g30 .nm{min-width:12em;max-width:18em;white-space:normal;font-weight:600}
+.g30 table{font-size:1em}.g30 th{font-size:.78em}.g30 .inp[type=date]{width:10.5em}
+.g30 thead th{position:sticky;top:0;z-index:2;background:var(--sand)}
+.modal.xl{width:96vw;max-width:100vw;height:92vh;max-height:100vh;min-width:min(640px,100vw);min-height:420px;resize:both;overflow:hidden;display:flex;flex-direction:column}
+.modal.xl.max{width:100vw!important;height:100vh!important;border-radius:0;resize:none}
+.modal.xl>.g30{flex:1;min-height:0;display:flex;flex-direction:column}
+.modal.xl .g30>.tbl-wrap{flex:1;min-height:120px;overflow:auto}
+.modal.xl .g30>*:not(.tbl-wrap){flex:none}
 .g30 .msg{font-size:.8em;color:var(--bad);font-weight:600;white-space:nowrap}
 .g30 .ok{font-size:.8em;color:var(--muted);white-space:nowrap}
 .g30cap{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:280px}
@@ -36,7 +43,7 @@ const whCode30=v=>{v=String(v||'').trim().toUpperCase();v=LEGACY_WH[v]||v;if(WHA
 const custByCode30=code=>S.customers.find(c=>c.code.toLowerCase()===String(code||'').trim().toLowerCase());
 const newRow30=(M)=>({wh:M.wh,day:M.day,cid:'',q:'',tons:'',addrId:'',addr:'',ref:'',note:''});
 
-function openGrid30(day){V.modal={type:'grid',wide:true,full:true,wh:V.wh,day:day>=TODAY?day:TODAY,rows:[],tab:'grid',zoom:100,err:'',ask:null};const M=V.modal;for(let i=0;i<3;i++)M.rows.push(newRow30(M));render();}
+function openGrid30(day){V.modal={type:'grid',wide:true,full:true,wh:V.wh,day:day>=TODAY?day:TODAY,rows:[],tab:'grid',zoom:gridZoom34(),err:'',ask:null,max:false};const M=V.modal;for(let i=0;i<3;i++)M.rows.push(newRow30(M));render();}
 
 /* ---------- kiểm tra từng dòng + năng lực theo kho · ngày ---------- */
 function gridCheck30(M){const used={};const out=M.rows.map(r=>{const blank=!r.cid&&!r.q.trim()&&!String(r.tons).trim();if(blank)return{blank:true};
@@ -58,17 +65,17 @@ function mGrid30(){const M=V.modal;if(M.ask)return askAddr30(M);const C=gridChec
  const whOpt=v=>WH.map(w=>`<option value="${w.id}" ${v===w.id?'selected':''}>${w.id}</option>`).join('')+(v&&!WH.some(w=>w.id===v)?`<option value="${esc(v)}" selected>${esc(v)} (?)</option>`:'');
  const rows=M.rows.map((r,i)=>{const x=C.rows[i];const c=r.cid?cust(r.cid):null;
   return `<tr class="${x.err&&!x.blank?'bad':''} ${x.hol?'hol':''}" data-row="${i}"><td class="muted">${i+1}</td>
-  <td><select class="inp" data-g="wh" data-i="${i}" aria-label="Kho dòng ${i+1}">${whOpt(r.wh)}</select></td>
+  <td><select class="inp" style="min-width:5.6em" data-g="wh" data-i="${i}" aria-label="Kho dòng ${i+1}">${whOpt(r.wh)}</select></td>
   <td class="c-day"><input type="date" class="inp" min="${TODAY}" value="${r.day}" data-g="day" data-i="${i}" aria-label="Ngày bốc dòng ${i+1}"></td>
-  <td><input class="inp" style="width:110px" autocomplete="off" value="${esc(r.q)}" data-g="code" data-i="${i}" placeholder="Mã / tên" aria-label="Mã khách dòng ${i+1}"></td>
+  <td><input class="inp" style="width:9em" autocomplete="off" value="${esc(r.q)}" data-g="code" data-i="${i}" placeholder="Mã / tên" aria-label="Mã khách dòng ${i+1}"></td>
   <td class="nm" id="g30n-${i}">${c?esc(c.name):'–'}</td>
-  <td><input class="inp num" style="width:80px" inputmode="decimal" value="${esc(r.tons)}" data-g="tons" data-i="${i}" aria-label="Số tấn dòng ${i+1}"></td>
-  <td><input class="inp" style="min-width:220px" autocomplete="off" value="${esc(r.addr)}" data-g="addr" data-i="${i}" placeholder="nhập khi xác nhận giao hàng" aria-label="Địa chỉ dòng ${i+1}"></td>
-  <td><input class="inp" style="width:110px" value="${esc(r.ref)}" data-g="ref" data-i="${i}" placeholder="không bắt buộc" aria-label="Ref dòng ${i+1}"></td>
-  <td><input class="inp" style="width:130px" value="${esc(r.note)}" data-g="note" data-i="${i}" placeholder="ghi chú" aria-label="Ghi chú dòng ${i+1}"></td>
+  <td><input class="inp num" style="width:6em" inputmode="decimal" value="${esc(r.tons)}" data-g="tons" data-i="${i}" aria-label="Số tấn dòng ${i+1}"></td>
+  <td><input class="inp" style="min-width:22em;width:100%" autocomplete="off" value="${esc(r.addr)}" data-g="addr" data-i="${i}" placeholder="nhập khi xác nhận giao hàng" aria-label="Địa chỉ dòng ${i+1}"></td>
+  <td><input class="inp" style="width:8.5em" value="${esc(r.ref)}" data-g="ref" data-i="${i}" placeholder="không bắt buộc" aria-label="Ref dòng ${i+1}"></td>
+  <td><input class="inp" style="width:10em" value="${esc(r.note)}" data-g="note" data-i="${i}" placeholder="ghi chú" aria-label="Ghi chú dòng ${i+1}"></td>
   <td id="g30s-${i}">${x.blank?'':x.err?`<span class="msg">${x.err}</span>`:x.left!=null?`<span class="ok">còn ${t2(x.left)} t</span>`:'<span class="ok">OK</span>'}${x.hol&&!x.blank?' <span class="urg">⚠ '+(dow(r.day)===0?'CN':'Lễ')+'</span>':''}</td>
   <td><button class="btn ghost sm" data-a="g30Del" data-i="${i}" aria-label="Xóa dòng ${i+1}">×</button></td></tr>`;}).join('');
- return `<div class="g30" style="font-size:${M.zoom}%"><div class="mhead"><h2 style="margin:0">ĐẶT HÀNG</h2><div class="g30tabs"><button class="btn ghost sm" data-a="g30Zoom" data-d="-10">A−</button><span class="small">${M.zoom}%</span><button class="btn ghost sm" data-a="g30Zoom" data-d="10">A+</button>
+ return `<div class="g30" style="font-size:${M.zoom}%"><div class="mhead"><h2 style="margin:0">ĐẶT HÀNG</h2><div class="g30tabs"><button class="btn ghost sm" data-a="g30Zoom" data-d="-10">A−</button><span class="small">${M.zoom}%</span><button class="btn ghost sm" data-a="g30Zoom" data-d="10">A+</button><button class="btn ghost sm" data-a="g30Max" title="${M.max?'Thu nhỏ':'Toàn màn hình'}">${M.max?'🗗 Thu nhỏ':'⛶ Toàn màn hình'}</button>
   <button class="btn ghost sm ${M.tab==='grid'?'on':''}" data-a="g30Tab" data-t="grid">Nhập tay nhiều khách</button><button class="btn ghost sm ${M.tab==='file'?'on':''}" data-a="g30Tab" data-t="file">Tải file</button></div></div>
  <div class="row" style="gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px">
   <div class="field"><label for="g30-wh">Kho mặc định</label><select id="g30-wh" class="inp" data-g="dwh">${WH.map(w=>`<option value="${w.id}" ${M.wh===w.id?'selected':''}>${esc(w.full)}</option>`).join('')}</select></div>
@@ -206,7 +213,8 @@ document.addEventListener('change',e=>{const el=e.target;if(el.dataset&&el.datas
 Object.assign(A,{
  bulkNew:()=>openGrid30(addDays(TODAY,1)),
  g30Tab:d=>{V.modal.tab=d.t;render();},
- g30Zoom:d=>{const M=V.modal;M.zoom=Math.max(70,Math.min(150,M.zoom+(+d.d)));render();},
+ g30Zoom:d=>{const M=V.modal;M.zoom=Math.max(70,Math.min(160,M.zoom+(+d.d)));try{localStorage.setItem('g30-zoom',M.zoom);}catch(e){}render();},
+ g30Max:()=>{const M=V.modal;M.max=!M.max;render();},
  g30Add:d=>{const M=V.modal;for(let k=0;k<+d.n;k++)M.rows.push(newRow30(M));render();focus30(M.rows.length-+d.n,'code');},
  g30Del:d=>{const M=V.modal;M.rows.splice(+d.i,1);if(!M.rows.length)M.rows.push(newRow30(M));render();},
  g30Apply:()=>{const M=V.modal;M.rows.forEach(r=>{r.wh=M.wh;r.day=M.day;});render();},
@@ -232,3 +240,11 @@ Object.assign(A,{
 gsBookFor=function(custId,date,wh){openGrid30(date||TODAY);const M=V.modal;const r=M.rows[0];if(wh){M.wh=wh;M.rows.forEach(x=>x.wh=wh);}
  if(custId){const c=cust(custId);r.cid=custId;r.q=c?c.code:'';if(c&&c.defWh&&WH.some(w=>w.id===c.defWh))r.wh=c.defWh;}render();focus30(0,custId?'tons':'code');};
 if(typeof S!=='undefined'&&S)render();
+
+/* v3.4: khung Đặt hàng to, co giãn (kéo góc dưới phải), nhớ kích thước + mức zoom trên máy này */
+function gridZoom34(){try{const z=+localStorage.getItem('g30-zoom');return z>=70&&z<=160?z:100;}catch(e){return 100;}}
+function gridSize34(){try{const s=JSON.parse(localStorage.getItem('g30-size')||'null');if(s&&s.w>=400&&s.h>=300)return `style="width:${Math.min(s.w,innerWidth)}px;height:${Math.min(s.h,innerHeight)}px"`;}catch(e){}return '';}
+{let t34;const ro=new ResizeObserver(es=>{for(const e of es){const el=e.target;if(!el.classList.contains('xl')||el.classList.contains('max'))continue;
+ clearTimeout(t34);t34=setTimeout(()=>{if(el.dataset.user!=='1'||!el.isConnected)return;try{localStorage.setItem('g30-size',JSON.stringify({w:Math.round(el.offsetWidth),h:Math.round(el.offsetHeight)}));}catch(x){}},300);}});
+ new MutationObserver(()=>{const m=document.querySelector('.modal.xl');if(m&&!m.dataset.obs){m.dataset.obs='1';ro.observe(m);
+  m.addEventListener('pointerdown',ev=>{const r=m.getBoundingClientRect();if(ev.clientX>r.right-22&&ev.clientY>r.bottom-22)m.dataset.user='1';});}}).observe(document.body,{childList:true,subtree:true});}

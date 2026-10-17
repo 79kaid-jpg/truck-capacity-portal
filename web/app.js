@@ -216,7 +216,7 @@ function groupSuggest(wh,date){
 const app=document.getElementById('app');
 function render(){
  if(!S)return;const u=me();if(!u)return;
- app.innerHTML=`${topbar(u)}${S.imp?impBar(u):''}<div class="shell">${sidebar(u)}<main class="main" id="main">${mainView()}</main></div>${V.modal?`<div class="scrim" data-a="scrim"><div class="modal ${V.modal.wide?'wide':''}" role="dialog" aria-modal="true">${modalView()}</div></div>`:''}${V.toast?`<div class="toast" role="status">${esc(V.toast)}</div>`:''}`;
+ app.innerHTML=`${topbar(u)}${S.imp?impBar(u):''}<div class="shell">${sidebar(u)}<main class="main" id="main">${mainView()}</main></div>${V.modal?`<div class="scrim" data-a="scrim"><div class="modal ${V.modal.wide?'wide':''}${V.modal.full?(V.modal.max?' xl max':' xl'):''}" ${V.modal.full&&!V.modal.max&&typeof gridSize34==='function'?gridSize34():''} role="dialog" aria-modal="true">${modalView()}</div></div>`:''}${V.toast?`<div class="toast" role="status">${esc(V.toast)}</div>`:''}`;
 }
 function toast(t){V.toast=t;render();clearTimeout(toast._t);toast._t=setTimeout(()=>{V.toast='';const el=document.querySelector('.toast');if(el)el.remove();},3200);}
 
