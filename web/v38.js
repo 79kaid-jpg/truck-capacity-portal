@@ -3,19 +3,19 @@
 .cvbar{position:sticky;top:0;z-index:40;display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#e0861a;color:#fff;padding:8px 16px;font-size:13.5px}
 .cvbar .btn{background:#fff;color:#7a4300;border-color:#fff}
 #guide{position:fixed;top:0;right:0;bottom:0;width:min(560px,100vw);background:var(--surface);border-left:1.5px solid var(--ink);box-shadow:var(--shadow);z-index:65;display:flex;flex-direction:column}
-#guide .gh{display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
-#guide .gb{display:grid;grid-template-columns:170px 1fr;min-height:0;flex:1}
-#guide nav{overflow:auto;border-right:1px solid var(--line);padding:8px 6px;font-size:13px}
-#guide nav b{display:block;margin:10px 6px 4px;font-size:11px;letter-spacing:.06em;color:var(--muted)}
-#guide nav a{display:block;padding:4px 8px;border-radius:6px;color:inherit;text-decoration:none;cursor:pointer}#guide nav a.on,#guide nav a:hover{background:var(--blue-bg)}
-#guide article{overflow:auto;padding:14px 18px 40px;font-size:14px;line-height:1.55}
+#guide .gh{display:flex;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line)}
+#guide .gb{display:grid;grid-template-columns:230px 1fr;min-height:0;flex:1}
+#guide nav{overflow:auto;border-right:1px solid var(--line);background:var(--ground);padding:12px 12px 24px 16px;font-size:13px;line-height:1.35}
+#guide nav b{display:block;margin:16px 4px 6px;padding-top:10px;border-top:1px solid var(--line);}#guide nav b:first-child{margin-top:2px;padding-top:0;border-top:0}#guide nav b{font-size:11px;letter-spacing:.06em;color:var(--muted)}
+#guide nav a{display:block;padding:6px 12px;margin:1px 0;border-radius:6px;border-left:3px solid transparent;color:inherit;text-decoration:none;cursor:pointer}#guide nav a:hover{background:var(--blue-bg)}#guide nav a.on{background:var(--blue-bg);border-left-color:var(--blue);font-weight:600}
+#guide article{overflow:auto;padding:16px 24px 40px;font-size:14px;line-height:1.55}
 #guide article h2{font-size:18px;margin:4px 0 8px}#guide article h3{font-size:15px;margin:16px 0 6px}
 #guide article img{max-width:100%;border:1px solid var(--line);border-radius:8px;margin:8px 0}
 #guide article .tip{background:var(--blue-bg);border-radius:8px;padding:8px 10px;margin:8px 0}
 #guide article .warn{background:var(--bad-bg);border-radius:8px;padding:8px 10px;margin:8px 0}
 #guide article mark{background:#ffe9a8}
 #guide .grip{position:absolute;left:-5px;top:0;bottom:0;width:10px;cursor:ew-resize;z-index:2}#guide .grip:hover,#guide.drag .grip{background:color-mix(in srgb,var(--blue) 35%,transparent)}
-#guide.drag{user-select:none}#guide.max{width:100vw!important;border-left:0}#guide .gsel{display:none;margin:8px 14px 0}
+#guide.drag{user-select:none}#guide.max{left:0;width:auto!important;border-left:0}#guide .gsel{display:none;margin:8px 14px 0}
 #guide.narrow .gb{grid-template-columns:1fr}#guide.narrow nav{display:none}#guide.narrow .gsel{display:block}
 #guide article{font-size:var(--gfs,14px)}#guide article h2{font-size:calc(var(--gfs,14px)*1.3)}#guide article h3{font-size:calc(var(--gfs,14px)*1.08)}
 @media (max-width:700px){#guide{width:100vw!important}#guide .gb{grid-template-columns:1fr}#guide nav{display:none}#guide .gsel{display:block}#guide .grip{display:none}}
