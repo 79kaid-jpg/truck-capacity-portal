@@ -82,6 +82,16 @@ alter table app.profiles  add column if not exists stat_scope text check (stat_s
 -- v3.15: RSM – Sales báo cáo cho ai; RSM có phạm vi 'team' thấy khách của mình + các Sales mình quản lý
 alter table app.profiles  add column if not exists manager_id uuid references app.profiles(user_id) on delete set null;
 alter table app.profiles  add column if not exists notify_team boolean not null default false;
+-- v3.18: tài khoản do Admin tạo → bắt đổi mật khẩu lần đầu; tên người đã xóa vẫn hiện trong lịch sử
+alter table app.profiles  add column if not exists must_change_pw boolean not null default false;
+create table if not exists app.deleted_users (
+  user_id    uuid primary key,
+  full_name  text not null,
+  email      text,
+  role       text,
+  deleted_at timestamptz not null default now(),
+  deleted_by uuid
+);
 
 create table if not exists app.customer_addresses (
   id          uuid primary key default gen_random_uuid(),
@@ -618,6 +628,12 @@ language sql stable security definer set search_path = '' as $$
   select app.truck_closed(p_code) or app.truck_departed(p_code)
 $$;
 
+create or replace function app.uname(p_user uuid) returns text
+language sql stable security definer set search_path = '' as $$
+  select coalesce((select full_name from app.profiles where user_id = p_user),
+                  (select full_name || ' (đã xóa)' from app.deleted_users where user_id = p_user))
+$$;
+
 create or replace function app.short_code(p_code text) returns text
 language sql immutable set search_path = '' as $$ select split_part(p_code, '-', 3) || '-' || split_part(p_code, '-', 4) $$;
 
@@ -836,7 +852,7 @@ begin
                              'awayFrom', me.away_from, 'awayTo', me.away_to, 'delegateId', me.delegate_id,
                              'mfa', app.has_mfa(me.user_id), 'mfaReq', app.role_has(me.role, 'auth.mfa'), 'statScope', app.stat_scope(me),
                              'emailLevel', me.email_level, 'altEmail', me.alt_email, 'shortcuts', me.shortcuts,
-                             'team', to_jsonb(app.team_ids(me)), 'managerId', me.manager_id, 'notifyTeam', me.notify_team),
+                             'team', to_jsonb(app.team_ids(me)), 'managerId', me.manager_id, 'notifyTeam', me.notify_team, 'mustChangePw', me.must_change_pw),
     'cfg', v_cfg,
     'perms', to_jsonb(app.my_perms(me.role)),
     'imp', case when app.impersonating() then (select jsonb_build_object('by', a.full_name, 'expiresAt', extract(epoch from i.expires_at))
@@ -910,11 +926,11 @@ begin
                  where app.sees_sales(me, c.sales_user_id)) end,
     'truckInfo', (select coalesce(jsonb_agg(jsonb_build_object('code', td.truck_code, 'cap', td.cap, 'plate', td.plate, 'driver', td.driver, 'phone', td.phone,
                    'closed', td.closed, 'closedReason', td.closed_reason,
-                   'reason', td.reason, 'by', coalesce((select p.full_name from app.profiles p where p.user_id = td.updated_by), ''),
+                   'reason', td.reason, 'by', coalesce(app.uname(td.updated_by), ''),
                    'at', to_char(td.updated_at at time zone 'Asia/Ho_Chi_Minh', 'DD/MM HH24:MI'))), '[]')
                   from app.truck_days td where td.day between p_from and p_to),
     'fleet', (select coalesce(jsonb_agg(jsonb_build_object('wh', f.warehouse_code, 'date', f.day, 'dk', f.dk_count, 'cn', f.cn_count, 'reason', f.reason,
-                'by', coalesce((select p.full_name from app.profiles p where p.user_id = f.updated_by), 'Hệ thống'),
+                'by', coalesce(app.uname(f.updated_by), 'Hệ thống'),
                 'at', to_char(f.updated_at at time zone 'Asia/Ho_Chi_Minh', 'DD/MM HH24:MI'))), '[]')
               from app.daily_fleet f where f.day between p_from and p_to),
     'bookings', (select coalesce(jsonb_agg(
@@ -949,7 +965,7 @@ begin
                from app.allocations a join app.bookings b on b.id = a.booking_id
               where b.day between p_from and p_to or b.status in ('hold','resched')),
     'audit', (select coalesce(jsonb_agg(jsonb_build_object('obj', l.entity_id, 'text', l.detail,
-                'who', coalesce((select p.full_name from app.profiles p where p.user_id = l.actor), 'Hệ thống'),
+                'who', coalesce(app.uname(l.actor), 'Hệ thống'),
                 'at', extract(epoch from l.at) / 60) order by l.at desc), '[]')
               from app.audit_log l
              where l.entity_id in (select b.id from app.bookings b join app.customers c on c.id = b.customer_id
@@ -3166,9 +3182,9 @@ end $$;
 create or replace function app.req_json(r app.order_requests) returns jsonb
 language sql stable security definer set search_path = '' as $$
   select jsonb_build_object('id', r.id, 'customerId', r.customer_id, 'wh', r.wh, 'date', r.day, 'tons', r.tons, 'body', r.body,
-    'status', r.status, 'by', r.created_by, 'byName', (select full_name from app.profiles where user_id = r.created_by),
+    'status', r.status, 'by', r.created_by, 'byName', app.uname(r.created_by),
     'byCust', (select role = 'customer' from app.profiles where user_id = r.created_by),
-    'at', extract(epoch from r.created_at), 'handledBy', (select full_name from app.profiles where user_id = r.handled_by),
+    'at', extract(epoch from r.created_at), 'handledBy', app.uname(r.handled_by),
     'handledAt', extract(epoch from r.handled_at), 'reply', r.reply, 'bookingId', r.booking_id)
 $$;
 
@@ -3244,6 +3260,145 @@ begin
   return app.req_json(r);
 end $$;
 
+
+-- v3.18: Admin tạo / xóa tài khoản, đặt lại mật khẩu ----------------------------
+create or replace function app.hash_pw(p text) returns text
+language sql volatile security definer set search_path = extensions, public, pg_temp as $$
+  select crypt(p, gen_salt('bf'))
+$$;
+
+create or replace function app.require_admin() returns app.profiles
+language plpgsql stable security definer set search_path = '' as $$
+declare m app.profiles;
+begin
+  m := app.require_perm('users.manage');
+  if m.role <> 'admin' then raise exception 'Chỉ Admin được tạo / xóa tài khoản và đặt lại mật khẩu.' using errcode = '42501'; end if;
+  return m;
+end $$;
+
+create or replace function app.check_pw(p text) returns void
+language plpgsql immutable set search_path = '' as $$
+begin
+  if p is null or length(p) < 8 then raise exception 'Mật khẩu tạm tối thiểu 8 ký tự.'; end if;
+  if length(p) > 72 then raise exception 'Mật khẩu tối đa 72 ký tự.'; end if;
+end $$;
+
+-- p: email, name, role, segment, phone, customer_id, wh, stat_scope, manager_id, password, welcome (bool), force_change (bool, mặc định true)
+create or replace function public.admin_create_user(p jsonb) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; v_email text := lower(trim(coalesce(p->>'email', ''))); v_id uuid; v_pw text := p->>'password'; v_sent boolean := false;
+begin
+  me := app.require_admin();
+  if v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then raise exception 'Email không hợp lệ: %', v_email; end if;
+  if exists (select 1 from auth.users where lower(email) = v_email) then
+    raise exception 'Email % đã có tài khoản đăng nhập. Dùng "Gán vai trò" nếu chưa có vai trò.', v_email;
+  end if;
+  perform app.check_pw(v_pw);
+  if coalesce(p->>'role', '') not in ('admin','cs','logistics','sales','customer') then raise exception 'Chọn vai trò.'; end if;
+  v_id := gen_random_uuid();
+  insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+                          raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+                          confirmation_token, recovery_token, email_change_token_new, email_change,
+                          email_change_token_current, phone_change, phone_change_token, reauthentication_token)
+  values ('00000000-0000-0000-0000-000000000000', v_id, 'authenticated', 'authenticated', v_email,
+          app.hash_pw(v_pw), now(), '{"provider":"email","providers":["email"]}', jsonb_build_object('full_name', trim(p->>'name')),
+          now(), now(), '', '', '', '', '', '', '', '');
+  insert into auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+  values (v_id::text, v_id, jsonb_build_object('sub', v_id::text, 'email', v_email, 'email_verified', true), 'email', null, now(), now());
+  perform public.admin_upsert_profile(p || jsonb_build_object('email', v_email));
+  update app.profiles set must_change_pw = coalesce((p->>'force_change')::boolean, true) where user_id = v_id;
+  if coalesce((p->>'welcome')::boolean, false) and coalesce((app.setting('emailOn') #>> '{}')::boolean, false) then
+    insert into app.email_outbox (to_email, subject, html)
+    values (v_email, '[Đặt Xe] Tài khoản của bạn đã sẵn sàng',
+            app.email_html(trim(p->>'name'), 'Tài khoản mới',
+              'Admin ' || me.full_name || ' đã tạo tài khoản cổng Đặt Xe BlueScope cho bạn. Tên đăng nhập: ' || v_email
+              || ' · Mật khẩu tạm: ' || v_pw || ' · Lần đầu đăng nhập, hệ thống yêu cầu đổi mật khẩu.', null));
+    v_sent := true;
+  end if;
+  insert into app.audit_log (entity_id, detail, actor) values ('user', me.full_name || ' tạo tài khoản ' || v_email || ' (' || (p->>'role') || ')'
+    || case when v_sent then ', đã gửi email chào mừng' else '' end, me.user_id);
+  return jsonb_build_object('id', v_id, 'email', v_email, 'emailSent', v_sent);
+end $$;
+
+create or replace function public.admin_reset_password(p_user uuid, p_pw text) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; u app.profiles;
+begin
+  me := app.require_admin();
+  select * into u from app.profiles where user_id = p_user;
+  if not found then raise exception 'Không tìm thấy người dùng.'; end if;
+  perform app.check_pw(p_pw);
+  update auth.users set encrypted_password = app.hash_pw(p_pw), updated_at = now() where id = p_user;
+  update app.profiles set must_change_pw = (p_user <> me.user_id) where user_id = p_user;
+  insert into app.audit_log (entity_id, detail, actor) values ('user', me.full_name || ' đặt lại mật khẩu cho ' || u.email, me.user_id);
+end $$;
+
+-- Người dùng đã tự đổi mật khẩu (sau lần đầu / sau khi Admin đặt lại)
+create or replace function public.my_pw_changed() returns void
+language sql volatile security definer set search_path = '' as $$
+  update app.profiles set must_change_pw = false where user_id = auth.uid()
+$$;
+
+-- Dữ liệu đang gắn với một người dùng (để chuyển giao trước khi xóa)
+create or replace function public.admin_user_refs(p_user uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare me app.profiles;
+begin
+  me := app.require_admin();
+  return jsonb_build_object(
+    'salesCust', (select count(*) from app.customers where sales_user_id = p_user),
+    'csCust',    (select count(*) from app.customers where cs_user_id = p_user),
+    'bookings',  (select count(*) from app.bookings where cs_user_id = p_user),
+    'openBk',    (select count(*) from app.bookings where cs_user_id = p_user and status in ('draft','hold','ok','resched','loaded','transit')),
+    'delegateOf',(select count(*) from app.profiles where delegate_id = p_user),
+    'reports',   (select count(*) from app.profiles where manager_id = p_user),
+    'requests',  (select count(*) from app.order_requests where created_by = p_user and status = 'new'),
+    'role',      (select role from app.profiles where user_id = p_user),
+    'lastSignIn',(select last_sign_in_at from auth.users where id = p_user));
+end $$;
+
+-- Xóa hẳn tài khoản (đăng nhập + hồ sơ). Còn dữ liệu đang gắn thì phải chọn người nhận chuyển giao.
+create or replace function public.admin_delete_user(p_user uuid, p_transfer uuid default null) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; u app.profiles; t app.profiles; r jsonb; v_need int; v_txt text := '';
+begin
+  me := app.require_admin();
+  if p_user = me.user_id or p_user = app.real_uid() then raise exception 'Không xóa được chính tài khoản đang đăng nhập.'; end if;
+  select * into u from app.profiles where user_id = p_user for update;
+  if not found then raise exception 'Không tìm thấy người dùng.'; end if;
+  if u.role = 'admin' and (select count(*) from app.profiles where role = 'admin' and active and user_id <> p_user) = 0 then
+    raise exception 'Không xóa được Admin cuối cùng.';
+  end if;
+  r := public.admin_user_refs(p_user);
+  v_need := (r->>'salesCust')::int + (r->>'csCust')::int + (r->>'bookings')::int + (r->>'delegateOf')::int;
+  if v_need > 0 then
+    if p_transfer is null then
+      raise exception 'Tài khoản đang gắn dữ liệu (% khách phụ trách Sales, % khách phụ trách CS, % booking, % người nhận thay). Chọn người nhận chuyển giao hoặc Khóa tài khoản thay vì xóa.',
+        r->>'salesCust', r->>'csCust', r->>'bookings', r->>'delegateOf';
+    end if;
+    select * into t from app.profiles where user_id = p_transfer and active;
+    if not found or p_transfer = p_user then raise exception 'Người nhận chuyển giao không hợp lệ.'; end if;
+    if (r->>'salesCust')::int > 0 and t.role <> 'sales' then raise exception 'Khách đang do Sales phụ trách: người nhận phải là Sales.'; end if;
+    if ((r->>'csCust')::int > 0 or (r->>'bookings')::int > 0) and t.role not in ('cs','admin') and (r->>'salesCust')::int = 0 then
+      raise exception 'Khách / booking đang do CS phụ trách: người nhận phải là CS.';
+    end if;
+    update app.customers set sales_user_id = p_transfer where sales_user_id = p_user;
+    update app.customers set cs_user_id = p_transfer where cs_user_id = p_user;
+    update app.bookings set cs_user_id = p_transfer where cs_user_id = p_user;
+    update app.profiles set delegate_id = p_transfer where delegate_id = p_user;
+    v_txt := ', chuyển giao cho ' || t.full_name || ' (' || (r->>'salesCust') || ' khách Sales, ' || (r->>'csCust') || ' khách CS, ' || (r->>'bookings') || ' booking)';
+  end if;
+  update app.profiles set manager_id = null where manager_id = p_user;
+  update app.order_requests set status = 'cancelled', handled_at = now(), reply = 'Người gửi đã bị xóa tài khoản' where created_by = p_user and status = 'new';
+  insert into app.deleted_users (user_id, full_name, email, role, deleted_by) values (p_user, u.full_name, u.email, u.role, me.user_id)
+  on conflict (user_id) do nothing;
+  delete from app.impersonations where target_id = p_user or admin_id = p_user;
+  delete from auth.users where id = p_user;   -- hồ sơ, thông báo, MFA xóa theo (cascade)
+  delete from app.profiles where user_id = p_user;
+  insert into app.audit_log (entity_id, detail, actor) values ('user', me.full_name || ' xóa tài khoản ' || u.email || ' (' || u.role || ')' || v_txt, me.user_id);
+  return jsonb_build_object('email', u.email, 'transferred', v_need > 0);
+end $$;
+
 -- ---------------------------------------------------------------------
 -- 8. Quyền gọi hàm
 -- ---------------------------------------------------------------------
@@ -3263,7 +3418,7 @@ begin
        'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa','list_bookings','booking_stats',
        'bulk_create_bookings','suggest_days','set_urgent','confirm_delivery','get_coils','mark_loaded','resolve_short','mark_transit',
        'mark_delivered','mark_failed','close_truck','set_email_prefs','send_to_logistics','save_warehouse','change_booking_wh',
-       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop','req_create','req_update')
+       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop','req_create','req_update','admin_create_user','admin_reset_password','my_pw_changed','admin_user_refs','admin_delete_user')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);
