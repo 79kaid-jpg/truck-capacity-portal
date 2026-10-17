@@ -110,7 +110,14 @@ CÁCH TRẢ LỜI: mỗi lượt chỉ in ra ĐÚNG MỘT đối tượng JSON, 
 Trong "answer" có thể dùng **đậm**, xuống dòng, gạch đầu dòng "- ", và link: [BK-…](#bk:MÃ), [ngày 25/10 JM2](#day:2026-10-25:JM2), [DK-03](#truck:MÃ_XE_ĐẦY_ĐỦ), [mục hướng dẫn](#guide:ID).
 Quy tắc: ngày dạng YYYY-MM-DD; thiếu thông tin bắt buộc (khách, ngày, kho) thì hỏi lại thay vì đoán; với điền form chỉ nói "đã mở form, bạn kiểm tra và bấm Gửi" – không bao giờ nói đã gửi/đã lưu; câu hỏi ngoài phạm vi công việc thì lịch sự từ chối.`;}
 // ---------- vòng hỏi – công cụ – trả lời ----------
-function parseReply(t){t=String(t||'').trim();const i=t.indexOf('{'),j=t.lastIndexOf('}');if(i>=0&&j>i){try{return JSON.parse(t.slice(i,j+1));}catch(e){}}return {answer:t};}
+function parseReply(t){if(t&&typeof t==='object')return normReply(t);t=String(t||'').trim();const i=t.indexOf('{'),j=t.lastIndexOf('}');
+ if(i>=0&&j>i){try{return normReply(JSON.parse(t.slice(i,j+1)));}catch(e){}}return {answer:t};}
+// chuẩn hóa: args có thể là chuỗi JSON; answer có thể là object / mảng → chuyển thành chữ
+function normReply(R){if(!R||typeof R!=='object')return {answer:String(R||'')};
+ if(R.tool&&typeof R.args==='string'){try{R.args=JSON.parse(R.args);}catch(e){R.args={};}}
+ if(!R.tool&&R.answer==null&&(R.name||R.function)){const f=R.function||R;return {tool:f.name,args:typeof f.arguments==='string'?(()=>{try{return JSON.parse(f.arguments);}catch(e){return {};}})():(f.arguments||f.parameters||{})};}
+ if(R.answer!=null&&typeof R.answer!=='string')R.answer=Array.isArray(R.answer)?R.answer.map(x=>typeof x==='string'?x:JSON.stringify(x)).join('\n'):JSON.stringify(R.answer);
+ if(!R.tool&&R.answer==null)R.answer=R.text||R.response||JSON.stringify(R);return R;}
 async function callAI(msgs,tools){const {data}=await sb.auth.getSession();const tok=data&&data.session&&data.session.access_token;
  const r=await fetch(CHAT.api,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+tok},body:JSON.stringify({messages:msgs,tools})});
  const j=await r.json().catch(()=>({error:'Máy chủ chatbot không phản hồi ('+r.status+').'}));if(!r.ok||j.error)throw new Error(j.error||('Lỗi '+r.status));if(j.left!=null)CHAT.left=j.left;return j.text;}
@@ -122,7 +129,7 @@ async function chatAsk(q){if(CHAT.busy||!q.trim())return;CHAT.busy=true;CHAT.msg
     let res;try{res=await TOOLS[R.tool].run(R.args||{});}catch(e){res={loi:e.message};}
     work.push({role:'assistant',content:JSON.stringify({tool:R.tool,args:R.args||{}})},{role:'user',content:'KẾT QUẢ CÔNG CỤ '+R.tool+': '+JSON.stringify(res).slice(0,7000)+'\nTiếp tục: gọi công cụ khác hoặc trả lời cuối bằng {"answer":"..."}'});continue;}
    if(R.tool){work.push({role:'assistant',content:txt},{role:'user',content:'Công cụ "'+R.tool+'" không tồn tại hoặc bạn không có quyền. Trả lời bằng {"answer":"..."}'});continue;}
-   const ans=String(R.answer||txt);CHAT.msgs.push({role:'assistant',content:ans,raw:JSON.stringify({answer:ans})});break;}}
+   const ans=typeof R.answer==='string'&&R.answer?R.answer:(typeof txt==='string'?txt:JSON.stringify(txt));CHAT.msgs.push({role:'assistant',content:ans,raw:JSON.stringify({answer:ans})});break;}}
  catch(e){CHAT.msgs.push({role:'err',content:e.message});}
  CHAT.busy=false;chatRender();}
 const STEP={capacity:'Xem năng lực còn đặt được',find_bookings:'Tìm đơn',booking_detail:'Xem chi tiết booking',requests:'Xem yêu cầu đặt hàng',guide:'Tra hướng dẫn',fill_request:'Mở form yêu cầu đặt hàng',open:'Mở màn hình',find_customer:'Tìm khách hàng',find_trucks:'Tìm xe',truck_detail:'Xem chi tiết xe',suggest_trucks:'Gợi ý xe',suggest_all:'Gợi ý xếp cả ngày',fill_order:'Mở lưới đặt hàng'};

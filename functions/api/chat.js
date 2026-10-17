@@ -31,8 +31,10 @@ export async function onRequestPost({ request, env }) {
       .map(m => ({ role: m.role, content: m.content.slice(0, m.role === 'system' ? 12000 : 6000) }));
     if (!msgs.some(m => m.role === 'user')) return json({ error: 'Thiếu câu hỏi.' }, 400);
     const out = await env.AI.run(env.CHAT_MODEL || MODEL, { messages: msgs, max_tokens: 900, temperature: 0.2 });
-    const text = typeof out === 'string' ? out : (out && (out.response ?? out.result?.response)) || '';
-    return json({ text: String(text), left: qj.left, limit: qj.limit });
+    // Workers AI có thể trả "response" là chuỗi hoặc đã tự parse thành object khi mô hình in ra JSON
+    let text = typeof out === 'string' ? out : (out && (out.response ?? out.result?.response));
+    if (text != null && typeof text !== 'string') text = JSON.stringify(text);
+    return json({ text: text || '', left: qj.left, limit: qj.limit });
   } catch (e) {
     return json({ error: 'Chatbot đang lỗi: ' + (e && e.message || e) }, 500);
   }
