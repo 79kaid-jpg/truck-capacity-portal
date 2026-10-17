@@ -1,5 +1,5 @@
 // E2E: thống kê khách (cột Khách trên lịch, DB-05) và phạm vi thống kê theo tài khoản. Test-only.
-// Tham số: tổng tấn tháng này của khách s1 (ok+hold+resched+draft), tổng tấn khách Dân dụng, tổng tấn khách Dự án — tính bằng SQL trong all.sh
+// Tham số: tổng tấn tháng này của khách s1 (có xe + chờ + đổi ngày; không gồm lưu tạm), tổng tấn khách Dân dụng, tổng tấn khách Dự án — tính bằng SQL trong all.sh
 import { chromium } from '/opt/npm-tools/node_modules/playwright/index.mjs';
 import fs from 'fs';
 const mock = fs.readFileSync(new URL('./mock-supabase.js', import.meta.url), 'utf8');
@@ -24,7 +24,7 @@ let p = await open('s1@demo.vn');
 let txt = await p.locator('aside.sst').innerText();
 check('Sales own: title + scope label', /THỐNG KÊ KHÁCH CỦA BẠN/i.test(txt) && /Khách bạn phụ trách/.test(txt));
 check('Sales own: total = SQL', (await big(p)) === OWN, `${await big(p)} vs ${OWN}`);
-check('Sales own: draft counted', /Đang lưu tạm\s*12,00 MT · 1 đơn/.test(txt));
+check('Sales own: lưu tạm hiện riêng, không tính tổng', /Đang lưu tạm \(chưa gửi, không tính vào tổng\): 12,00 MT · 1 đơn/.test(txt));
 check('Sales own: no segment chips', (await p.locator('[data-a="csSeg"]').count()) === 0);
 await p.screenshot({ path: '/tmp/e2e-shots/ss-1-sales.png', fullPage: true });
 await p.context().close();
