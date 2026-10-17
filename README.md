@@ -257,6 +257,21 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
   - Có nút **Thu gọn** để lịch rộng hơn; trình duyệt nhớ lựa chọn này.
 - File: `web/v36.js`. Test: `test/e2e/v36.mjs`.
 
+## v3.7 – Phím tắt cấu hình được
+- Mỗi người tự đổi phím ở **Hồ sơ › Phím tắt của tôi**: bấm vào ô rồi nhấn tổ hợp mới (ghi được chuỗi 2 phím như G rồi L).
+- Admin vào **Cấu hình › Phím tắt** để:
+  - đặt phím mặc định cho cả công ty;
+  - bật / tắt phím tắt và phím một chữ cái;
+  - **reset** phím của một người hoặc của tất cả về mặc định công ty.
+- Phím áp dụng theo thứ tự: mặc định hệ thống → mặc định công ty (`settings.shortcuts`) → phím riêng của từng người (`profiles.shortcuts`).
+- **Kiểm tra khi đặt phím:**
+  - ⛔ chặn phím của trình duyệt, Windows/macOS, Unikey/EVKey và phím dán Excel; chặn mọi tổ hợp Ctrl+Alt;
+  - ⛔ chặn phím trùng với thao tác khác trong cùng màn hình;
+  - ⚠ chỉ cảnh báo với phím thường dùng ở Teams, Zalo, Outlook, Excel.
+- Phím một chữ cái chỉ có tác dụng khi không đang gõ trong ô nhập liệu. Trong lưới và hộp thoại bắt buộc dùng Ctrl/Alt.
+- Bấm `?` để mở bảng phím tắt. Rê chuột vào nút sẽ thấy phím tương ứng. Ctrl+K (tìm kiếm) và Esc (đóng hộp thoại) là phím cố định.
+- RPC: `save_my_shortcuts`, `admin_save_shortcuts`, `admin_reset_shortcuts`. File: `web/v37.js`. Test: `test/e2e/v37.mjs`.
+
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.
 - Gói Free **không có backup tự động**. Mỗi tuần nên export các bảng chính (Table Editor → schema `app` → Export CSV).
@@ -272,7 +287,8 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v30.js                  Màn hình v3.0: lưới đặt hàng, Gửi Logistics, cấu hình kho, đổi kho
   v31.js                  Màn hình v3.1: tìm khách, nhập khách hàng / địa chỉ từ file
   v35.js                  Bảng thống kê (8 tab, bấm biểu đồ xem đơn), Cấu hình › Mục tiêu
-  v36.js                  Lịch đặt xe mới: ô gọn, cột Tuần, lọc, tất cả kho, 2 tuần, phím tắt, thống kê Xe
+  v36.js                  Lịch đặt xe mới: ô gọn, cột Tuần, lọc, tất cả kho, 2 tuần, thống kê Xe
+  v37.js                  Phím tắt: bộ xử lý, bảng ?, chỉnh trong Hồ sơ / Cấu hình
   config.js               URL + anon key (công khai)
   favicon.svg, icon-*.png, apple-touch-icon.png, manifest.webmanifest   Biểu tượng trang / màn hình chính điện thoại
 supabase/

@@ -760,7 +760,7 @@ begin
                              'segment', me.segment, 'customerId', me.customer_id, 'wh', me.default_warehouse, 'whs', me.warehouses,
                              'awayFrom', me.away_from, 'awayTo', me.away_to, 'delegateId', me.delegate_id,
                              'mfa', app.has_mfa(me.user_id), 'mfaReq', app.role_has(me.role, 'auth.mfa'), 'statScope', app.stat_scope(me),
-                             'emailLevel', me.email_level, 'altEmail', me.alt_email),
+                             'emailLevel', me.email_level, 'altEmail', me.alt_email, 'shortcuts', me.shortcuts),
     'cfg', v_cfg,
     'perms', to_jsonb(app.my_perms(me.role)),
     'imp', case when app.impersonating() then (select jsonb_build_object('by', a.full_name, 'expiresAt', extract(epoch from i.expires_at))
@@ -2973,6 +2973,43 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------
+-- v3.7: phím tắt – mỗi người tự đổi (profiles.shortcuts), Admin đặt mặc định công ty (settings.shortcuts) và reset
+-- ---------------------------------------------------------------------
+alter table app.profiles add column if not exists shortcuts jsonb not null default '{}';
+
+-- Người dùng lưu phím tắt của mình: p = {"actionId": "Ctrl+Enter", "x": ""(tắt)}; {} = dùng mặc định công ty
+create or replace function public.save_my_shortcuts(p jsonb) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+begin
+  if jsonb_typeof(coalesce(p, '{}')) <> 'object' or length(p::text) > 8000 then raise exception 'Dữ liệu phím tắt không hợp lệ.'; end if;
+  update app.profiles set shortcuts = coalesce(p, '{}') where user_id = app.real_uid() and active;
+  if not found then raise exception 'Tài khoản chưa được cấp quyền.' using errcode = '42501'; end if;
+end $$;
+
+-- Admin: mặc định công ty p = {enabled, single, map:{...}}
+create or replace function public.admin_save_shortcuts(p jsonb) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles;
+begin
+  me := app.require_perm('config.shortcuts');
+  if jsonb_typeof(coalesce(p, '{}')) <> 'object' or length(p::text) > 8000 then raise exception 'Dữ liệu phím tắt không hợp lệ.'; end if;
+  insert into app.settings (key, value) values ('shortcuts', p) on conflict (key) do update set value = excluded.value;
+  perform app.audit('shortcuts', 'Cập nhật phím tắt mặc định của công ty');
+end $$;
+
+-- Admin: đưa phím tắt của một người (p_user) hoặc mọi người (null) về mặc định công ty
+create or replace function public.admin_reset_shortcuts(p_user uuid default null) returns int
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; n int;
+begin
+  me := app.require_perm('config.shortcuts');
+  update app.profiles set shortcuts = '{}' where (p_user is null or user_id = p_user) and shortcuts <> '{}';
+  get diagnostics n = row_count;
+  perform app.audit('shortcuts', 'Reset phím tắt về mặc định công ty: ' || coalesce((select full_name from app.profiles where user_id = p_user), 'tất cả người dùng') || ' (' || n || ')');
+  return n;
+end $$;
+
+-- ---------------------------------------------------------------------
 -- 8. Quyền gọi hàm
 -- ---------------------------------------------------------------------
 revoke all on all functions in schema app from public, anon, authenticated;
@@ -2991,7 +3028,7 @@ begin
        'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa','list_bookings','booking_stats',
        'bulk_create_bookings','suggest_days','set_urgent','confirm_delivery','get_coils','mark_loaded','resolve_short','mark_transit',
        'mark_delivered','mark_failed','close_truck','set_email_prefs','send_to_logistics','save_warehouse','change_booking_wh',
-       'get_ver','import_customers','save_targets','dash_data')
+       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);
@@ -3372,6 +3409,7 @@ insert into app.permissions (code, grp, name, descr, sort, def_roles) values
   ('delivery.confirm','Giao hàng',  'Xác nhận giao hàng, xử lý phần còn lại', 'Nhập địa chỉ và danh sách cuộn, tách đơn / không giao phần còn lại (BR-43, BR-44, BR-46)', 52, '{cs,admin}'),
   ('delivery.ship',   'Giao hàng',  'Load, đang giao, đã giao',            'Đã load hàng, Đang giao, Đã giao, Giao không thành công (BR-45)', 112, '{logistics,admin}'),
   ('booking.urgent',  'Đặt hàng',   'Đặt / bỏ cờ đơn khẩn',                'Ghi đè cờ khẩn tự tính, bắt buộc lý do (BR-41)', 55, '{admin}'),
+  ('config.shortcuts','Cấu hình','Phím tắt','Đặt phím tắt mặc định của công ty; reset phím tắt của một người hoặc mọi người',127,'{admin}'),
   ('config.targets','Cấu hình','Mục tiêu','Nhập mục tiêu tấn theo tháng × segment (tab Mục tiêu của Bảng thống kê)',126,'{admin}'),
   ('config.warehouses','Cấu hình',  'Kho',                                 'Thêm kho, sửa tên, mã ERP, ngừng dùng kho', 125, '{logistics,admin}')
 on conflict (code) do update set grp = excluded.grp, name = excluded.name, descr = excluded.descr, sort = excluded.sort, def_roles = excluded.def_roles;
