@@ -345,7 +345,7 @@ function custStatsPanel(y,m,head){
   <div><div class="lbl">Khách đặt nhiều nhất</div>${top3.length?`<div class="sst-box">${top3.map(cl).join('')}</div>`:'<div class="muted small">Chưa có đơn trong tháng</div>'}</div>
   ${low3.length?`<div><div class="lbl">Khách đặt ít nhất</div><div class="sst-box">${low3.map(cl).join('')}</div></div>`:''}
   ${R.noBk.length?`<div class="small"><span class="lbl">Chưa đặt tháng này:</span> <span title="${esc(R.noBk.map(c=>c.name).join(', '))}">${R.noBk.length}/${R.custCount} khách</span> <span class="muted">(${esc(R.noBk.slice(0,3).map(c=>c.name).join(', '))}${R.noBk.length>3?'…':''})</span></div>`:''}
-  ${can('dash.sales')?`<button class="linkbtn small" data-a="goDb5">Xem chi tiết ở Dashboard DB-05 →</button>`:''}
+  ${can('dash.sales')?`<button class="linkbtn small" data-a="goDb5">Xem chi tiết ở Bảng thống kê →</button>`:''}
   <div class="muted small">Tính theo ngày bốc; không gồm đơn đã hủy.</div></aside>`;}
 const statModeHead=()=>`<div class="seg sst-seg sst-mode" role="group" aria-label="Loại thống kê"><button class="${V.statMode==='cust'?'':'on'}" data-a="statMode" data-v="truck">Xe</button><button class="${V.statMode==='cust'?'on':''}" data-a="statMode" data-v="cust">Khách</button></div>`;
 function statsPanel(){
@@ -579,9 +579,9 @@ function vFleet(){
 
 /* ---------- SCR-13 config ---------- */
 function vConfig(){const C=S.cfg;
- const tabs=[['general','Ngưỡng & tải trọng','config.general'],['regions','Khu vực giao hàng','config.regions'],['catalog','Sản phẩm, màu, độ dày, khổ','config.catalog'],['holiday','Ngày nghỉ','config.general'],['wh','Kho','config.warehouses']].filter(t=>can(t[2]));
+ const tabs=[['general','Ngưỡng & tải trọng','config.general'],['regions','Khu vực giao hàng','config.regions'],['catalog','Sản phẩm, màu, độ dày, khổ','config.catalog'],['holiday','Ngày nghỉ','config.general'],['wh','Kho','config.warehouses'],['tgt','Mục tiêu','config.targets']].filter(t=>can(t[2]));
  if(!tabs.some(t=>t[0]===V.cfgTab))V.cfgTab=tabs[0]?tabs[0][0]:'general';const T=V.cfgTab;
- let body=T==='wh'&&typeof whCfg30==='function'?whCfg30():'';
+ let body=T==='wh'&&typeof whCfg30==='function'?whCfg30():T==='tgt'&&typeof tgtCfg35==='function'?tgtCfg35():'';
  if(T==='general'){const f=(k,l,suf)=>`<div class="field"><label for="cf-${k}">${l}</label><div class="row" style="flex-wrap:nowrap"><input id="cf-${k}" class="inp num" inputmode="decimal" data-f="cfg" data-k="${k}" value="${C[k]}"><span class="muted small">${suf}</span></div></div>`;
   body=`<div class="fgrid">${f('near','Ngưỡng GẦN ĐẦY','%')}${f('capDK','Tải trọng mặc định đầu kéo (DK)','tấn')}${f('capCN','Tải trọng mặc định xe thùng (XT)','tấn')}${f('capDKMin','DK: tải trọng tối thiểu khi chỉnh từng xe','tấn')}${f('capDKMax','DK: tải trọng tối đa khi chỉnh từng xe','tấn')}${f('capCNMin','XT: tải trọng tối thiểu khi chỉnh từng xe','tấn')}${f('capCNMax','XT: tải trọng tối đa khi chỉnh từng xe','tấn')}${f('split','Ngưỡng phân loại đơn DK / XT','tấn')}${f('sla','Thời hạn phản hồi giữ chỗ','phút')}${f('escalateHours','Nhắc lại cho tất cả CS khi Đề nghị đổi ngày chưa xử lý sau','giờ')}${f('maxStops','Số điểm giao tối đa / xe','điểm')}${f('fillMin','Lấp đầy tối thiểu để đề xuất nhóm gộp','%')}
   <div class="field"><label>Gợi ý gộp xe</label><label class="row"><input type="checkbox" data-f="cfgb" data-k="suggestOn" ${C.suggestOn?'checked':''}> Bật gợi ý gộp xe theo khu vực</label></div></div>

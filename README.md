@@ -216,6 +216,17 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
   - Màu: xanh dưới ngưỡng gần đầy, cam từ ngưỡng gần đầy, đỏ khi đủ tải, đỏ đậm khi vượt tải, xám kèm 🔒 khi xe đã đóng.
 - Test: `test/99_v33.sql`, `test/e2e/v33.mjs`.
 
+## v3.5 – Bảng thống kê mới (như bản Google Sheets)
+- Trang Dashboard thay bằng **Bảng thống kê đặt xe** (`web/v35.js`), gồm 8 tab:
+  - Tổng quan, CS, Logistics, Sales, Ngoại lệ, Lịch đơn, Mục tiêu, Hệ thống.
+  - Mỗi vai trò mở sẵn tab của mình: CS vào tab CS, Logistics vào tab Logistics, Sales vào tab Sales.
+- Bộ lọc kỳ: Ngày / Tuần / Tháng / Quý / Năm / Tùy chọn, kèm Kho và Segment. Có nút ⬇ Excel và In / PDF.
+- **Bấm vào ô số, cột, thanh hoặc ô bảng** sẽ mở danh sách đơn đúng phần đó (có ⬇ Excel). Bấm một đơn để mở chi tiết; "← Quay lại" về đúng tab, bộ lọc và danh sách.
+- Dữ liệu: `dash_data(p_from, p_to)` lấy dữ liệu một lần theo kỳ (tối đa 400 ngày), theo phạm vi thống kê của người xem. Lọc kho / segment tính ngay trên trình duyệt.
+- **Mục tiêu:** bảng `app.targets` lưu tấn theo tháng × segment. Nhập ở Cấu hình › Mục tiêu (quyền `config.targets`, mặc định Admin).
+- **Area:** khách có thêm `area` và `area_detail`, lấy từ cột Area và Area chi tiết khi nhập khách từ file.
+- Test: `test/e2e/v35.mjs`.
+
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.
 - Gói Free **không có backup tự động**. Mỗi tuần nên export các bảng chính (Table Editor → schema `app` → Export CSV).
@@ -230,6 +241,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v29.js                  Màn hình v2.9: nhập nhiều dòng, giao hàng, load / giao, đóng xe, cờ khẩn, email
   v30.js                  Màn hình v3.0: lưới đặt hàng, Gửi Logistics, cấu hình kho, đổi kho
   v31.js                  Màn hình v3.1: tìm khách, nhập khách hàng / địa chỉ từ file
+  v35.js                  Bảng thống kê (8 tab, bấm biểu đồ xem đơn), Cấu hình › Mục tiêu
   config.js               URL + anon key (công khai)
   favicon.svg, icon-*.png, apple-touch-icon.png, manifest.webmanifest   Biểu tượng trang / màn hình chính điện thoại
 supabase/
