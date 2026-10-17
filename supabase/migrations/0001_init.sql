@@ -133,6 +133,14 @@ create table if not exists app.impersonations (
   expires_at timestamptz not null
 );
 
+-- v3.8: Admin "Xem như khách hàng" (chỉ xem) – không cần khách có tài khoản
+create table if not exists app.cust_views (
+  admin_id    uuid primary key references app.profiles(user_id) on delete cascade,
+  customer_id uuid not null,
+  started_at  timestamptz not null default now(),
+  expires_at  timestamptz not null
+);
+
 create table if not exists app.daily_fleet (
   warehouse_code text not null references app.warehouses(code),
   day            date not null,
@@ -444,6 +452,9 @@ begin
     end if;
     raise exception 'Tài khoản chưa được cấp quyền hoặc đã bị khóa.' using errcode = '42501';
   end if;
+  if exists (select 1 from app.cust_views v where v.admin_id = app.real_uid() and v.expires_at > now()) then
+    raise exception 'Đang ở chế độ Xem như khách hàng (chỉ xem). Bấm Thoát trên thanh màu cam trước khi thao tác.' using errcode = '42501';
+  end if;
   if not (m.role = any(roles)) then
     raise exception 'Vai trò % không được phép thực hiện thao tác này.', m.role using errcode = '42501';
   end if;
@@ -479,6 +490,9 @@ begin
       raise exception 'Cần xác thực 2 lớp: tải lại trang và nhập mã từ ứng dụng xác thực.' using errcode = '42501';
     end if;
     raise exception 'Tài khoản chưa được cấp quyền hoặc đã bị khóa.' using errcode = '42501';
+  end if;
+  if exists (select 1 from app.cust_views v where v.admin_id = app.real_uid() and v.expires_at > now()) then
+    raise exception 'Đang ở chế độ Xem như khách hàng (chỉ xem). Bấm Thoát trên thanh màu cam trước khi thao tác.' using errcode = '42501';
   end if;
   if not app.role_has(m.role, p_perm) then
     select name into v_name from app.permissions where code = p_perm;
@@ -737,7 +751,7 @@ drop function if exists public.get_state(date, date);
 create or replace function public.get_state(p_from date, p_to date, p_cat text default null) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare
-  me app.profiles; res jsonb; v_cfg jsonb; v_internal boolean; v_cat text;
+  me app.profiles; res jsonb; v_cfg jsonb; v_internal boolean; v_cat text; v_cv app.cust_views; v_cvname text;
 begin
   select * into me from app.profiles p where p.user_id = app.uid() and p.active;
   if not found then
@@ -747,6 +761,12 @@ begin
     return jsonb_build_object('me', null, 'today', app.today(), 'error', 'no_profile');
   end if;
   v_internal := me.role <> 'customer';
+  -- v3.8: Xem như khách hàng – trả dữ liệu đúng như khách thấy
+  select * into v_cv from app.cust_views where admin_id = app.real_uid() and expires_at > now();
+  if v_cv.admin_id is not null and app.role_has(me.role, 'users.impersonate') then
+    select name into v_cvname from app.customers where id = v_cv.customer_id;
+    me.role := 'customer'; me.customer_id := v_cv.customer_id; v_internal := false;
+  else v_cv := null; end if;
   select jsonb_object_agg(key, value) into v_cfg from app.settings;
   v_cat := me.user_id || ':' || me.role || ':' || (select last_value from app.cat_seq);
 
@@ -764,9 +784,10 @@ begin
     'imp', case when app.impersonating() then (select jsonb_build_object('by', a.full_name, 'expiresAt', extract(epoch from i.expires_at))
                 from app.impersonations i join app.profiles a on a.user_id = i.admin_id where i.admin_id = app.real_uid()) end,
     'warehouses', (select jsonb_agg(jsonb_build_object('id', code, 'name', name, 'full', full_name, 'erp', erp_code, 'active', active) order by code) from app.warehouses),
-    'notifs', (select coalesce(jsonb_agg(jsonb_build_object('id', n.id, 'type', n.type, 'text', n.text, 'link', n.link,
+    'custView', case when v_cv.admin_id is not null then jsonb_build_object('customerId', v_cv.customer_id, 'name', v_cvname, 'expiresAt', extract(epoch from v_cv.expires_at)) end,
+    'notifs', case when v_cv.admin_id is not null then '[]'::jsonb else (select coalesce(jsonb_agg(jsonb_build_object('id', n.id, 'type', n.type, 'text', n.text, 'link', n.link,
                  'at', extract(epoch from n.created_at), 'read', n.read_at is not null) order by n.created_at desc), '[]')
-               from (select * from app.notifications where user_id = me.user_id order by created_at desc limit 100) n)
+               from (select * from app.notifications where user_id = me.user_id order by created_at desc limit 100) n) end
   );
 
   if not v_internal then
@@ -1844,6 +1865,7 @@ begin
   if t.user_id = a.user_id then raise exception 'Không Login as chính mình.'; end if;
   insert into app.impersonations (admin_id, target_id, expires_at) values (a.user_id, t.user_id, now() + make_interval(mins => v_min))
   on conflict (admin_id) do update set target_id = excluded.target_id, started_at = now(), expires_at = excluded.expires_at;
+  delete from app.cust_views where admin_id = a.user_id;
   insert into app.audit_log (entity_id, detail, actor) values ('login-as', a.full_name || ' bắt đầu Login as ' || t.full_name || ' (' || t.email || ', ' || t.role || ')', a.user_id);
   return jsonb_build_object('name', t.full_name, 'role', t.role, 'minutes', v_min);
 end $$;
@@ -3008,6 +3030,38 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------
+-- v3.8: Xem như khách hàng (chỉ xem, 60 phút, ghi nhật ký)
+-- ---------------------------------------------------------------------
+create or replace function public.cust_view_start(p_customer uuid) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare a app.profiles; c app.customers; v_min int := 60;
+begin
+  select * into a from app.profiles where user_id = app.real_uid() and active;
+  if not found or not app.role_has(a.role, 'users.impersonate') then
+    raise exception 'Vai trò của bạn chưa được cấp quyền "Login as".' using errcode = '42501';
+  end if;
+  select * into c from app.customers where id = p_customer;
+  if not found then raise exception 'Không tìm thấy khách hàng.'; end if;
+  delete from app.impersonations where admin_id = a.user_id;
+  insert into app.cust_views (admin_id, customer_id, expires_at) values (a.user_id, c.id, now() + make_interval(mins => v_min))
+  on conflict (admin_id) do update set customer_id = excluded.customer_id, started_at = now(), expires_at = excluded.expires_at;
+  insert into app.audit_log (entity_id, detail, actor) values ('login-as', a.full_name || ' bắt đầu Xem như khách hàng ' || c.name || ' (' || c.code || ')', a.user_id);
+  return jsonb_build_object('name', c.name, 'minutes', v_min);
+end $$;
+
+create or replace function public.cust_view_stop() returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare v app.cust_views; v_a text; v_c text;
+begin
+  delete from app.cust_views where admin_id = app.real_uid() returning * into v;
+  if v.admin_id is not null then
+    select full_name into v_a from app.profiles where user_id = v.admin_id;
+    select name into v_c from app.customers where id = v.customer_id;
+    insert into app.audit_log (entity_id, detail, actor) values ('login-as', coalesce(v_a, 'Admin') || ' kết thúc Xem như khách hàng ' || coalesce(v_c, '?'), v.admin_id);
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------
 -- 8. Quyền gọi hàm
 -- ---------------------------------------------------------------------
 revoke all on all functions in schema app from public, anon, authenticated;
@@ -3026,7 +3080,7 @@ begin
        'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa','list_bookings','booking_stats',
        'bulk_create_bookings','suggest_days','set_urgent','confirm_delivery','get_coils','mark_loaded','resolve_short','mark_transit',
        'mark_delivered','mark_failed','close_truck','set_email_prefs','send_to_logistics','save_warehouse','change_booking_wh',
-       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts')
+       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);
