@@ -52,7 +52,7 @@ create table if not exists app.profiles (
   email             text not null,
   phone             text,
   role              text not null check (role in ('customer','sales','cs','logistics','admin')),
-  segment           text check (segment in ('DD','DA')),
+  segment           text check (segment in ('DD','DA','EX')),
   customer_id       uuid,
   default_warehouse text not null default 'JM2' references app.warehouses(code),
   warehouses        text[] not null default '{}',
@@ -65,7 +65,7 @@ create table if not exists app.customers (
   code          text not null unique,
   name          text not null,
   tax_code      text,
-  segment       text not null check (segment in ('DD','DA')),
+  segment       text not null check (segment in ('DD','DA','EX')),
   sales_user_id uuid references app.profiles(user_id),
   active        boolean not null default true,
   created_at    timestamptz not null default now()
@@ -80,7 +80,7 @@ alter table app.profiles  add column if not exists away_from date;
 alter table app.profiles  add column if not exists away_to date;
 alter table app.profiles  add column if not exists delegate_id uuid references app.profiles(user_id);
 -- Phạm vi thống kê (chỉ ảnh hưởng số liệu tổng hợp, không mở quyền sửa): own = khách mình phụ trách, DD / DA = toàn segment, all = tất cả
-alter table app.profiles  add column if not exists stat_scope text check (stat_scope in ('own','DD','DA','all'));
+alter table app.profiles  add column if not exists stat_scope text check (stat_scope in ('own','DD','DA','EX','all'));
 
 create table if not exists app.customer_addresses (
   id          uuid primary key default gen_random_uuid(),
@@ -734,10 +734,12 @@ revoke all on all functions in schema app from public, anon, authenticated;
 -- ---------------------------------------------------------------------
 
 -- Toàn bộ dữ liệu cho giao diện trong khoảng ngày, đã lọc theo vai trò
-create or replace function public.get_state(p_from date, p_to date) returns jsonb
+-- v3.1: p_cat = khóa danh mục khách trình duyệt đang giữ; trùng thì không gửi lại danh sách khách (null)
+drop function if exists public.get_state(date, date);
+create or replace function public.get_state(p_from date, p_to date, p_cat text default null) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare
-  me app.profiles; res jsonb; v_cfg jsonb; v_internal boolean;
+  me app.profiles; res jsonb; v_cfg jsonb; v_internal boolean; v_cat text;
 begin
   select * into me from app.profiles p where p.user_id = app.uid() and p.active;
   if not found then
@@ -748,10 +750,12 @@ begin
   end if;
   v_internal := me.role <> 'customer';
   select jsonb_object_agg(key, value) into v_cfg from app.settings;
+  v_cat := me.user_id || ':' || me.role || ':' || (select last_value from app.cat_seq);
 
   res := jsonb_build_object(
     'today', app.today(),
     'now', extract(epoch from now()),
+    'ver', app.ver_of(me.user_id),
     'me', jsonb_build_object('id', me.user_id, 'name', me.full_name, 'email', me.email, 'phone', me.phone, 'role', me.role,
                              'segment', me.segment, 'customerId', me.customer_id, 'wh', me.default_warehouse, 'whs', me.warehouses,
                              'awayFrom', me.away_from, 'awayTo', me.away_to, 'delegateId', me.delegate_id,
@@ -813,14 +817,15 @@ begin
                 'mfa', app.has_mfa(p.user_id), 'mfaReq', app.role_has(p.role, 'auth.mfa'), 'statScope', p.stat_scope,
                 'last', (select (u.last_sign_in_at at time zone 'Asia/Ho_Chi_Minh')::date from auth.users u where u.id = p.user_id)) order by p.full_name), '[]')
               from app.profiles p),
-    'customers', (select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'code', c.code, 'name', c.name, 'segment', c.segment, 'salesId', c.sales_user_id, 'csId', c.cs_user_id, 'active', c.active,
+    'catKey', v_cat,
+    'customers', case when p_cat = v_cat then null else (select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'code', c.code, 'name', c.name, 'segment', c.segment, 'salesId', c.sales_user_id, 'csId', c.cs_user_id, 'active', c.active,
                     'erp', c.erp_code, 'defWh', c.default_wh,
                     'addresses', (select coalesce(jsonb_agg(jsonb_build_object('id', a.id, 'label', a.label, 'province', a.province, 'ward', a.ward,
                                     'regions', (select coalesce(jsonb_object_agg(ar.warehouse_code, ar.region_id), '{}') from app.address_regions ar where ar.address_id = a.id))
                                     order by a.is_default desc, a.label), '[]')
                                   from app.customer_addresses a where a.customer_id = c.id)) order by c.name), '[]')
                   from app.customers c
-                 where me.role <> 'sales' or c.sales_user_id = me.user_id),
+                 where me.role <> 'sales' or c.sales_user_id = me.user_id) end,
     'truckInfo', (select coalesce(jsonb_agg(jsonb_build_object('code', td.truck_code, 'cap', td.cap, 'plate', td.plate, 'driver', td.driver, 'phone', td.phone,
                    'closed', td.closed, 'closedReason', td.closed_reason,
                    'reason', td.reason, 'by', coalesce((select p.full_name from app.profiles p where p.user_id = td.updated_by), ''),
@@ -840,7 +845,7 @@ begin
                    else
                      jsonb_build_object('id', b.id, 'wh', b.warehouse_code, 'date', b.day, 'delivery', b.delivery_date, 'customerId', b.customer_id,
                        'ref', b.ref, 'addrId', b.address_id, 'addrText', b.address_text, 'province', b.province, 'region', coalesce(b.region_id, 'NONE'),
-                       'status', b.status, 'csId', b.cs_user_id, 'heldAt', extract(epoch from coalesce(b.held_at, b.created_at)) / 60,
+                       'status', b.status, 'rev', b.rev, 'csId', b.cs_user_id, 'heldAt', extract(epoch from coalesce(b.held_at, b.created_at)) / 60,
                        'note', b.note, 'rejectReason', b.reason_note, 'reasonCode', b.reason_code, 'proposedDate', b.proposed_day,
                        'origDate', b.original_day, 'changes', b.change_count, 'urgent', b.urgent, 'urgentSet', b.urgent_override, 'urgentNote', b.urgent_note,
                        'lateCancel', b.late_cancel, 'parent', b.parent_id, 'requested', b.requested_tons, 'undelivered', b.undelivered_tons,
@@ -1603,7 +1608,7 @@ begin
   if coalesce(trim(p->>'name'), '') = '' then raise exception 'Nhập họ tên.'; end if;
   if v_role = 'sales' and (v_seg is null or coalesce(trim(p->>'phone'), '') = '') then raise exception 'Sales cần segment và số điện thoại.'; end if;
   if v_role = 'customer' and v_cust is null then raise exception 'Chọn công ty khách hàng.'; end if;
-  if nullif(p->>'stat_scope', '') is not null and p->>'stat_scope' not in ('own','DD','DA','all') then raise exception 'Phạm vi thống kê không hợp lệ.'; end if;
+  if nullif(p->>'stat_scope', '') is not null and p->>'stat_scope' not in ('own','DD','DA','EX','all') then raise exception 'Phạm vi thống kê không hợp lệ.'; end if;
   insert into app.profiles (user_id, full_name, email, phone, role, segment, customer_id, default_warehouse, warehouses, active, stat_scope)
   values (v_uid, trim(p->>'name'), lower(trim(p->>'email')), nullif(trim(p->>'phone'), ''), v_role,
           case when v_role = 'sales' then v_seg end, case when v_role = 'customer' then v_cust end,
@@ -1898,7 +1903,7 @@ begin
   me := app.require_perm('customers.manage');
   select * into c from app.customers where id = nullif(p->>'id', '')::uuid for update;
   if not found then raise exception 'Không tìm thấy khách hàng.'; end if;
-  if coalesce(trim(p->>'code'), '') = '' or coalesce(trim(p->>'name'), '') = '' or coalesce(p->>'segment', '') not in ('DD','DA') then
+  if coalesce(trim(p->>'code'), '') = '' or coalesce(trim(p->>'name'), '') = '' or coalesce(p->>'segment', '') not in ('DD','DA','EX') then
     raise exception 'Điền đủ mã, tên công ty và segment.';
   end if;
   select * into v_sales from app.profiles where user_id = nullif(p->>'sales_id', '')::uuid and role = 'sales' and active;
@@ -2076,13 +2081,13 @@ begin
     'customers', (select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'code', c.code, 'name', c.name, 'segment', c.segment, 'active', c.active,
                     'salesId', c.sales_user_id, 'salesName', sp.full_name) order by c.name), '[]')
                   from app.customers c left join app.profiles sp on sp.user_id = c.sales_user_id
-                 where v_scope = 'all' or (v_scope in ('DD','DA') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id)),
+                 where v_scope = 'all' or (v_scope in ('DD','DA','EX') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id)),
     'rows', (select coalesce(jsonb_agg(jsonb_build_array(x.customer_id, x.warehouse_code, x.day, x.status, x.reason_code, x.tons, x.n)), '[]') from (
               select b.customer_id, b.warehouse_code, b.day, b.status, case when b.status = 'rejected' then coalesce(b.reason_code, 'OTHER') end as reason_code,
                      sum(app.bk_total(b.id)) as tons, count(*) as n
                 from app.bookings b join app.customers c on c.id = b.customer_id
                where b.day between p_from and p_to and b.status in ('ok','hold','resched','draft','rejected')
-                 and (v_scope = 'all' or (v_scope in ('DD','DA') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id))
+                 and (v_scope = 'all' or (v_scope in ('DD','DA','EX') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id))
                group by 1, 2, 3, 4, 5) x));
 end $$;
 
@@ -2654,6 +2659,206 @@ begin
   perform app.audit(p_id, 'Đổi kho ' || b.warehouse_code || ' → ' || p_wh || ' (kho cũ ngừng dùng); chuyển về Lưu tạm, CS gửi lại Logistics');
 end $$;
 -- ---------------------------------------------------------------------
+-- v3.1: tốc độ + dữ liệu thật
+--  F1 danh mục khách gửi lại chỉ khi đổi (cat_seq); F3 phiên bản dữ liệu (data_seq) để trình duyệt hỏi "có gì mới";
+--  F2 phát hiện người khác vừa sửa đơn (rev + header x-bk-rev); F6 nhập khách hàng / địa chỉ từ file; F7 segment Export
+-- ---------------------------------------------------------------------
+create sequence if not exists app.data_seq;
+create sequence if not exists app.cat_seq;
+
+create or replace function app.bump_data() returns trigger language plpgsql set search_path = '' as $$
+begin perform nextval('app.data_seq'); return null; end $$;
+create or replace function app.bump_cat() returns trigger language plpgsql set search_path = '' as $$
+begin perform nextval('app.cat_seq'); return null; end $$;
+
+do $$
+declare t text;
+begin
+  foreach t in array array['bookings','booking_lines','allocations','daily_fleet','truck_days','delivery_items','profiles',
+                           'regions','region_neighbors','warehouses','settings','holidays','reason_codes'] loop
+    if to_regclass('app.' || t) is not null then
+      execute format('drop trigger if exists zz_bump_data on app.%I', t);
+      execute format('create trigger zz_bump_data after insert or update or delete on app.%I for each row execute function app.bump_data()', t);
+    end if;
+  end loop;
+  foreach t in array array['customers','customer_addresses','address_regions'] loop
+    execute format('drop trigger if exists zz_bump_cat on app.%I', t);
+    execute format('create trigger zz_bump_cat after insert or update or delete on app.%I for each row execute function app.bump_cat()', t);
+  end loop;
+end $$;
+
+-- d = dữ liệu chung, c = danh mục khách, n = thông báo mới nhất của người dùng
+create or replace function app.ver_of(p_uid uuid) returns jsonb language sql stable set search_path = '' as $$
+  select jsonb_build_object('d', (select last_value from app.data_seq), 'c', (select last_value from app.cat_seq),
+                            'n', coalesce((select max(id) from app.notifications where user_id = p_uid), 0))
+$$;
+create or replace function public.get_ver() returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select app.ver_of(p.user_id) from app.profiles p where p.user_id = app.uid() and p.active
+$$;
+
+-- F2: mỗi lần đơn đổi nội dung thì rev + 1 (một lần mỗi giao dịch). Trình duyệt gửi header x-bk-rev = "mã:rev" của đơn đang mở;
+-- nếu người khác đã sửa sau lúc đó thì báo lỗi, không ghi đè.
+alter table app.bookings add column if not exists rev        int not null default 0;
+alter table app.bookings add column if not exists rev_tx     bigint;
+alter table app.bookings add column if not exists updated_by uuid;
+create or replace function app.bk_rev() returns trigger language plpgsql set search_path = '' as $$
+declare h text; v_who text;
+  skip constant text[] := array['rev','rev_tx','updated_at','updated_by','escalated_at','urgent'];
+begin
+  if (to_jsonb(new) - skip) = (to_jsonb(old) - skip) then return new; end if;
+  if old.rev_tx is distinct from txid_current() then
+    begin h := nullif(current_setting('request.headers', true), '')::json ->> 'x-bk-rev'; exception when others then h := null; end;
+    if h is not null and split_part(h, ':', 1) = new.id and split_part(h, ':', 2) ~ '^\d+$' and old.rev > split_part(h, ':', 2)::int then
+      select full_name into v_who from app.profiles where user_id = old.updated_by;
+      raise exception 'Đơn % vừa được % cập nhật lúc %. Đã tải lại bản mới – kiểm tra rồi thao tác lại.',
+        new.id, coalesce(v_who, 'hệ thống'), to_char(old.updated_at at time zone 'Asia/Ho_Chi_Minh', 'HH24:MI DD/MM');
+    end if;
+    new.rev := old.rev + 1;
+  end if;
+  new.rev_tx := txid_current(); new.updated_by := app.uid(); new.updated_at := now();
+  return new;
+end $$;
+drop trigger if exists bk_rev on app.bookings;
+create trigger bk_rev before update on app.bookings for each row execute function app.bk_rev();
+
+-- F7: segment Export
+alter table app.customers drop constraint if exists customers_segment_check;
+alter table app.customers add constraint customers_segment_check check (segment in ('DD','DA','EX'));
+alter table app.profiles drop constraint if exists profiles_segment_check;
+alter table app.profiles add constraint profiles_segment_check check (segment in ('DD','DA','EX'));
+alter table app.profiles drop constraint if exists profiles_stat_scope_check;
+alter table app.profiles add constraint profiles_stat_scope_check check (stat_scope in ('own','DD','DA','EX','all'));
+
+-- F6: nhập khách hàng + địa chỉ giao từ file (trình duyệt đọc Excel/CSV, chuẩn hóa segment / tỉnh rồi gửi lên).
+-- p_custs: [{row, code, name, segment (DD/DA/EX/''), sales_email, cs_email, default_wh, erp, active}]
+-- p_addrs: [{row, code (Mã KH), ext (Mã địa chỉ), label, province, active}]
+-- p_apply = false: chỉ kiểm tra, trả số dòng mới / cập nhật / lỗi; true: ghi. Khách không có trong file giữ nguyên.
+alter table app.customer_addresses add column if not exists ext_code text not null default '';
+create unique index if not exists customer_addresses_ext on app.customer_addresses (customer_id, ext_code) where ext_code <> '';
+
+create or replace function public.import_customers(p_custs jsonb, p_addrs jsonb, p_apply boolean default false) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare
+  me app.profiles; r jsonb; c app.customers; a app.customer_addresses;
+  v_code text; v_name text; v_seg text; v_sales uuid; v_cs uuid; v_wh text; v_act boolean; v_erp text; v_sp app.profiles;
+  v_dups text[]; v_dupseen text[] := '{}'; v_cid uuid; v_aid uuid; v_label text; v_prov text; v_ext text; w text; v_reg text;
+  n_new int := 0; n_upd int := 0; n_same int := 0; a_new int := 0; a_upd int := 0; a_same int := 0; a_skip int := 0;
+  errs jsonb := '[]'; warns jsonb := '[]'; ne int := 0; nw int := 0;
+begin
+  me := app.require_perm('customers.manage');
+  select coalesce(array_agg(k), '{}') into v_dups
+    from (select trim(x->>'code') k from jsonb_array_elements(coalesce(p_custs, '[]')) x group by 1 having count(*) > 1) t;
+
+  for r in select * from jsonb_array_elements(coalesce(p_custs, '[]')) loop
+    v_code := trim(coalesce(r->>'code', '')); v_name := trim(coalesce(r->>'name', ''));
+    if v_code = '' then
+      ne := ne + 1; if ne <= 300 then errs := errs || jsonb_build_object('sheet', 'KH', 'row', r->'row', 'msg', 'Thiếu Mã KH'); end if; continue;
+    end if;
+    if v_code = any(v_dups) then
+      if v_code = any(v_dupseen) then
+        ne := ne + 1; if ne <= 300 then errs := errs || jsonb_build_object('sheet', 'KH', 'row', r->'row', 'msg', 'Mã KH ' || v_code || ' trùng trong file, bỏ dòng này'); end if; continue;
+      end if;
+      v_dupseen := v_dupseen || v_code;
+    end if;
+    c := null; select * into c from app.customers where code = v_code;
+    if v_name = '' then v_name := c.name; end if;
+    if v_name is null then
+      ne := ne + 1; if ne <= 300 then errs := errs || jsonb_build_object('sheet', 'KH', 'row', r->'row', 'msg', 'Thiếu tên khách hàng ' || v_code); end if; continue;
+    end if;
+    v_seg := nullif(r->>'segment', '');
+    if v_seg is not null and v_seg not in ('DD','DA','EX') then v_seg := null; end if;
+    if v_seg is null then
+      v_seg := coalesce(c.segment, 'DD');
+      if c.id is null then nw := nw + 1; if nw <= 300 then warns := warns || jsonb_build_object('sheet', 'KH', 'row', r->'row', 'msg', v_code || ': chưa có segment, tạm để Dân dụng'); end if; end if;
+    end if;
+    v_sales := c.sales_user_id; v_cs := c.cs_user_id; v_wh := c.default_wh;
+    if coalesce(trim(r->>'sales_email'), '') <> '' then
+      v_sp := null; select * into v_sp from app.profiles where lower(email) = lower(trim(r->>'sales_email')) and role = 'sales' and active;
+      if v_sp.user_id is null then
+        nw := nw + 1; if nw <= 300 then warns := warns || jsonb_build_object('sheet', 'KH', 'row', r->'row', 'msg', v_code || ': chưa có Sales ' || trim(r->>'sales_email') || ' – chưa gán'); end if;
+      elsif v_sp.segment is distinct from v_seg then
+        nw := nw + 1; if nw <= 300 then warns := warns || jsonb_build_object('sheet', 'KH', 'row', r->'row', 'msg', v_code || ': Sales ' || v_sp.full_name || ' khác segment – chưa gán'); end if;
+      else v_sales := v_sp.user_id; end if;
+    end if;
+    if v_sales is not null and (select segment from app.profiles where user_id = v_sales) is distinct from v_seg then
+      v_sales := null;
+      nw := nw + 1; if nw <= 300 then warns := warns || jsonb_build_object('sheet', 'KH', 'row', r->'row', 'msg', v_code || ': đổi segment, Sales cũ khác segment – bỏ gán'); end if;
+    end if;
+    if coalesce(trim(r->>'cs_email'), '') <> '' then
+      v_sp := null; select * into v_sp from app.profiles where lower(email) = lower(trim(r->>'cs_email')) and role = 'cs' and active;
+      if v_sp.user_id is null then
+        nw := nw + 1; if nw <= 300 then warns := warns || jsonb_build_object('sheet', 'KH', 'row', r->'row', 'msg', v_code || ': chưa có CS ' || trim(r->>'cs_email') || ' – giữ như cũ'); end if;
+      else v_cs := v_sp.user_id; end if;
+    end if;
+    if coalesce(trim(r->>'default_wh'), '') <> '' then
+      if exists (select 1 from app.warehouses where code = upper(trim(r->>'default_wh'))) then v_wh := upper(trim(r->>'default_wh'));
+      else nw := nw + 1; if nw <= 300 then warns := warns || jsonb_build_object('sheet', 'KH', 'row', r->'row', 'msg', v_code || ': kho ' || trim(r->>'default_wh') || ' không có'); end if; end if;
+    end if;
+    v_act := coalesce((r->>'active')::boolean, true);
+    v_erp := coalesce(nullif(trim(r->>'erp'), ''), c.erp_code, '');
+    if c.id is null then
+      n_new := n_new + 1;
+      if p_apply then
+        insert into app.customers (code, name, segment, sales_user_id, cs_user_id, default_wh, erp_code, active)
+        values (v_code, v_name, v_seg, v_sales, v_cs, v_wh, v_erp, v_act);
+      end if;
+    elsif (c.name, c.segment, c.sales_user_id, c.cs_user_id, c.default_wh, c.erp_code, c.active)
+          is distinct from (v_name, v_seg, v_sales, v_cs, v_wh, v_erp, v_act) then
+      n_upd := n_upd + 1;
+      if p_apply then
+        update app.customers set name = v_name, segment = v_seg, sales_user_id = v_sales, cs_user_id = v_cs, default_wh = v_wh,
+               erp_code = v_erp, active = v_act where id = c.id;
+      end if;
+    else n_same := n_same + 1; end if;
+  end loop;
+
+  for r in select * from jsonb_array_elements(coalesce(p_addrs, '[]')) loop
+    v_code := trim(coalesce(r->>'code', '')); v_ext := trim(coalesce(r->>'ext', ''));
+    v_label := trim(coalesce(r->>'label', '')); v_prov := trim(coalesce(r->>'province', ''));
+    if not coalesce((r->>'active')::boolean, true) then a_skip := a_skip + 1; continue; end if;
+    if v_code = '' or v_ext = '' or v_label = '' then
+      ne := ne + 1; if ne <= 300 then errs := errs || jsonb_build_object('sheet', 'DC', 'row', r->'row', 'msg', 'Thiếu Mã KH, Mã địa chỉ hoặc địa chỉ'); end if; continue;
+    end if;
+    select id into v_cid from app.customers where code = v_code;
+    if v_cid is null and not exists (select 1 from jsonb_array_elements(coalesce(p_custs, '[]')) x where trim(x->>'code') = v_code) then
+      ne := ne + 1; if ne <= 300 then errs := errs || jsonb_build_object('sheet', 'DC', 'row', r->'row', 'msg', 'Không có khách ' || v_code); end if; continue;
+    end if;
+    if v_prov = '' then
+      nw := nw + 1; if nw <= 300 then warns := warns || jsonb_build_object('sheet', 'DC', 'row', r->'row', 'msg', v_code || '/' || v_ext || ': chưa nhận ra tỉnh – nhập sau trong hồ sơ khách'); end if;
+    end if;
+    a := null;
+    if v_cid is not null then select * into a from app.customer_addresses where customer_id = v_cid and ext_code = v_ext; end if;
+    if a.id is null then
+      a_new := a_new + 1;
+      if p_apply then
+        insert into app.customer_addresses (customer_id, label, ward, province, is_default, ext_code)
+        values (v_cid, v_label, '', v_prov, not exists (select 1 from app.customer_addresses where customer_id = v_cid), v_ext)
+        returning id into v_aid;
+      end if;
+    elsif (a.label, a.province) is distinct from (v_label, coalesce(nullif(v_prov, ''), a.province)) then
+      a_upd := a_upd + 1; v_aid := a.id;
+      if p_apply then update app.customer_addresses set label = v_label, province = coalesce(nullif(v_prov, ''), province) where id = a.id; end if;
+    else a_same := a_same + 1; v_aid := null; end if;
+    -- khu vực giao: kho nào có đúng một khu vực của tỉnh này thì gán luôn
+    if p_apply and v_aid is not null and v_prov <> '' then
+      for w in select code from app.warehouses where active loop
+        select min(id) into v_reg from app.regions where warehouse_code = w and active and new_province = v_prov having count(*) = 1;
+        if v_reg is not null then
+          insert into app.address_regions (address_id, warehouse_code, region_id) values (v_aid, w, v_reg) on conflict do nothing;
+        end if;
+      end loop;
+    end if;
+  end loop;
+
+  if p_apply then
+    perform app.audit('import', format('Nhập khách hàng từ file: %s mới, %s cập nhật; địa chỉ %s mới, %s cập nhật', n_new, n_upd, a_new, a_upd));
+  end if;
+  return jsonb_build_object('custNew', n_new, 'custUpd', n_upd, 'custSame', n_same, 'addrNew', a_new, 'addrUpd', a_upd, 'addrSame', a_same,
+                            'addrSkip', a_skip, 'errCount', ne, 'warnCount', nw, 'errors', errs, 'warnings', warns, 'applied', p_apply);
+end $$;
+
+-- ---------------------------------------------------------------------
 -- 8. Quyền gọi hàm
 -- ---------------------------------------------------------------------
 revoke all on all functions in schema app from public, anon, authenticated;
@@ -2671,7 +2876,8 @@ begin
        'admin_update_customer','admin_toggle_customer','admin_save_address','admin_delete_address',
        'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa','list_bookings','booking_stats',
        'bulk_create_bookings','suggest_days','set_urgent','confirm_delivery','get_coils','mark_loaded','resolve_short','mark_transit',
-       'mark_delivered','mark_failed','close_truck','set_email_prefs','send_to_logistics','save_warehouse','change_booking_wh')
+       'mark_delivered','mark_failed','close_truck','set_email_prefs','send_to_logistics','save_warehouse','change_booking_wh',
+       'get_ver','import_customers')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);

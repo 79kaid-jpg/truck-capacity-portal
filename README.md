@@ -190,6 +190,17 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
   - CS vẫn dán cuộn sớm được. Khi đó Logistics nhận thông báo "Giao hàng gấp" để xếp xe ngay.
 - RPC mới: `send_to_logistics`, `save_warehouse`, `change_booking_wh`. Test: `test/97_v30.sql`.
 
+## v3.1 – tốc độ, sửa trùng, nhập khách hàng từ file
+- **Danh mục khách giữ trong trình duyệt** (F1): `get_state(p_from, p_to, p_cat)`. Nếu khóa danh mục `p_cat` trùng với trên máy chủ thì không gửi lại danh sách khách và địa chỉ, nên sau mỗi thao tác chỉ tải lại đơn và xe. Khóa này đổi khi bảng khách, địa chỉ hoặc khu vực của địa chỉ thay đổi (`app.cat_seq`). Dữ liệu được xóa khỏi trình duyệt khi đăng xuất.
+- **Phát hiện người khác vừa sửa** (F2): mỗi lần nội dung đơn đổi thì `bookings.rev` tăng 1. Trình duyệt gửi header `x-bk-rev` (mã:rev) của đơn đang mở. Nếu người khác đã sửa sau lúc mình mở, máy chủ báo "Đơn … vừa được X cập nhật lúc …" và trình duyệt tự tải lại bản mới.
+- **Tự làm mới** (F3): cứ 30 giây, và mỗi khi quay lại tab, trình duyệt gọi `get_ver()` (vài byte). Chỉ khi có thay đổi và người dùng không đang mở hộp thoại hay nhập liệu thì mới tải lại. Cách này thay cho việc tải lại toàn bộ mỗi 60 giây như trước.
+- **Nhập khách hàng từ file** (F6): vào Setting user account › Khách hàng › **Nhập từ file**. Nhận file Excel hoặc CSV theo cột của bản Google Sheets: bảng "Khách hàng" và bảng "Địa chỉ giao".
+  - Bước đầu chỉ kiểm tra: báo số khách mới, số khách cập nhật, các lỗi và cảnh báo. Bấm Ghi thì mới lưu vào hệ thống.
+  - Tỉnh được tự nhận từ dòng địa chỉ cuối, kể cả tên tỉnh cũ trước khi sáp nhập. Khu vực giao được gán khi kho có đúng một khu vực của tỉnh đó.
+  - Danh sách khách có ô tìm và chỉ hiện 100 dòng mỗi lần.
+- **Segment Export** (F7).
+- RPC mới: `get_ver`, `import_customers`. Test: `test/98_v31.sql`, `test/e2e/v31.mjs`.
+
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.
 - Gói Free **không có backup tự động**. Mỗi tuần nên export các bảng chính (Table Editor → schema `app` → Export CSV).
@@ -203,6 +214,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   app.js                  Toàn bộ màn hình, gọi Supabase RPC
   v29.js                  Màn hình v2.9: nhập nhiều dòng, giao hàng, load / giao, đóng xe, cờ khẩn, email
   v30.js                  Màn hình v3.0: lưới đặt hàng, Gửi Logistics, cấu hình kho, đổi kho
+  v31.js                  Màn hình v3.1: tìm khách, nhập khách hàng / địa chỉ từ file
   config.js               URL + anon key (công khai)
   favicon.svg, icon-*.png, apple-touch-icon.png, manifest.webmanifest   Biểu tượng trang / màn hình chính điện thoại
 supabase/

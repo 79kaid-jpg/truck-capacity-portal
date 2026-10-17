@@ -51,7 +51,7 @@ r = await search(p, '51c'); log('log "51c":', r.map(x => x.split(' | ').slice(0,
 await p.keyboard.press('Escape'); await p.context().close();
 step = 'gs-cs'; p = await login('cs@demo.vn');
 r = await search(p, 'kim phat'); log('cs "kim phat":', r.map(x => x.split(' | ').slice(0, 3).join(': ')).join(' || '));
-const idx = r.findIndex(x => x.includes('Đặt hàng cho khách')); if (idx >= 0) { await p.locator('.gs-it').nth(idx).locator('button', { hasText: 'Đặt hàng cho khách' }).click(); await p.waitForTimeout(200); log('booking form prefilled customer:', await p.locator('#bf-cust option:checked').innerText()); await p.keyboard.press('Escape'); }
+const idx = r.findIndex(x => x.includes('Đặt hàng cho khách')); if (idx >= 0) { await p.locator('.gs-it').nth(idx).locator('button', { hasText: 'Đặt hàng cho khách' }).click(); await p.waitForTimeout(200); log('order grid prefilled customer:', await p.locator('.modal input[data-g="code"]').first().inputValue()); await p.keyboard.press('Escape'); }
 r = await search(p, '', 300); log('cs empty query:', r.map(x => x.split(' | ').slice(0, 2).join(': ')).join(' || '));
 await p.keyboard.press('Escape'); await p.context().close();
 step = 'gs-sales'; p = await login('s1@demo.vn');
