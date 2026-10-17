@@ -8,7 +8,7 @@ select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-00000000000a'
 \echo '--- admin starts Login as CS'
 select impersonate_start('00000000-0000-0000-0000-0000000000c1');
 select s->'me'->>'name' me, s->'me'->>'role' role, jsonb_array_length(s->'perms') perms, s->'imp'->>'by' by_ from (select get_state(current_date,current_date) s) x;
-select save_booking(jsonb_build_object('mode','hold','wh','PMY','day',:'d','customer_id',:'kh','ref','SO-LA','address_id',:'addr','region','PMY-HCM','lines',jsonb_build_array(jsonb_build_object('p','INOK','c','Không màu','th',0.5,'w',1200,'t',5)))) as bk \gset
+select save_booking(jsonb_build_object('mode','hold','wh','JM2','day',:'d','customer_id',:'kh','ref','SO-LA','address_id',:'addr','region','PMY-HCM','lines',jsonb_build_array(jsonb_build_object('p','INOK','c','Không màu','th',0.5,'w',1200,'t',5)))) as bk \gset
 select mark_notifs_read(null);
 select update_my_profile('Hack','1');
 \echo '--- CS (real) cannot Login as; admin stops'

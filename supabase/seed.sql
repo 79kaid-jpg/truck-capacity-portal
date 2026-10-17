@@ -11,35 +11,35 @@ insert into app.settings (key, value) values
 on conflict (key) do nothing;
 
 insert into app.warehouses (code, name, full_name) values
-  ('PMY', 'Phú Mỹ',   'Kho Phú Mỹ'),
-  ('CLO', 'Cửa Lò',   'Kho Cửa Lò'),
-  ('HPG', 'Hải Phòng','Kho Hải Phòng')
+  ('JM2', 'Phú Mỹ',   'Kho Phú Mỹ'),
+  ('JD9', 'Cửa Lò',   'Kho Cửa Lò'),
+  ('JD8', 'Hải Phòng','Kho Hải Phòng')
 on conflict (code) do nothing;
 
 -- Mã kho trong ERP (cột Whs của danh sách cuộn)
-update app.warehouses set erp_code = v.erp from (values ('PMY','JM2'), ('HPG','JD8'), ('CLO','JD9')) v(code, erp)
+update app.warehouses set erp_code = v.erp from (values ('JM2','JM2'), ('JD8','JD8'), ('JD9','JD9')) v(code, erp)
  where warehouses.code = v.code and warehouses.erp_code = '';
 
 -- Khu vực = tỉnh (tên cũ) theo từng kho, kèm tỉnh mới sau sáp nhập 01/07/2025 và số ngày đi-về
 insert into app.regions (id, warehouse_code, code, name, new_province, round_trip_days) values
-  ('PMY-HCM','PMY','HCM','TP.HCM','TP. Hồ Chí Minh',1),
-  ('PMY-BDU','PMY','BDU','Bình Dương','TP. Hồ Chí Minh',1),
-  ('PMY-VTA','PMY','VTA','Vũng Tàu','TP. Hồ Chí Minh',1),
-  ('PMY-DNA','PMY','DNA','Đồng Nai','Đồng Nai',1),
-  ('PMY-BTH','PMY','BTH','Bình Thuận','Lâm Đồng',2),
-  ('PMY-LAN','PMY','LAN','Long An','Tây Ninh',1),
-  ('PMY-GLA','PMY','GLA','Gia Lai','Gia Lai',3),
-  ('PMY-DLK','PMY','DLK','Đắk Lắk','Đắk Lắk',3),
-  ('PMY-DNG','PMY','DNG','Đà Nẵng','Đà Nẵng',4),
-  ('CLO-NAN','CLO','NAN','Nghệ An','Nghệ An',1),
-  ('CLO-HTI','CLO','HTI','Hà Tĩnh','Hà Tĩnh',1),
-  ('CLO-THO','CLO','THO','Thanh Hóa','Thanh Hóa',1),
-  ('CLO-QTR','CLO','QTR','Quảng Trị','Quảng Trị',2),
-  ('HPG-HPH','HPG','HPH','Hải Phòng','Hải Phòng',1),
-  ('HPG-HNO','HPG','HNO','Hà Nội','Hà Nội',1),
-  ('HPG-QNI','HPG','QNI','Quảng Ninh','Quảng Ninh',1),
-  ('HPG-BNI','HPG','BNI','Bắc Ninh','Bắc Ninh',1),
-  ('HPG-HYE','HPG','HYE','Hưng Yên','Hưng Yên',1)
+  ('PMY-HCM','JM2','HCM','TP.HCM','TP. Hồ Chí Minh',1),
+  ('PMY-BDU','JM2','BDU','Bình Dương','TP. Hồ Chí Minh',1),
+  ('PMY-VTA','JM2','VTA','Vũng Tàu','TP. Hồ Chí Minh',1),
+  ('PMY-DNA','JM2','DNA','Đồng Nai','Đồng Nai',1),
+  ('PMY-BTH','JM2','BTH','Bình Thuận','Lâm Đồng',2),
+  ('PMY-LAN','JM2','LAN','Long An','Tây Ninh',1),
+  ('PMY-GLA','JM2','GLA','Gia Lai','Gia Lai',3),
+  ('PMY-DLK','JM2','DLK','Đắk Lắk','Đắk Lắk',3),
+  ('PMY-DNG','JM2','DNG','Đà Nẵng','Đà Nẵng',4),
+  ('CLO-NAN','JD9','NAN','Nghệ An','Nghệ An',1),
+  ('CLO-HTI','JD9','HTI','Hà Tĩnh','Hà Tĩnh',1),
+  ('CLO-THO','JD9','THO','Thanh Hóa','Thanh Hóa',1),
+  ('CLO-QTR','JD9','QTR','Quảng Trị','Quảng Trị',2),
+  ('HPG-HPH','JD8','HPH','Hải Phòng','Hải Phòng',1),
+  ('HPG-HNO','JD8','HNO','Hà Nội','Hà Nội',1),
+  ('HPG-QNI','JD8','QNI','Quảng Ninh','Quảng Ninh',1),
+  ('HPG-BNI','JD8','BNI','Bắc Ninh','Bắc Ninh',1),
+  ('HPG-HYE','JD8','HYE','Hưng Yên','Hưng Yên',1)
 on conflict (id) do nothing;
 
 insert into app.region_neighbors (region_a, region_b)
@@ -122,7 +122,8 @@ insert into app.permissions (code, grp, name, descr, sort, def_roles) values
   ('perms.manage',    'Quản trị',   'Phân quyền vai trò',                  'Màn hình này. Admin luôn giữ quyền này', 210, '{admin}'),
   ('delivery.confirm','Giao hàng',  'Xác nhận giao hàng, xử lý phần còn lại', 'Nhập địa chỉ và danh sách cuộn, tách đơn / không giao phần còn lại (BR-43, BR-44, BR-46)', 52, '{cs,admin}'),
   ('delivery.ship',   'Giao hàng',  'Load, đang giao, đã giao',            'Đã load hàng, Đang giao, Đã giao, Giao không thành công (BR-45)', 112, '{logistics,admin}'),
-  ('booking.urgent',  'Đặt hàng',   'Đặt / bỏ cờ đơn khẩn',                'Ghi đè cờ khẩn tự tính, bắt buộc lý do (BR-41)', 55, '{admin}')
+  ('booking.urgent',  'Đặt hàng',   'Đặt / bỏ cờ đơn khẩn',                'Ghi đè cờ khẩn tự tính, bắt buộc lý do (BR-41)', 55, '{admin}'),
+  ('config.warehouses','Cấu hình',  'Kho',                                 'Thêm kho, sửa tên, mã ERP, ngừng dùng kho', 125, '{logistics,admin}')
 on conflict (code) do update set grp = excluded.grp, name = excluded.name, descr = excluded.descr, sort = excluded.sort, def_roles = excluded.def_roles;
 
 -- Ma trận mặc định; không ghi đè cấu hình Admin đã chỉnh

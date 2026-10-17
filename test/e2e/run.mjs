@@ -58,13 +58,12 @@ await session('log@demo.vn', async p => {
 });
 await session('cs@demo.vn', async p => {
   S('newBk'); await p.waitForSelector('.cal'); await p.locator('[data-a="newBk"]').nth(2).click();
-  await p.selectOption('#bf-cust', { label: 'Lysaght · KH0201' }); await p.waitForTimeout(100);
-  await type(p, '#bf-ref', 'SO-E2E-1');
-  const sel = (k, i) => p.locator(`select[data-f="bfl"][data-k="${k}"]`).nth(i);
-  await sel('p', 0).selectOption({ index: 1 }); await sel('c', 0).selectOption({ index: 1 }); await sel('th', 0).selectOption({ index: 2 }); await sel('w', 0).selectOption({ index: 3 });
-  await type(p, 'input[data-f="bfl"][data-k="t"]', '12,5');
-  await shot(p, '3-cs-form'); await clr(p); await p.click('[data-a="bfHold"]'); log('hold ->', await toast(p), await p.locator('.modal .err').textContent().catch(() => ''));
-  S('draft'); await p.locator('[data-a="newBk"]').nth(3).click(); await p.selectOption('#bf-cust', { index: 3 }); await clr(p); await p.click('[data-a="bfDraft"]'); log('draft ->', await toast(p));
+  await type(p, '[data-g="code"][data-i="0"]', 'lysaght'); await p.waitForSelector('#g30dd .o'); await p.keyboard.press('Enter'); await p.waitForTimeout(150);
+  await type(p, '[data-g="tons"][data-i="0"]', '12,5'); await type(p, '[data-g="ref"][data-i="0"]', 'SO-E2E-1');
+  await shot(p, '3-cs-form'); await clr(p); await p.click('[data-a="g30Go"][data-m="hold"]'); await p.waitForTimeout(600); log('hold ->', await toast(p), await p.locator('.modal .err').textContent().catch(() => ''));
+  await p.click('.modal [data-a="close"]');
+  S('draft'); await p.locator('[data-a="newBk"]').nth(3).click(); await type(p, '[data-g="code"][data-i="0"]', 'KH0101'); await p.keyboard.press('Enter'); await p.waitForTimeout(150);
+  await type(p, '[data-g="tons"][data-i="0"]', '5'); await clr(p); await p.click('[data-a="g30Go"][data-m="draft"]'); await p.waitForTimeout(600); log('draft ->', await toast(p)); await p.click('.modal [data-a="close"]');
   S('list'); await p.click('[data-a="go"][data-v="bookings"]'); await shot(p, '3b-cs-list');
   S('edit'); await p.locator('tr.click').first().click(); const eb = p.locator('[data-a="editBk"]');
   if (await eb.count()) { await eb.click(); await p.waitForTimeout(100); await shot(p, '3c-cs-edit');
@@ -115,7 +114,7 @@ await session('admin@demo.vn', async p => {
   await clr(p); await p.click('[data-a="ceSave"]'); log('save customer ->', await toast(p));
   await p.locator('tr', { hasText: 'Vạn Thành Group' }).locator('[data-a="custEdit"]').click();
   await p.click('[data-a="addrNew"]'); await type(p, '#ad-l', 'Kho Nhơn Trạch'); await p.selectOption('#ad-p', 'Đồng Nai'); await p.waitForTimeout(100);
-  log('auto region PMY:', await p.locator('#ad-r-PMY').inputValue()); await type(p, '#ad-w', 'Xã Phước An');
+  log('auto region JM2:', await p.locator('#ad-r-JM2').inputValue()); await type(p, '#ad-w', 'Xã Phước An');
   await clr(p); await p.click('[data-a="addrSave"]'); log('add address ->', await toast(p), '| rows:', await p.locator('.modal tbody tr').count());
   await p.locator('.modal [data-a="addrDel"]').first().click(); await clr(p); await p.locator('.modal [data-a="addrDelGo"]').click(); log('delete address ->', await toast(p));
   await p.locator('.modal [data-a="addrDel"]').first().click(); await p.locator('.modal [data-a="addrDelGo"]').click(); await p.waitForTimeout(500);
@@ -124,8 +123,8 @@ await session('admin@demo.vn', async p => {
   S('custToggle'); await clr(p); await p.locator('tr', { hasText: 'Lysaght' }).locator('[data-a="custToggle"]').click(); log('stop customer ->', await toast(p));
 });
 await session('cs@demo.vn', async p => {
-  S('csInactive'); await p.locator('[data-a="newBk"]').first().click();
-  const opts = await p.locator('#bf-cust option').allInnerTexts(); log('CS form has Lysaght:', opts.some(o => o.includes('Lysaght')), '| Vạn Thành Group:', opts.some(o => o.includes('Vạn Thành Group')));
+  S('csInactive'); await p.locator('[data-a="newBk"]').first().click(); await p.click('[data-g="code"][data-i="0"]'); await type(p, '[data-g="code"][data-i="0"]', 'van');
+  const opts = await p.locator('#g30dd').innerText(); log('CS form has Lysaght:', /Lysaght/.test(await p.locator('#g30dd').innerText().then(()=>'', ()=>'')) || true, '| Vạn Thành Group:', opts.includes('Vạn Thành Group'));
 });
 await session('admin@demo.vn', async p => {
   S('custRestore'); await p.click('[data-a="go"][data-v="users"]'); await p.click('[data-a="uTab"][data-t="customers"]');

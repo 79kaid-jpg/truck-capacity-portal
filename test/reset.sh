@@ -18,11 +18,11 @@ insert into auth.users (id,email) values
  ('00000000-0000-0000-0000-0000000000f1','new@demo.vn'),('00000000-0000-0000-0000-0000000000c2','cs2@demo.vn');
 select app.bootstrap_admin('admin@demo.vn','Hoàng Kiên');
 insert into app.profiles (user_id,full_name,email,phone,role,segment,default_warehouse,warehouses) values
- ('00000000-0000-0000-0000-0000000000b1','Trần Đức Minh','log@demo.vn',null,'logistics',null,'PMY','{PMY,CLO,HPG}'),
- ('00000000-0000-0000-0000-0000000000c1','Nguyễn Thanh Trúc','cs@demo.vn',null,'cs',null,'PMY','{}'),
- ('00000000-0000-0000-0000-0000000000c2','Lê Thu Hằng','cs2@demo.vn',null,'cs',null,'PMY','{}'),
- ('00000000-0000-0000-0000-0000000000d1','Phạm Quốc Bảo','s1@demo.vn','0903 112 233','sales','DD','PMY','{}'),
- ('00000000-0000-0000-0000-0000000000d2','Đỗ Thu Hà','s2@demo.vn','0908 445 566','sales','DA','PMY','{}');
+ ('00000000-0000-0000-0000-0000000000b1','Trần Đức Minh','log@demo.vn',null,'logistics',null,'JM2','{JM2,JD9,JD8}'),
+ ('00000000-0000-0000-0000-0000000000c1','Nguyễn Thanh Trúc','cs@demo.vn',null,'cs',null,'JM2','{}'),
+ ('00000000-0000-0000-0000-0000000000c2','Lê Thu Hằng','cs2@demo.vn',null,'cs',null,'JM2','{}'),
+ ('00000000-0000-0000-0000-0000000000d1','Phạm Quốc Bảo','s1@demo.vn','0903 112 233','sales','DD','JM2','{}'),
+ ('00000000-0000-0000-0000-0000000000d2','Đỗ Thu Hà','s2@demo.vn','0908 445 566','sales','DA','JM2','{}');
 select app.load_demo();
 insert into app.profiles (user_id,full_name,email,role,customer_id) select '00000000-0000-0000-0000-0000000000e1','Văn Phú','kh@demo.vn','customer',id from app.customers where code='KH0102';
 SQL

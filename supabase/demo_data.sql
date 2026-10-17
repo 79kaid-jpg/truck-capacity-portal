@@ -20,16 +20,16 @@ begin
 
   -- Khách hàng + địa chỉ
   for r in select * from (values
-    ('KH0101','Vạn Đạt Thành UQ','DD','Kho Bà Rịa','TP. Hồ Chí Minh','Phường Bà Rịa','PMY','PMY-VTA'),
-    ('KH0102','Vạn Thành','DD','Kho Bình Chánh','TP. Hồ Chí Minh','Xã Bình Chánh','PMY','PMY-HCM'),
-    ('KH0201','Lysaght','DA','Nhà máy Long Bình','Đồng Nai','Phường Long Bình','PMY','PMY-DNA'),
-    ('KH0202','Austdoor Nhơn Trạch','DA','Nhà máy Nhơn Trạch','Đồng Nai','Xã Nhơn Trạch','PMY','PMY-DNA'),
-    ('KH0103','Tôn Long Phát','DD','Cửa hàng Pleiku','Gia Lai','Phường Pleiku','PMY','PMY-GLA'),
-    ('KH0104','Hoàng Sa','DD','Kho Buôn Ma Thuột','Đắk Lắk','Phường Buôn Ma Thuột','PMY','PMY-DLK'),
-    ('KH0105','Đại Lộc','DD','Cửa hàng Ea Kar','Đắk Lắk','Xã Ea Kar','PMY','PMY-DLK'),
-    ('KH0106','Lộc Mỹ Khánh','DD','Kho Biên Hòa','Đồng Nai','Phường Biên Hòa','PMY','PMY-DNA'),
-    ('KH0203','Tân Huy Hoàng UQ','DA','Công trình Hải Châu','Đà Nẵng','Phường Hải Châu','PMY','PMY-DNG'),
-    ('KH0107','Kim Phát Bình Dương','DD','Kho Thủ Dầu Một','TP. Hồ Chí Minh','Phường Thủ Dầu Một','PMY','PMY-BDU')
+    ('KH0101','Vạn Đạt Thành UQ','DD','Kho Bà Rịa','TP. Hồ Chí Minh','Phường Bà Rịa','JM2','PMY-VTA'),
+    ('KH0102','Vạn Thành','DD','Kho Bình Chánh','TP. Hồ Chí Minh','Xã Bình Chánh','JM2','PMY-HCM'),
+    ('KH0201','Lysaght','DA','Nhà máy Long Bình','Đồng Nai','Phường Long Bình','JM2','PMY-DNA'),
+    ('KH0202','Austdoor Nhơn Trạch','DA','Nhà máy Nhơn Trạch','Đồng Nai','Xã Nhơn Trạch','JM2','PMY-DNA'),
+    ('KH0103','Tôn Long Phát','DD','Cửa hàng Pleiku','Gia Lai','Phường Pleiku','JM2','PMY-GLA'),
+    ('KH0104','Hoàng Sa','DD','Kho Buôn Ma Thuột','Đắk Lắk','Phường Buôn Ma Thuột','JM2','PMY-DLK'),
+    ('KH0105','Đại Lộc','DD','Cửa hàng Ea Kar','Đắk Lắk','Xã Ea Kar','JM2','PMY-DLK'),
+    ('KH0106','Lộc Mỹ Khánh','DD','Kho Biên Hòa','Đồng Nai','Phường Biên Hòa','JM2','PMY-DNA'),
+    ('KH0203','Tân Huy Hoàng UQ','DA','Công trình Hải Châu','Đà Nẵng','Phường Hải Châu','JM2','PMY-DNG'),
+    ('KH0107','Kim Phát Bình Dương','DD','Kho Thủ Dầu Một','TP. Hồ Chí Minh','Phường Thủ Dầu Một','JM2','PMY-BDU')
   ) v(code, name, seg, label, prov, ward, wh, region) loop
     if not exists (select 1 from app.customers where code = r.code) then
       insert into app.customers (code, name, segment, sales_user_id)
@@ -43,7 +43,7 @@ begin
   select id into v_cust from app.customers where code = 'KH0201';
   if not exists (select 1 from app.customer_addresses where customer_id = v_cust and label = 'KCN Đình Vũ') then
     insert into app.customer_addresses (customer_id, label, ward, province) values (v_cust, 'KCN Đình Vũ', 'Phường Đông Hải', 'Hải Phòng') returning id into v_addr;
-    insert into app.address_regions values (v_addr, 'HPG', 'HPG-HPH');
+    insert into app.address_regions values (v_addr, 'JD8', 'HPG-HPH');
   end if;
 
   -- Khai báo xe 30 ngày tới (bỏ Chủ nhật)
@@ -51,8 +51,8 @@ begin
     d := v_today + i;
     continue when extract(dow from d) = 0 or coalesce(app.setting('holidays'), '[]'::jsonb) ? d::text;
     insert into app.daily_fleet (warehouse_code, day, dk_count, cn_count, reason) values
-      ('PMY', d, case when i = 6 then 5 else 9 end, case when i = 6 then 2 else 4 end, case when i = 6 then 'Bảo dưỡng định kỳ 4 xe' else '' end),
-      ('CLO', d, 5, 3, ''), ('HPG', d, 6, 3, '')
+      ('JM2', d, case when i = 6 then 5 else 9 end, case when i = 6 then 2 else 4 end, case when i = 6 then 'Bảo dưỡng định kỳ 4 xe' else '' end),
+      ('JD9', d, 5, 3, ''), ('JD8', d, 6, 3, '')
     on conflict do nothing;
   end loop;
 
@@ -84,20 +84,20 @@ begin
       while extract(dow from d) = 0 or coalesce(app.setting('holidays'), '[]'::jsonb) ? d::text loop d := d + 1; end loop;  -- bỏ Chủ nhật và ngày nghỉ đã cấu hình
       select c.id into v_cust from app.customers c where c.code = r.code;
       select a.id into v_addr from app.customer_addresses a join app.address_regions ar on ar.address_id = a.id
-       where a.customer_id = v_cust and ar.warehouse_code = 'PMY' limit 1;
-      insert into app.booking_seq values ('PMY', d, 1)
+       where a.customer_id = v_cust and ar.warehouse_code = 'JM2' limit 1;
+      insert into app.booking_seq values ('JM2', d, 1)
       on conflict (warehouse_code, day) do update set last = app.booking_seq.last + 1 returning last into v_seq;
-      v_id := 'BK-PMY-' || to_char(d, 'YYMMDD') || '-' || lpad(v_seq::text, 3, '0');
+      v_id := 'BK-JM2-' || to_char(d, 'YYMMDD') || '-' || lpad(v_seq::text, 3, '0');
       insert into app.bookings (id, warehouse_code, day, customer_id, ref, address_id, address_text, province, region_id,
                                 status, cs_user_id, held_at, confirmed_at, created_at)
-      select v_id, 'PMY', d, v_cust, 'SO-' || (4500000 + n_bk * 37), a.id, a.label || ', ' || a.ward, a.province, ar.region_id,
+      select v_id, 'JM2', d, v_cust, 'SO-' || (4500000 + n_bk * 37), a.id, a.label || ', ' || a.ward, a.province, ar.region_id,
              r.st, v_cs, now() - make_interval(mins => r.mins + 60 * (r.st = 'ok')::int),
              case when r.st = 'ok' then now() - interval '30 minutes' end, now() - interval '1 day'
-        from app.customer_addresses a join app.address_regions ar on ar.address_id = a.id and ar.warehouse_code = 'PMY'
+        from app.customer_addresses a join app.address_regions ar on ar.address_id = a.id and ar.warehouse_code = 'JM2'
        where a.id = v_addr;
       insert into app.booking_lines (booking_id, product, color, thickness_mm, width_mm, tons) values (v_id, r.p, r.c, r.th, r.w, r.t);
       if r.truck <> '' then
-        insert into app.allocations (booking_id, truck_code, tons) values (v_id, app.truck_code('PMY', d, split_part(r.truck, '-', 1), split_part(r.truck, '-', 2)::int), r.t);
+        insert into app.allocations (booking_id, truck_code, tons) values (v_id, app.truck_code('JM2', d, split_part(r.truck, '-', 1), split_part(r.truck, '-', 2)::int), r.t);
       end if;
       insert into app.booking_status_history (booking_id, from_status, to_status, actor) values (v_id, null, r.st, v_cs);
       insert into app.audit_log (entity_id, detail, actor) values (v_id, 'Dữ liệu mẫu', v_cs);

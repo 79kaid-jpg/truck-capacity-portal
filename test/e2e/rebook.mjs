@@ -33,7 +33,7 @@ p = await open('kh@demo.vn');
 const st = await p.locator('aside.stats').innerText();
 log(st.replace(/\n+/g, ' | '));
 check('stats: tổng đã đặt 74', /TỔNG SỐ TẤN ĐÃ ĐẶT\s*74,00/.test(st));
-check('stats: đã xác nhận 54 · 2 đơn', /Đã xác nhận\s*54,00 t · 2 đơn/.test(st));
+check('stats: đã xếp xe 54 · 2 đơn', /Đã xếp xe\s*54,00 t · 2 đơn/.test(st));
 check('stats: bị từ chối 20 · 1 đơn', /Bị từ chối\s*20,00 t · 1 đơn/.test(st));
 check('stats: list 3 đơn', (await p.locator('.cbk').count()) === 3);
 check('cell shows "Bị từ chối: 20,00 t"', (await p.locator('.cell', { hasText: 'Bị từ chối: 20,00 t' }).count()) === 1);

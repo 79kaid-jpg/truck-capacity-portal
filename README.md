@@ -177,7 +177,18 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - **Logistics:** Đã load hàng (bỏ tick cuộn không lên xe + ghi chú) → Đang giao (dự kiến tới) → Đã giao, hoặc Giao không thành công (CS Giao lại / Hủy). Từ Đã load, CS không đổi ngày / số tấn / hủy.
 - **Đóng xe:** popup xe → Đóng xe (tải trọng = số đã xếp, không gợi ý, không xếp thêm) / Mở lại.
 - **Email:** việc gấp (đơn khẩn, hủy cận ngày, giao hàng gấp, load thiếu, giao lỗi, giao ngày nghỉ) gửi ngay; còn lại gộp một email tóm tắt mỗi người lúc 7:00 và 16:00 (trừ Chủ nhật). Hồ sơ cá nhân → mức nhận email (Tất cả / Chỉ việc gấp / Không) và email nhận riêng (Outlook).
-- **Cấu hình mới** (bảng `app.settings`): `cutoff` "16:00", `coilPct` 3, `coilTons` 0.5, `digestTimes` ["07:00","16:00"], `emailUrgent`. Mã kho ERP ở `app.warehouses.erp_code` (PMY = JM2, HPG = JD8, CLO = JD9); Mã KH ERP ở `app.customers.erp_code`.
+- **Cấu hình mới** (bảng `app.settings`): `cutoff` "16:00", `coilPct` 3, `coilTons` 0.5, `digestTimes` ["07:00","16:00"], `emailUrgent`. Mã kho ERP ở `app.warehouses.erp_code` (từ v3.0 mã kho = mã ERP: JM2, JD8, JD9); Mã KH ERP ở `app.customers.erp_code`.
+
+## v3.0 – lưới đặt hàng, mã kho mới, trạng thái theo sơ đồ
+- **Lưới đặt hàng** (`web/v30.js`): nút Đặt hàng trên Lịch và Danh sách mở lưới nhiều dòng. Gõ mã hoặc tên khách để tìm; địa chỉ lấy theo khách; dán từ Excel (Ctrl+V) hoặc tải file CSV/XLSX; không nhập sản phẩm, chỉ nhập số tấn. Có 2 nút: Lưu tạm và Gửi Logistics. Nếu nhập địa chỉ mới, hệ thống hỏi có lưu vào hồ sơ khách không; chỉ lưu khi bạn đồng ý.
+- **Mã kho**: JM2 – Phú Mỹ, JD8 – Hải Phòng, JD9 – Cửa Lò. Chạy `setup_all.sql` sẽ tự đổi PMY/HPG/CLO sang mã mới cho dữ liệu cũ. Khách có thêm **Kho mặc định** nhưng vẫn đặt được ở nhiều kho. Màn **Cấu hình › Kho** cho thêm kho, sửa tên, mã ERP và ngừng dùng kho. Đơn thuộc kho đã ngừng có nút **Đổi kho**; sau khi đổi, đơn về Lưu tạm.
+- **Trạng thái**:
+  - **Lưu tạm** không trừ năng lực. CS bấm **Gửi Logistics** để chuyển đơn sang Chờ xếp xe.
+  - Quá giờ chốt, hệ thống nhắc CS một lần. Nháp quá ngày bốc 2 ngày thì hệ thống tự hủy.
+  - Đổi tên trạng thái: Đã xác nhận → **Đã xếp xe**; Đã load hàng → **Đã bốc hàng**.
+  - Hiển thị thêm: **Đã xác nhận giao hàng** (đã xếp xe và có cuộn) và **Hủy quá cận ngày**.
+  - CS vẫn dán cuộn sớm được. Khi đó Logistics nhận thông báo "Giao hàng gấp" để xếp xe ngay.
+- RPC mới: `send_to_logistics`, `save_warehouse`, `change_booking_wh`. Test: `test/97_v30.sql`.
 
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.
@@ -191,6 +202,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   index.html              Khung trang + CSS
   app.js                  Toàn bộ màn hình, gọi Supabase RPC
   v29.js                  Màn hình v2.9: nhập nhiều dòng, giao hàng, load / giao, đóng xe, cờ khẩn, email
+  v30.js                  Màn hình v3.0: lưới đặt hàng, Gửi Logistics, cấu hình kho, đổi kho
   config.js               URL + anon key (công khai)
   favicon.svg, icon-*.png, apple-touch-icon.png, manifest.webmanifest   Biểu tượng trang / màn hình chính điện thoại
 supabase/

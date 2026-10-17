@@ -20,8 +20,8 @@ rollback;
 \echo --- Admin đặt phạm vi qua admin_upsert_profile; giá trị sai -> expect ERROR
 begin;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-00000000000a',true); set local role authenticated;
-select public.admin_upsert_profile('{"email":"s1@demo.vn","name":"Phạm Quốc Bảo","role":"sales","phone":"0903","segment":"DD","wh":"PMY","stat_scope":"DD"}');
+select public.admin_upsert_profile('{"email":"s1@demo.vn","name":"Phạm Quốc Bảo","role":"sales","phone":"0903","segment":"DD","wh":"JM2","stat_scope":"DD"}');
 reset role; select stat_scope from app.profiles where email = 's1@demo.vn';
 set local role authenticated;
-select public.admin_upsert_profile('{"email":"s1@demo.vn","name":"Phạm Quốc Bảo","role":"sales","phone":"0903","segment":"DD","wh":"PMY","stat_scope":"xyz"}');
+select public.admin_upsert_profile('{"email":"s1@demo.vn","name":"Phạm Quốc Bảo","role":"sales","phone":"0903","segment":"DD","wh":"JM2","stat_scope":"xyz"}');
 rollback;

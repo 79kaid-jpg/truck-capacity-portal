@@ -52,7 +52,7 @@ create table if not exists app.profiles (
   role              text not null check (role in ('customer','sales','cs','logistics','admin')),
   segment           text check (segment in ('DD','DA')),
   customer_id       uuid,
-  default_warehouse text not null default 'PMY' references app.warehouses(code),
+  default_warehouse text not null default 'JM2' references app.warehouses(code),
   warehouses        text[] not null default '{}',
   active            boolean not null default true,
   created_at        timestamptz not null default now()
@@ -246,6 +246,38 @@ alter table app.customers  add column if not exists erp_code      text not null 
 alter table app.warehouses add column if not exists erp_code      text not null default '';
 alter table app.profiles   add column if not exists email_level   text not null default 'all' check (email_level in ('all','urgent','none'));
 alter table app.profiles   add column if not exists alt_email     text;
+-- v3.0: kho mặc định của khách (khách vẫn đặt được từ mọi kho)
+alter table app.customers add column if not exists default_wh text;
+
+-- v3.0: đổi mã kho sang mã ERP (PMY → JM2, HPG → JD8, CLO → JD9). Đơn cũ giữ mã booking BK-PMY-…,
+-- mọi dữ liệu khác chuyển sang mã mới. Chạy lại nhiều lần không sao (chỉ chạy khi còn mã cũ).
+do $$
+declare m record;
+begin
+  for m in select * from (values ('PMY','JM2'), ('HPG','JD8'), ('CLO','JD9')) v(o, n)
+           where exists (select 1 from app.warehouses where code = v.o) loop
+    insert into app.warehouses (code, name, full_name, active, erp_code)
+    select m.n, name, full_name, active, m.n from app.warehouses where code = m.o
+    on conflict (code) do nothing;
+    update app.regions        set warehouse_code = m.n where warehouse_code = m.o;
+    update app.address_regions set warehouse_code = m.n where warehouse_code = m.o;
+    update app.daily_fleet    set warehouse_code = m.n where warehouse_code = m.o;
+    update app.truck_days     set warehouse_code = m.n, truck_code = m.n || substr(truck_code, length(m.o) + 1) where warehouse_code = m.o;
+    update app.allocations    set truck_code = m.n || substr(truck_code, length(m.o) + 1) where truck_code like m.o || '-%';
+    update app.booking_seq    set warehouse_code = m.n where warehouse_code = m.o
+       and not exists (select 1 from app.booking_seq s where s.warehouse_code = m.n and s.day = booking_seq.day);
+    delete from app.booking_seq where warehouse_code = m.o;
+    update app.bookings       set warehouse_code = m.n where warehouse_code = m.o;
+    update app.merge_suggestion_log set warehouse_code = m.n, truck_code = m.n || substr(truck_code, length(m.o) + 1) where warehouse_code = m.o;
+    update app.profiles       set default_warehouse = m.n where default_warehouse = m.o;
+    update app.profiles       set warehouses = array_replace(warehouses, m.o, m.n) where m.o = any(warehouses);
+    update app.customers      set default_wh = m.n where default_wh = m.o;
+    update app.notifications  set link = jsonb_set(link, '{wh}', to_jsonb(m.n)) where link->>'wh' = m.o;
+    delete from app.warehouses where code = m.o;
+  end loop;
+end $$;
+alter table app.profiles alter column default_warehouse set default 'JM2';
+
 do $$ begin
   alter table app.reason_codes drop constraint if exists reason_codes_kind_check;
   alter table app.reason_codes add constraint reason_codes_kind_check
@@ -727,7 +759,7 @@ begin
     'perms', to_jsonb(app.my_perms(me.role)),
     'imp', case when app.impersonating() then (select jsonb_build_object('by', a.full_name, 'expiresAt', extract(epoch from i.expires_at))
                 from app.impersonations i join app.profiles a on a.user_id = i.admin_id where i.admin_id = app.real_uid()) end,
-    'warehouses', (select jsonb_agg(jsonb_build_object('id', code, 'name', name, 'full', full_name, 'erp', erp_code) order by code) from app.warehouses where active),
+    'warehouses', (select jsonb_agg(jsonb_build_object('id', code, 'name', name, 'full', full_name, 'erp', erp_code, 'active', active) order by code) from app.warehouses),
     'notifs', (select coalesce(jsonb_agg(jsonb_build_object('id', n.id, 'type', n.type, 'text', n.text, 'link', n.link,
                  'at', extract(epoch from n.created_at), 'read', n.read_at is not null) order by n.created_at desc), '[]')
                from (select * from app.notifications where user_id = me.user_id order by created_at desc limit 100) n)
@@ -780,7 +812,7 @@ begin
                 'last', (select (u.last_sign_in_at at time zone 'Asia/Ho_Chi_Minh')::date from auth.users u where u.id = p.user_id)) order by p.full_name), '[]')
               from app.profiles p),
     'customers', (select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'code', c.code, 'name', c.name, 'segment', c.segment, 'salesId', c.sales_user_id, 'csId', c.cs_user_id, 'active', c.active,
-                    'erp', c.erp_code,
+                    'erp', c.erp_code, 'defWh', c.default_wh,
                     'addresses', (select coalesce(jsonb_agg(jsonb_build_object('id', a.id, 'label', a.label, 'province', a.province, 'ward', a.ward,
                                     'regions', (select coalesce(jsonb_object_agg(ar.warehouse_code, ar.region_id), '{}') from app.address_regions ar where ar.address_id = a.id))
                                     order by a.is_default desc, a.label), '[]')
@@ -1573,8 +1605,8 @@ begin
   insert into app.profiles (user_id, full_name, email, phone, role, segment, customer_id, default_warehouse, warehouses, active, stat_scope)
   values (v_uid, trim(p->>'name'), lower(trim(p->>'email')), nullif(trim(p->>'phone'), ''), v_role,
           case when v_role = 'sales' then v_seg end, case when v_role = 'customer' then v_cust end,
-          coalesce(nullif(p->>'wh', ''), 'PMY'),
-          case when v_role = 'logistics' then array[coalesce(nullif(p->>'wh', ''), 'PMY')] else '{}' end, true,
+          coalesce(nullif(p->>'wh', ''), 'JM2'),
+          case when v_role = 'logistics' then array[coalesce(nullif(p->>'wh', ''), 'JM2')] else '{}' end, true,
           case when v_role = 'customer' then null else nullif(p->>'stat_scope', '') end)
   on conflict (user_id) do update set full_name = excluded.full_name, phone = excluded.phone, role = excluded.role, segment = excluded.segment,
     customer_id = excluded.customer_id, default_warehouse = excluded.default_warehouse, warehouses = excluded.warehouses, active = true,
@@ -1612,7 +1644,8 @@ begin
   if nullif(p->>'cs_id', '') is not null and not exists (select 1 from app.profiles where user_id = (p->>'cs_id')::uuid and role = 'cs' and active) then
     raise exception 'CS phụ trách không hợp lệ.';
   end if;
-  insert into app.customers (code, name, segment, sales_user_id, cs_user_id) values (trim(p->>'code'), trim(p->>'name'), p->>'segment', v_sales.user_id, nullif(p->>'cs_id', '')::uuid) returning id into v_id;
+  insert into app.customers (code, name, segment, sales_user_id, cs_user_id, default_wh) values (trim(p->>'code'), trim(p->>'name'), p->>'segment', v_sales.user_id, nullif(p->>'cs_id', '')::uuid,
+    (select code from app.warehouses where code = nullif(p->>'default_wh', ''))) returning id into v_id;
   insert into app.customer_addresses (customer_id, label, ward, province, is_default) values (v_id, trim(p->>'label'), trim(p->>'ward'), p->>'province', true) returning id into v_addr;
   if v_region is not null then
     insert into app.address_regions select v_addr, r.warehouse_code, r.id from app.regions r where r.id = v_region;
@@ -1680,6 +1713,22 @@ begin
         else ': chờ xếp xe nhưng ngày bốc ' || app.dm(r.day) || ' đã qua; cần đổi ngày hoặc từ chối.' end,
       jsonb_build_object('bk', r.id));
     update app.bookings set escalated_at = now() where id = r.id;
+    n := n + 1;
+  end loop;
+  -- v3.0: nháp (Lưu tạm) chưa gửi Logistics khi đã qua mốc chốt xe → nhắc CS tạo nháp (một lần)
+  for r in select b.* from app.bookings b
+            where b.status = 'draft' and now() > app.cutoff_at(b.day) and b.day + 2 >= app.today() and b.escalated_at is null loop
+    perform app.notify(array[r.cs_user_id], 'Nhắc việc',
+      r.id || ': nháp ngày bốc ' || app.dm(r.day) || ' chưa gửi Logistics (đã qua mốc chốt xe). Bấm Gửi Logistics hoặc đổi ngày.', jsonb_build_object('bk', r.id));
+    update app.bookings set escalated_at = now() where id = r.id;
+    n := n + 1;
+  end loop;
+  -- Nháp quá ngày bốc 2 ngày → tự hủy
+  for r in select b.* from app.bookings b where b.status = 'draft' and b.day + 2 < app.today() loop
+    update app.bookings set status = 'cancelled', closed_at = now(), reason_note = 'Nháp quá ngày bốc 2 ngày, hệ thống tự hủy', updated_at = now() where id = r.id;
+    perform app.status_change(r.id, 'draft', 'cancelled', null, 'Tự hủy nháp quá hạn');
+    perform app.audit(r.id, 'Tự hủy nháp: quá ngày bốc ' || app.dm(r.day) || ' hơn 2 ngày');
+    perform app.notify(array[r.cs_user_id], 'Hủy booking', r.id || ': nháp ngày ' || app.dm(r.day) || ' đã tự hủy vì quá ngày bốc 2 ngày.', jsonb_build_object('bk', r.id));
     n := n + 1;
   end loop;
   return n;
@@ -1862,8 +1911,10 @@ begin
   if c.cs_user_id is distinct from nullif(p->>'cs_id', '')::uuid then
     v_txt := v_txt || 'CS → ' || coalesce((select full_name from app.profiles where user_id = (p->>'cs_id')::uuid), 'chưa gán') || '; ';
   end if;
+  if c.default_wh is distinct from nullif(p->>'default_wh', '') then v_txt := v_txt || 'kho mặc định → ' || coalesce(nullif(p->>'default_wh', ''), 'không') || '; '; end if;
   update app.customers set code = trim(p->>'code'), name = trim(p->>'name'), segment = p->>'segment', sales_user_id = v_sales.user_id,
-         cs_user_id = nullif(p->>'cs_id', '')::uuid where id = c.id;
+         cs_user_id = nullif(p->>'cs_id', '')::uuid,
+         default_wh = (select code from app.warehouses where code = nullif(p->>'default_wh', '')) where id = c.id;
   if v_txt <> '' then perform app.audit('customer:' || c.id, 'Sửa khách hàng ' || c.name || ': ' || v_txt); end if;
 exception when unique_violation then
   raise exception 'Mã khách hàng đã tồn tại.';
@@ -1883,7 +1934,7 @@ begin
   return jsonb_build_object('active', not c.active, 'openBookings', v_open);
 end $$;
 
--- Thêm / sửa địa chỉ giao: p = {id (rỗng = thêm), customer_id, label, ward, province, regions: {"PMY": "PMY-HCM", ...}}
+-- Thêm / sửa địa chỉ giao: p = {id (rỗng = thêm), customer_id, label, ward, province, regions: {"JM2": "PMY-HCM", ...}}
 create or replace function public.admin_save_address(p jsonb) returns uuid
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; v_id uuid := nullif(p->>'id', '')::uuid; v_cust uuid := nullif(p->>'customer_id', '')::uuid; k text; v text;
@@ -1955,7 +2006,7 @@ begin
   select id into v_uid from auth.users where lower(email) = lower(p_email);
   if v_uid is null then raise exception 'Chưa có tài khoản % trong Authentication → Users.', p_email; end if;
   insert into app.profiles (user_id, full_name, email, role, default_warehouse)
-  values (v_uid, p_name, lower(p_email), 'admin', 'PMY')
+  values (v_uid, p_name, lower(p_email), 'admin', 'JM2')
   on conflict (user_id) do update set role = 'admin', active = true;
   return v_uid;
 end $$;
@@ -2170,8 +2221,10 @@ begin
       begin v_tons := replace(r->>'tons', ',', '.')::numeric; exception when others then raise exception 'Số tấn % không hợp lệ.', coalesce(r->>'tons', ''); end;
       if coalesce(v_tons, 0) <= 0 then raise exception 'Số tấn phải lớn hơn 0.'; end if;
       -- Không nhập địa chỉ: dùng địa chỉ mặc định của khách (kèm khu vực đã lưu)
-      v_addr := null; v_region := null;
-      if coalesce(trim(r->>'address'), '') = '' then
+      v_addr := (select a.id from app.customer_addresses a where a.id::text = nullif(r->>'address_id', '') and a.customer_id = c.id);
+      v_region := case when v_addr is not null then (select ar.region_id from app.address_regions ar where ar.address_id = v_addr and ar.warehouse_code = v_wh)
+                       else (select x.id from app.regions x where x.id = nullif(r->>'region', '') and x.warehouse_code = v_wh) end;
+      if v_addr is null and coalesce(trim(r->>'address'), '') = '' then
         select a.id, ar.region_id into v_addr, v_region from app.customer_addresses a
           left join app.address_regions ar on ar.address_id = a.id and ar.warehouse_code = v_wh
          where a.customer_id = c.id order by a.is_default desc, a.label limit 1;
@@ -2180,6 +2233,7 @@ begin
         'mode', p_mode, 'wh', v_wh, 'day', v_day, 'customer_id', c.id, 'tons', v_tons,
         'ref', coalesce(trim(r->>'ref'), ''), 'note', coalesce(trim(r->>'note'), ''),
         'address_id', coalesce(v_addr::text, 'new'), 'street', coalesce(trim(r->>'address'), ''),
+        'province', coalesce(r->>'province', ''), 'save_addr', coalesce((r->>'save_addr')::boolean, false),
         'region', coalesce(v_region, 'NONE')));
       update app.bookings set note = trim(note) where id = v_id;
       v_ok := v_ok + 1;
@@ -2330,9 +2384,9 @@ begin
   perform app.audit(b.id, 'Xác nhận giao hàng: ' || i || ' cuộn, ' || app.fmt(v_total) || ' t, giao tới ' || v_addr_text
                           || case when cardinality(v_warn) > 0 then '. Đã kiểm tra: ' || array_to_string(v_warn, '; ') else '' end);
   perform app.notify(app.logistics_of(b.warehouse_code),
-    case when b.day <= app.today() + 1 then 'Giao hàng gấp' else 'Chi tiết giao hàng' end,
+    case when v_status = 'hold' or b.day <= app.today() + 1 then 'Giao hàng gấp' else 'Chi tiết giao hàng' end,
     b.id || ' · ' || c.name || ' ngày ' || app.dm(b.day) || ': đã có danh sách ' || i || ' cuộn, ' || app.fmt(v_total) || ' t'
-    || case when v_status = 'hold' then ' (chờ xếp xe)' else '' end,
+    || case when v_status = 'hold' then '. Hàng sẵn sàng – cần xếp xe ngay' else '' end,
     jsonb_build_object('bk', b.id));
   return jsonb_build_object('coils', i, 'tons', v_total, 'child', v_child, 'status', v_status);
 end $$;
@@ -2517,6 +2571,86 @@ begin
   update app.profiles set email_level = p_level, alt_email = nullif(lower(trim(p_alt)), '') where user_id = app.real_uid() and active;
 end $$;
 
+
+-- v3.0: CS gửi các nháp (Lưu tạm) cho Logistics → Chờ xếp xe (lúc này mới trừ năng lực giao)
+create or replace function public.send_to_logistics(p_ids text[]) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; b app.bookings; c app.customers; v_id text; v_avail numeric; v_t numeric; res jsonb := '[]'; v_err text;
+begin
+  me := app.require_perm('booking.create');
+  foreach v_id in array coalesce(p_ids, '{}') loop
+    begin
+      select * into b from app.bookings where id = v_id for update;
+      if not found or b.status <> 'draft' then raise exception 'Không phải nháp.'; end if;
+      perform app.check_scope(me, b.customer_id);
+      if b.day < app.today() then raise exception 'Ngày bốc % đã qua: sửa ngày rồi gửi.', app.dm(b.day); end if;
+      if not exists (select 1 from app.warehouses w where w.code = b.warehouse_code and w.active) then raise exception 'Kho % đã ngừng dùng: đổi kho trước.', b.warehouse_code; end if;
+      if not exists (select 1 from app.daily_fleet f where f.warehouse_code = b.warehouse_code and f.day = b.day) then
+        raise exception 'Ngày % chưa khai báo xe.', app.dm(b.day);
+      end if;
+      v_t := app.bk_total(b.id);
+      if v_t <= 0 then raise exception 'Số tấn phải lớn hơn 0.'; end if;
+      perform app.lock_day(b.warehouse_code, b.day);
+      v_avail := (app.day_metrics(b.warehouse_code, b.day, b.id)->>'avail')::numeric;
+      if v_t > v_avail + 0.001 then raise exception 'Vượt sức chứa: còn % t, cần % t.', app.fmt(v_avail), app.fmt(v_t); end if;
+      select * into c from app.customers where id = b.customer_id;
+      update app.bookings set status = 'hold', held_at = now(), original_day = coalesce(original_day, day), escalated_at = null, updated_at = now() where id = b.id;
+      perform app.status_change(b.id, 'draft', 'hold', null, 'Gửi Logistics');
+      perform app.audit(b.id, 'Gửi Logistics: ' || app.fmt(v_t) || ' t ngày ' || app.dm(b.day));
+      perform app.refresh_urgent(b.id);
+      perform app.notify(app.logistics_of(b.warehouse_code) || c.sales_user_id,
+        case when (select urgent from app.bookings where id = b.id) then 'Đơn khẩn' else 'Giữ chỗ' end,
+        case when app.is_holiday(b.warehouse_code, b.day) then '⚠ GIAO NGÀY NGHỈ (' || app.dm(b.day) || ') · ' else '' end ||
+        b.id || ' · ' || c.name || ' giữ chỗ ' || app.fmt(v_t) || ' t ngày ' || app.dm(b.day), jsonb_build_object('bk', b.id));
+      res := res || jsonb_build_object('id', v_id, 'ok', true);
+    exception when others then
+      get stacked diagnostics v_err = message_text;
+      res := res || jsonb_build_object('id', v_id, 'ok', false, 'error', v_err);
+    end;
+  end loop;
+  return res;
+end $$;
+
+-- v3.0: cấu hình kho. Mã kho chỉ đặt khi thêm mới; đơn của kho ngừng dùng được đổi sang kho khác.
+create or replace function public.save_warehouse(p jsonb) returns text
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; v_code text := upper(trim(coalesce(p->>'code', ''))); w app.warehouses;
+begin
+  me := app.require_perm('config.warehouses');
+  if v_code !~ '^[A-Z0-9]{2,6}$' then raise exception 'Mã kho 2–6 ký tự chữ / số (ví dụ JM2).'; end if;
+  if coalesce(trim(p->>'name'), '') = '' then raise exception 'Nhập tên kho.'; end if;
+  select * into w from app.warehouses where code = v_code;
+  if not found then
+    if not coalesce((p->>'new')::boolean, false) then raise exception 'Không tìm thấy kho %.', v_code; end if;
+    insert into app.warehouses (code, name, full_name, erp_code, active)
+    values (v_code, trim(p->>'name'), coalesce(nullif(trim(p->>'full'), ''), 'Kho ' || trim(p->>'name')), coalesce(nullif(trim(p->>'erp'), ''), v_code), true);
+    perform app.audit('warehouse', 'Thêm kho ' || v_code || ' – ' || trim(p->>'name'));
+  else
+    if coalesce((p->>'new')::boolean, false) then raise exception 'Mã kho % đã có.', v_code; end if;
+    update app.warehouses set name = trim(p->>'name'), full_name = coalesce(nullif(trim(p->>'full'), ''), full_name),
+           erp_code = coalesce(nullif(trim(p->>'erp'), ''), erp_code), active = coalesce((p->>'active')::boolean, active)
+     where code = v_code;
+    perform app.audit('warehouse', 'Sửa kho ' || v_code || ': ' || p::text);
+  end if;
+  return v_code;
+end $$;
+
+create or replace function public.change_booking_wh(p_id text, p_wh text) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; b app.bookings;
+begin
+  me := app.require_perm('booking.edit');
+  select * into b from app.bookings where id = p_id for update;
+  if not found then raise exception 'Không tìm thấy booking.'; end if;
+  perform app.check_scope(me, b.customer_id);
+  if exists (select 1 from app.warehouses where code = b.warehouse_code and active) then raise exception 'Kho của booking vẫn đang dùng: sửa booking để đổi kho.'; end if;
+  if not exists (select 1 from app.warehouses where code = p_wh and active) then raise exception 'Chọn kho đang dùng.'; end if;
+  if b.status in ('loaded','transit','delivered','cancelled') then raise exception 'Booking đã bốc hàng hoặc đã đóng.'; end if;
+  delete from app.allocations where booking_id = p_id;
+  update app.bookings set warehouse_code = p_wh, region_id = null, status = 'draft', updated_at = now() where id = p_id;
+  if b.status <> 'draft' then perform app.status_change(p_id, b.status, 'draft', null, 'Đổi kho ' || b.warehouse_code || ' → ' || p_wh); end if;
+  perform app.audit(p_id, 'Đổi kho ' || b.warehouse_code || ' → ' || p_wh || ' (kho cũ ngừng dùng); chuyển về Lưu tạm, CS gửi lại Logistics');
+end $$;
 -- ---------------------------------------------------------------------
 -- 8. Quyền gọi hàm
 -- ---------------------------------------------------------------------
@@ -2535,7 +2669,7 @@ begin
        'admin_update_customer','admin_toggle_customer','admin_save_address','admin_delete_address',
        'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa','list_bookings','booking_stats',
        'bulk_create_bookings','suggest_days','set_urgent','confirm_delivery','get_coils','mark_loaded','resolve_short','mark_transit',
-       'mark_delivered','mark_failed','close_truck','set_email_prefs')
+       'mark_delivered','mark_failed','close_truck','set_email_prefs','send_to_logistics','save_warehouse','change_booking_wh')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);
