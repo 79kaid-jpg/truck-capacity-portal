@@ -87,7 +87,7 @@ vCalendar=function(){const[y,m]=V.ym;const isC=role()==='customer';const w2=!isC
  const whSel=`<label class="whsel"><span>Kho:</span><select data-a36="wh" aria-label="Chọn kho">${isC?'':`<option value="__all" ${V.whAll?'selected':''}>Tất cả kho</option>`}${WH.map(w=>`<option value="${w.id}" ${!V.whAll&&w.id===V.wh?'selected':''}>${w.name}</option>`).join('')}</select></label>`;
  const F=[['all','Tất cả'],['hold','Có đơn chờ xếp xe'],['urg','Có đơn khẩn'],...(role()==='cs'||role()==='admin'?[['mine','Đơn của tôi']]:[])];
  const bar=isC?'':`<div class="cal36bar"><button class="btn ghost sm ${w2?'':'on'}" data-a="calV" data-v="m">Xem tháng</button><button class="btn ghost sm ${w2?'on':''}" data-a="calV" data-v="w2">Xem 2 tuần</button>
-  <span class="grow"></span>${F.map(([k,l])=>`<button class="btn ghost sm ${(V.calF||'all')===k?'on':''}" data-a="calF" data-v="${k}">${l}</button>`).join('')}<span class="small muted" title="← → chuyển kỳ · T hôm nay · N đặt hàng">⌨ ← → · T · N</span></div>`;
+  <span class="grow"></span>${F.map(([k,l])=>`<button class="btn ghost sm ${(V.calF||'all')===k?'on':''}" data-a="calF" data-v="${k}">${l}</button>`).join('')}<button class="btn ghost sm" data-a="scHelp" title="Bảng phím tắt (?)">⌨ Phím tắt</button></div>`;
  const side=V.sideOff?`<button class="sidebtn" data-a="sideT" title="Mở khung thống kê">« THỐNG KÊ</button>`:statsPanel();
  return `<div class="panel"><div class="calhead v36"><div class="illus">${DK_SVG()}</div>
   <div class="monthnav"><button class="navbtn" data-a="${w2?'w2nav':'month'}" data-d="-1" aria-label="Kỳ trước">‹</button><h1>${title}</h1><button class="navbtn" data-a="${w2?'w2nav':'month'}" data-d="1" aria-label="Kỳ sau">›</button></div>
@@ -150,12 +150,6 @@ Object.assign(A,{
  calNoBk:()=>{V.modal={type:'noBk',wide:true};render();}
 });
 document.addEventListener('change',e=>{const el=e.target;if(!el.dataset||el.dataset.a36!=='wh')return;if(el.value==='__all'){V.whAll=true;}else{V.whAll=false;V.wh=el.value;V.fleetEdit={};}render();});
-document.addEventListener('keydown',e=>{if(!S||V.view!=='calendar'||V.modal||e.ctrlKey||e.metaKey||e.altKey)return;const t=e.target;if(t&&(['INPUT','TEXTAREA','SELECT'].includes(t.tagName)||t.isContentEditable))return;
- const w2=V.calV==='w2'&&role()!=='customer';
- if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();const k=e.key==='ArrowLeft'?-1:1;w2?A.w2nav({d:k}):A.month({d:k});}
- else if(e.key==='t'||e.key==='T'){e.preventDefault();if(w2){V.w2s=addDays(TODAY,-dow(TODAY));afterNav(goMonth(TODAY));}else afterNav(goMonth(TODAY));}
- else if((e.key==='n'||e.key==='N')&&can('booking.create')){e.preventDefault();A.newBk({});}
- else if(e.key==='Enter'&&t&&t.dataset&&t.dataset.tip&&t.dataset.a){e.preventDefault();t.click();}});
 
 /* drill từ khung Khách: mở Bảng thống kê đúng tháng / kho / segment rồi mở danh sách đơn */
 const DRILL36={ok:r=>r.grp==='ok',hold:r=>r.grp==='hold',resched:r=>r.grp==='resched',draft:r=>r.grp==='draft',rej:r=>r.grp==='rej',

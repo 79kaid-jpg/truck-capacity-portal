@@ -580,9 +580,9 @@ function vFleet(){
 
 /* ---------- SCR-13 config ---------- */
 function vConfig(){const C=S.cfg;
- const tabs=[['general','Ngưỡng & tải trọng','config.general'],['regions','Khu vực giao hàng','config.regions'],['catalog','Sản phẩm, màu, độ dày, khổ','config.catalog'],['holiday','Ngày nghỉ','config.general'],['wh','Kho','config.warehouses'],['tgt','Mục tiêu','config.targets']].filter(t=>can(t[2]));
+ const tabs=[['general','Ngưỡng & tải trọng','config.general'],['regions','Khu vực giao hàng','config.regions'],['catalog','Sản phẩm, màu, độ dày, khổ','config.catalog'],['holiday','Ngày nghỉ','config.general'],['wh','Kho','config.warehouses'],['tgt','Mục tiêu','config.targets'],['sc','Phím tắt','config.shortcuts']].filter(t=>can(t[2]));
  if(!tabs.some(t=>t[0]===V.cfgTab))V.cfgTab=tabs[0]?tabs[0][0]:'general';const T=V.cfgTab;
- let body=T==='wh'&&typeof whCfg30==='function'?whCfg30():T==='tgt'&&typeof tgtCfg35==='function'?tgtCfg35():'';
+ let body=T==='wh'&&typeof whCfg30==='function'?whCfg30():T==='tgt'&&typeof tgtCfg35==='function'?tgtCfg35():T==='sc'&&typeof scCfg37==='function'?scCfg37():'';
  if(T==='general'){const f=(k,l,suf)=>`<div class="field"><label for="cf-${k}">${l}</label><div class="row" style="flex-wrap:nowrap"><input id="cf-${k}" class="inp num" inputmode="decimal" data-f="cfg" data-k="${k}" value="${C[k]}"><span class="muted small">${suf}</span></div></div>`;
   body=`<div class="fgrid">${f('near','Ngưỡng GẦN ĐẦY','%')}${f('capDK','Tải trọng mặc định đầu kéo (DK)','tấn')}${f('capCN','Tải trọng mặc định xe thùng (XT)','tấn')}${f('capDKMin','DK: tải trọng tối thiểu khi chỉnh từng xe','tấn')}${f('capDKMax','DK: tải trọng tối đa khi chỉnh từng xe','tấn')}${f('capCNMin','XT: tải trọng tối thiểu khi chỉnh từng xe','tấn')}${f('capCNMax','XT: tải trọng tối đa khi chỉnh từng xe','tấn')}${f('split','Ngưỡng phân loại đơn DK / XT','tấn')}${f('sla','Thời hạn phản hồi giữ chỗ','phút')}${f('escalateHours','Nhắc lại cho tất cả CS khi Đề nghị đổi ngày chưa xử lý sau','giờ')}${f('maxStops','Số điểm giao tối đa / xe','điểm')}${f('fillMin','Lấp đầy tối thiểu để đề xuất nhóm gộp','%')}
   <div class="field"><label>Gợi ý gộp xe</label><label class="row"><input type="checkbox" data-f="cfgb" data-k="suggestOn" ${C.suggestOn?'checked':''}> Bật gợi ý gộp xe theo khu vực</label></div></div>
@@ -1354,7 +1354,7 @@ function gsOpen(){if(!S)return;let el=document.getElementById('gs');if(!el){el=d
 function gsClose(){GS.open=false;GS.seq++;const el=document.getElementById('gs');if(el)el.innerHTML='';}
 document.addEventListener('keydown',e=>{if(!S)return;const tag=(e.target.tagName||'');const typing=['INPUT','TEXTAREA','SELECT'].includes(tag);
  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();GS.open?gsClose():gsOpen();}
- else if(e.key==='/'&&!typing&&!GS.open&&!V.modal){e.preventDefault();gsOpen();}});
+});
 
 /* ===================== start ===================== */
 function screen(title,body,actions=''){return `<div class="login"><div class="panel loginbox"><div class="brand"><span class="mark">${IC.truck.replace('<svg','<svg width="18" height="18"')}</span>ĐẶT XE</div><h1>${title}</h1>${body}${actions}</div></div>`;}
