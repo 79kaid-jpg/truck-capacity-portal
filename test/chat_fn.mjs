@@ -1,0 +1,20 @@
+// Kiểm tra functions/api/chat.js với AI / Supabase giả. Chạy: node test/chat_fn.mjs
+import { onRequestPost } from '../functions/api/chat.js';
+let pass = 0, fail = 0; const ok = (c, m) => { if (c) { pass++; console.log('OK  ', m); } else { fail++; console.log('FAIL', m); } };
+const assets = { fetch: async () => new Response("window.APP_CONFIG = {\n SUPABASE_URL: 'https://abc.supabase.co',\n SUPABASE_ANON_KEY: 'anon123'\n};") };
+let seen = null, quotaOk = true;
+globalThis.fetch = async (url, o) => { seen = { url, o }; return quotaOk ? new Response(JSON.stringify({ left: 9, limit: 10 }), { status: 200 }) : new Response(JSON.stringify({ message: 'Bạn đã dùng hết 10 lượt' }), { status: 400 }); };
+const req = (body, auth = 'Bearer tok') => new Request('https://x.pages.dev/api/chat', { method: 'POST', headers: { authorization: auth, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+const AI = { run: async (model, inp) => { AI.last = { model, inp }; return { response: '{"answer":"Xin chào"}' }; } };
+let r = await onRequestPost({ request: req({ messages: [{ role: 'user', content: 'hi' }] }), env: { ASSETS: assets } });
+ok(r.status === 503, 'thiếu binding AI → 503');
+r = await onRequestPost({ request: req({ messages: [{ role: 'user', content: 'hi' }] }, ''), env: { AI, ASSETS: assets } });
+ok(r.status === 401, 'không có token → 401');
+r = await onRequestPost({ request: req({ messages: [{ role: 'system', content: 's' }, { role: 'user', content: 'x'.repeat(9000) }, { role: 'tool', content: 'bad' }], tools: ['find_bookings'] }), env: { AI, ASSETS: assets } });
+const j = await r.json();
+ok(r.status === 200 && j.text === '{"answer":"Xin chào"}' && j.left === 9, 'gọi AI, trả text + lượt còn lại');
+ok(seen.url === 'https://abc.supabase.co/rest/v1/rpc/chat_use' && seen.o.headers.authorization === 'Bearer tok' && seen.o.headers.apikey === 'anon123', 'kiểm tra quyền/hạn mức bằng token người dùng');
+ok(AI.last.inp.messages.length === 2 && AI.last.inp.messages[1].content.length === 6000, 'lọc role lạ, cắt tin quá dài');
+quotaOk = false; r = await onRequestPost({ request: req({ messages: [{ role: 'user', content: 'hi' }] }), env: { AI, ASSETS: assets } });
+ok(r.status === 403 && /hết 10 lượt/.test((await r.json()).error), 'hết lượt → 403 kèm lý do');
+console.log(`${pass} OK, ${fail} lỗi`); if (fail) process.exit(1);

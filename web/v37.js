@@ -25,6 +25,7 @@ const SC=[
  ['goCfg','global','Đi tới Cấu hình','G C',()=>canAny('config.')&&go('config')],
  ['navBack','global','Quay lại màn hình trước','B B',()=>A.navBack()],
  ['navFwd','global','Đi tới màn hình vừa rời (Next)','B N',()=>A.navFwd()],
+ ['chat','global','Mở trợ lý (chatbot)','G Q',()=>A.chatOpen&&A.chatOpen()],
  ['refresh','global','Làm mới dữ liệu','R',()=>A.refresh()],
  ['calPrev','cal','Tháng trước / 2 tuần trước','←',()=>V.calV==='w2'?A.w2nav({d:-1}):A.month({d:-1})],
  ['calNext','cal','Tháng sau / 2 tuần sau','→',()=>V.calV==='w2'?A.w2nav({d:1}):A.month({d:1})],

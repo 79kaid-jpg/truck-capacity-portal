@@ -335,6 +335,13 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - `admin_create_user` (tạo luôn tài khoản đăng nhập trong `auth.users` + `auth.identities`, mật khẩu băm bcrypt, `must_change_pw`), `admin_reset_password`, `my_pw_changed`, `admin_user_refs`, `admin_delete_user` (chuyển giao khách / booking / người nhận thay, lưu tên vào `app.deleted_users`, hàm `app.uname`). Chỉ vai trò Admin.
 - `web/v45.js`: bộ lọc (vai trò, segment, trạng thái, đăng nhập, tìm), tạo đơn lẻ / hàng loạt (CSV mật khẩu), đặt lại mật khẩu, xóa / xóa nhiều, bắt đổi mật khẩu lần đầu. Test: `test/99e_users.sql`, `test/e2e/v45.mjs`.
 
+## v3.19 — Trợ lý (chatbot) miễn phí
+**Chạy `supabase/setup_all.sql` trước khi gộp** (`customers.chat_enabled`, `app.chat_log`, RPC `chat_use`, `set_customer_chat`, `chat_stats`; cấu hình `chatOn`, `chatRoles`, `chatDaily`).
+- `functions/api/chat.js` (Cloudflare Pages Function): kiểm tra token + quyền + hạn mức bằng `chat_use`, rồi gọi **Workers AI** (mặc định `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, đổi bằng biến `CHAT_MODEL`). Không giữ bí mật nào; đọc URL / anon key từ `web/config.js`.
+- `web/v46.js`: khung chat, vòng hỏi → công cụ → trả lời. Công cụ chạy ở trình duyệt bằng tài khoản người dùng (capacity, find_bookings, booking_detail, requests, guide, fill_request, open; nội bộ: find_customer, find_trucks, truck_detail; Logistics: suggest_trucks, suggest_all; CS: fill_order). Bot chỉ điền sẵn form, không tự gửi.
+- **Cài một lần trên Cloudflare:** Workers & Pages → project `truck-capacity-portal` → **Settings → Bindings → Add → Workers AI** → Variable name **`AI`** → Save → **Deployments → Retry deployment** (hoặc push một commit). Gói miễn phí Workers AI có hạn mức neuron mỗi ngày; hết thì trợ lý báo lỗi đến hôm sau.
+- Test: `test/99f_chat.sql`, `node test/chat_fn.mjs`, `test/e2e/v46.mjs` (AI giả lập).
+
 
 
 ## Lưu ý gói miễn phí
@@ -362,6 +369,8 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v43.js                  Picking list tùy chọn, nhắc xác nhận giao
   v44.js                  Kéo thả booking vào xe, gợi ý xe
   v45.js                  Tạo / lọc / xóa tài khoản
+  v46.js                  Trợ lý (chatbot)
+functions/api/chat.js     Cloudflare Function gọi Workers AI
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
