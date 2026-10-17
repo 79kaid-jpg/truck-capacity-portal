@@ -111,10 +111,10 @@ insert into app.permissions (code, grp, name, descr, sort, def_roles) values
   ('config.general',  'Cấu hình',   'Ngưỡng, tải trọng, ngày nghỉ',        'Ngưỡng gần đầy, tải trọng DK/CN, ngưỡng phân loại, SLA, ngày nghỉ lễ', 120, '{logistics,admin}'),
   ('config.regions',  'Cấu hình',   'Khu vực giao hàng',                   'Thêm khu vực, khu vực lân cận, ngừng dùng', 130, '{logistics,admin}'),
   ('config.catalog',  'Cấu hình',   'Sản phẩm, màu, độ dày, khổ',          'Thêm, sửa, ngừng dùng mục trong danh mục', 140, '{logistics,admin}'),
-  ('dash.ops',        'Dashboard',  'Dashboard điều phối và hiệu quả xe',  'DB-01 Điều phối hôm nay, DB-02 Hiệu quả sử dụng xe, DB-04 Gộp xe', 150, '{logistics,admin}'),
-  ('dash.service',    'Dashboard',  'Dashboard chất lượng phục vụ',        'DB-03 (bản sau)', 160, '{logistics,cs,admin}'),
-  ('dash.sales',      'Dashboard',  'Dashboard khách hàng và Sales',       'DB-05 (bản sau)', 170, '{logistics,sales,admin}'),
-  ('dash.system',     'Dashboard',  'Dashboard sức khỏe hệ thống',         'DB-06: dung lượng, đăng nhập, email, gửi email thử', 180, '{admin}'),
+  ('dash.ops',        'Dashboard',  'Bảng thống kê · tab Logistics',      'Năng lực giao, lấp đầy 14 ngày tới, thời gian xác nhận, đơn chờ xếp xe (kèm tab Tổng quan, Ngoại lệ, Lịch đơn, Mục tiêu)', 150, '{logistics,admin}'),
+  ('dash.service',    'Dashboard',  'Bảng thống kê · tab CS',             'Trạng thái đơn, việc cần làm (đổi ngày, quá ngày chưa chốt, lưu tạm sắp đến ngày), top khách', 160, '{logistics,cs,admin}'),
+  ('dash.sales',      'Dashboard',  'Bảng thống kê · tab Sales',          'Khách, segment, Sales phụ trách, nhu cầu bị mất', 170, '{logistics,sales,admin}'),
+  ('dash.system',     'Dashboard',  'Bảng thống kê · tab Hệ thống',         'DB-06: dung lượng, đăng nhập, email, gửi email thử', 180, '{admin}'),
   ('users.manage',    'Quản trị',   'Quản lý tài khoản',                   'Cấp quyền, sửa, khóa tài khoản người dùng', 190, '{admin}'),
   ('customers.manage','Quản trị',   'Quản lý khách hàng',                  'Thêm khách hàng, địa chỉ, Sales phụ trách', 200, '{admin}'),
   ('users.impersonate','Quản trị',  'Login as người dùng khác',            'Xem và thao tác với tư cách một tài khoản khác tối đa 60 phút; mọi thao tác ghi nhật ký', 205, '{admin}'),
@@ -123,6 +123,7 @@ insert into app.permissions (code, grp, name, descr, sort, def_roles) values
   ('delivery.confirm','Giao hàng',  'Xác nhận giao hàng, xử lý phần còn lại', 'Nhập địa chỉ và danh sách cuộn, tách đơn / không giao phần còn lại (BR-43, BR-44, BR-46)', 52, '{cs,admin}'),
   ('delivery.ship',   'Giao hàng',  'Load, đang giao, đã giao',            'Đã load hàng, Đang giao, Đã giao, Giao không thành công (BR-45)', 112, '{logistics,admin}'),
   ('booking.urgent',  'Đặt hàng',   'Đặt / bỏ cờ đơn khẩn',                'Ghi đè cờ khẩn tự tính, bắt buộc lý do (BR-41)', 55, '{admin}'),
+  ('config.targets','Cấu hình','Mục tiêu','Nhập mục tiêu tấn theo tháng × segment (tab Mục tiêu của Bảng thống kê)',126,'{admin}'),
   ('config.warehouses','Cấu hình',  'Kho',                                 'Thêm kho, sửa tên, mã ERP, ngừng dùng kho', 125, '{logistics,admin}')
 on conflict (code) do update set grp = excluded.grp, name = excluded.name, descr = excluded.descr, sort = excluded.sort, def_roles = excluded.def_roles;
 

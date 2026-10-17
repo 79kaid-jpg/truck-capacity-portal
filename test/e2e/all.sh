@@ -1,5 +1,5 @@
 cd /home/claude/truck-capacity-portal
-for t in run gs past mfa rebook offday truckedit blfilter salesstats v29 v31 login32 v33 v34; do
+for t in run gs past mfa rebook offday truckedit blfilter salesstats v29 v31 login32 v33 v34 v35; do
   fuser -k 8787/tcp >/dev/null 2>&1
   bash test/reset.sh >/dev/null 2>&1
   ARGS=""

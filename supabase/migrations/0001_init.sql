@@ -2765,7 +2765,7 @@ create or replace function public.import_customers(p_custs jsonb, p_addrs jsonb,
 language plpgsql volatile security definer set search_path = '' as $$
 declare
   me app.profiles; r jsonb; c app.customers; a app.customer_addresses;
-  v_code text; v_name text; v_seg text; v_sales uuid; v_cs uuid; v_wh text; v_act boolean; v_erp text; v_sp app.profiles;
+  v_code text; v_name text; v_seg text; v_sales uuid; v_cs uuid; v_wh text; v_act boolean; v_erp text; v_sp app.profiles; v_area text; v_aread text;
   v_dups text[]; v_dupseen text[] := '{}'; v_cid uuid; v_aid uuid; v_label text; v_prov text; v_ext text; w text; v_reg text;
   n_new int := 0; n_upd int := 0; n_same int := 0; a_new int := 0; a_upd int := 0; a_same int := 0; a_skip int := 0;
   errs jsonb := '[]'; warns jsonb := '[]'; ne int := 0; nw int := 0;
@@ -2820,19 +2820,20 @@ begin
       else nw := nw + 1; if nw <= 300 then warns := warns || jsonb_build_object('sheet', 'KH', 'row', r->'row', 'msg', v_code || ': kho ' || trim(r->>'default_wh') || ' không có'); end if; end if;
     end if;
     v_act := coalesce((r->>'active')::boolean, true);
+    v_area := coalesce(nullif(trim(r->>'area'), ''), c.area, ''); v_aread := coalesce(nullif(trim(r->>'area_detail'), ''), c.area_detail, '');
     v_erp := coalesce(nullif(trim(r->>'erp'), ''), c.erp_code, '');
     if c.id is null then
       n_new := n_new + 1;
       if p_apply then
-        insert into app.customers (code, name, segment, sales_user_id, cs_user_id, default_wh, erp_code, active)
-        values (v_code, v_name, v_seg, v_sales, v_cs, v_wh, v_erp, v_act);
+        insert into app.customers (code, name, segment, sales_user_id, cs_user_id, default_wh, erp_code, active, area, area_detail)
+        values (v_code, v_name, v_seg, v_sales, v_cs, v_wh, v_erp, v_act, v_area, v_aread);
       end if;
-    elsif (c.name, c.segment, c.sales_user_id, c.cs_user_id, c.default_wh, c.erp_code, c.active)
-          is distinct from (v_name, v_seg, v_sales, v_cs, v_wh, v_erp, v_act) then
+    elsif (c.name, c.segment, c.sales_user_id, c.cs_user_id, c.default_wh, c.erp_code, c.active, c.area, c.area_detail)
+          is distinct from (v_name, v_seg, v_sales, v_cs, v_wh, v_erp, v_act, v_area, v_aread) then
       n_upd := n_upd + 1;
       if p_apply then
         update app.customers set name = v_name, segment = v_seg, sales_user_id = v_sales, cs_user_id = v_cs, default_wh = v_wh,
-               erp_code = v_erp, active = v_act where id = c.id;
+               erp_code = v_erp, active = v_act, area = v_area, area_detail = v_aread where id = c.id;
       end if;
     else n_same := n_same + 1; end if;
   end loop;
@@ -2891,6 +2892,85 @@ update app.allocations set truck_code = replace(truck_code, '-CN-', '-XT-') wher
 update app.merge_suggestion_log set truck_code = replace(truck_code, '-CN-', '-XT-') where truck_code like '%-CN-%';
 
 -- ---------------------------------------------------------------------
+-- v3.5: Bảng thống kê mới (như bản Google Sheets) – Area của khách, mục tiêu tấn theo tháng × segment, dữ liệu dashboard gọn
+-- ---------------------------------------------------------------------
+alter table app.customers add column if not exists area        text not null default '';
+alter table app.customers add column if not exists area_detail text not null default '';
+
+create table if not exists app.targets (
+  month      text not null check (month ~ '^\d{4}-\d{2}$'),
+  segment    text not null check (segment in ('DD','DA','EX')),
+  tons       numeric(12,2) not null default 0 check (tons >= 0),
+  updated_by uuid,
+  updated_at timestamptz not null default now(),
+  primary key (month, segment)
+);
+alter table app.targets enable row level security;
+
+-- Lưu mục tiêu: p = [{month:'2026-10', seg:'DD', tons:4000}, ...]; tons trống/0 = xóa
+create or replace function public.save_targets(p jsonb) returns int
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; r jsonb; n int := 0;
+begin
+  me := app.require_perm('config.targets');
+  for r in select * from jsonb_array_elements(coalesce(p, '[]')) loop
+    if coalesce(r->>'month', '') !~ '^\d{4}-\d{2}$' or coalesce(r->>'seg', '') not in ('DD','DA','EX') then raise exception 'Dòng mục tiêu không hợp lệ.'; end if;
+    if coalesce(nullif(r->>'tons', '')::numeric, 0) <= 0 then
+      delete from app.targets where month = r->>'month' and segment = r->>'seg';
+    else
+      insert into app.targets (month, segment, tons, updated_by) values (r->>'month', r->>'seg', (r->>'tons')::numeric, me.user_id)
+      on conflict (month, segment) do update set tons = excluded.tons, updated_by = me.user_id, updated_at = now();
+    end if;
+    n := n + 1;
+  end loop;
+  perform app.audit('targets', 'Cập nhật mục tiêu tấn: ' || n || ' ô');
+  return n;
+end $$;
+
+-- Dữ liệu cho Bảng thống kê: một lần gọi theo kỳ; lọc kho / segment làm ở trình duyệt.
+-- b = [id, ngày bốc, kho, id khách, trạng thái, tấn, khẩn, hủy cận ngày, giữ chỗ (phút), xác nhận (phút), mã lý do, tạo lúc (phút), CS, ngày đề xuất]
+create or replace function public.dash_data(p_from date, p_to date) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare me app.profiles; v_scope text; v_len int; v_pfrom date; v_today date := app.today(); v_y text;
+begin
+  select * into me from app.profiles p where p.user_id = app.uid() and p.active;
+  if not found or me.role = 'customer' or not exists (select 1 from unnest(app.my_perms(me.role)) x where x like 'dash.%') then
+    raise exception 'Tài khoản chưa được cấp quyền xem thống kê.' using errcode = '42501';
+  end if;
+  if p_from is null or p_to is null or p_to < p_from or p_to - p_from > 400 then raise exception 'Khoảng ngày không hợp lệ (tối đa 400 ngày).'; end if;
+  v_scope := app.stat_scope(me); v_len := p_to - p_from + 1; v_pfrom := p_from - v_len; v_y := to_char(p_to, 'YYYY');
+  return jsonb_build_object('from', p_from, 'to', p_to, 'pfrom', v_pfrom, 'today', v_today, 'scope', v_scope,
+    'b', (select coalesce(jsonb_agg(jsonb_build_array(b.id, b.day, b.warehouse_code, b.customer_id, b.status, app.bk_total(b.id),
+                 case when b.urgent then 1 else 0 end, case when b.late_cancel then 1 else 0 end,
+                 floor(extract(epoch from b.held_at) / 60), floor(extract(epoch from b.confirmed_at) / 60), b.reason_code,
+                 floor(extract(epoch from b.created_at) / 60), b.cs_user_id, b.proposed_day)), '[]')
+            from app.bookings b join app.customers c on c.id = b.customer_id
+           where (b.day between v_pfrom and greatest(p_to, v_today + 14) or b.status in ('hold','resched','draft'))
+             and (v_scope = 'all' or (v_scope in ('DD','DA','EX') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id))),
+    'c', (select coalesce(jsonb_object_agg(c.id, jsonb_build_array(c.code, c.name, c.segment, c.sales_user_id, c.area, c.area_detail)), '{}')
+            from app.customers c
+           where exists (select 1 from app.bookings b where b.customer_id = c.id and (b.day >= v_pfrom or b.status in ('hold','resched','draft')))
+             and (v_scope = 'all' or (v_scope in ('DD','DA','EX') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id))),
+    'u', (select coalesce(jsonb_object_agg(p.user_id, p.full_name), '{}') from app.profiles p where p.role in ('sales','cs','logistics','admin')),
+    'cap', (select coalesce(jsonb_agg(jsonb_build_array(w.code, d::date, (m->>'cap')::numeric, (m->>'loaded')::numeric, (m->>'held')::numeric,
+                   case when (m->>'off')::boolean then 1 else 0 end, case when (m->>'declared')::boolean then 1 else 0 end)), '[]')
+              from app.warehouses w
+              cross join (select generate_series(p_from, p_to, interval '1 day') d union select generate_series(v_today, v_today + 13, interval '1 day')) dd
+              cross join lateral app.day_metrics(w.code, d::date) m where w.active),
+    'tgt', (select coalesce(jsonb_agg(jsonb_build_array(t.month, t.segment, t.tons)), '[]') from app.targets t where left(t.month, 4) in (v_y, to_char(p_from, 'YYYY'))),
+    'yr', (select coalesce(jsonb_agg(jsonb_build_array(x.m, x.seg, x.booked, x.ok)), '[]') from (
+             select to_char(b.day, 'YYYY-MM') m, c.segment seg,
+                    sum(app.bk_total(b.id)) filter (where b.status in ('ok','loaded','transit','delivered','failed','hold','resched','draft')) booked,
+                    sum(app.bk_total(b.id)) filter (where b.status in ('ok','loaded','transit','delivered','failed')) ok
+               from app.bookings b join app.customers c on c.id = b.customer_id
+              where to_char(b.day, 'YYYY') = v_y
+                and (v_scope = 'all' or (v_scope in ('DD','DA','EX') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id))
+              group by 1, 2) x),
+    'r', (select coalesce(jsonb_object_agg(code, name), '{}') from (select distinct on (code) code, name from app.reason_codes order by code, kind) rc),
+    'canTgt', app.role_has(me.role, 'config.targets'));
+end $$;
+
+-- ---------------------------------------------------------------------
 -- 8. Quyền gọi hàm
 -- ---------------------------------------------------------------------
 revoke all on all functions in schema app from public, anon, authenticated;
@@ -2909,7 +2989,7 @@ begin
        'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa','list_bookings','booking_stats',
        'bulk_create_bookings','suggest_days','set_urgent','confirm_delivery','get_coils','mark_loaded','resolve_short','mark_transit',
        'mark_delivered','mark_failed','close_truck','set_email_prefs','send_to_logistics','save_warehouse','change_booking_wh',
-       'get_ver','import_customers')
+       'get_ver','import_customers','save_targets','dash_data')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);

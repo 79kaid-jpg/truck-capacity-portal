@@ -54,7 +54,7 @@ await session('log@demo.vn', async p => {
   await p.click('[data-a="cfgTab"][data-t="catalog"]'); await type(p, '[data-k="thicks.value"]', '0,6'); await clr(p); await p.click('[data-a="catAdd"][data-k="thicks"]'); log('cat add ->', await toast(p));
   await clr(p); await p.locator('[data-a="catToggle"][data-k="thicks"]').last().click(); log('cat toggle ->', await toast(p)); await shot(p, '2h-catalog');
   S('dash'); await p.click('[data-a="go"][data-v="dash"]'); await p.waitForTimeout(200); await shot(p, '2i-dash');
-  await p.click('[data-a="dashTab"][data-t="DB-02"]'); await shot(p, '2j-dash2');
+  await p.click('[data-a="dzTab"][data-t="log"]'); await p.waitForTimeout(800); await shot(p, '2j-dash2');
 });
 await session('cs@demo.vn', async p => {
   S('newBk'); await p.waitForSelector('.cal'); await p.locator('[data-a="newBk"]').nth(2).click();
@@ -79,7 +79,7 @@ await session('admin@demo.vn', async p => {
   S('users'); await p.click('[data-a="go"][data-v="users"]'); await p.click('[data-a="userNew"]');
   await type(p, '#un-n', 'Người Mới'); await type(p, '#un-e', 'new@demo.vn');
   await clr(p); await p.click('[data-a="unSave"]'); log('grant ->', await toast(p), await p.locator('.modal .err').textContent().catch(() => '')); await shot(p, '6-admin-users');
-  S('dash6'); await p.click('[data-a="go"][data-v="dash"]'); await p.click('[data-a="dashTab"][data-t="DB-06"]'); await p.waitForTimeout(600); await shot(p, '6b-admin-dash');
+  S('dash6'); await p.click('[data-a="go"][data-v="dash"]'); await p.click('[data-a="dzTab"][data-t="sys"]'); await p.waitForTimeout(600); await shot(p, '6b-admin-dash');
   S('testEmail'); if (await p.locator('[data-a="testEmail"]').count()) { await clr(p); await p.click('[data-a="testEmail"]'); log('test email ->', await toast(p)); } else log('test email: email đang tắt trong DB test');
   S('cust'); await p.click('[data-a="go"][data-v="users"]'); await p.click('[data-a="uTab"][data-t="customers"]'); await shot(p, '6c-admin-customers');
 });

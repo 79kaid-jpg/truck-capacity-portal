@@ -29,7 +29,7 @@ function addr31(lines){lines=lines.map(x=>String(x||'').trim()).filter(Boolean);
 const seg31=t=>{const f=fold30(t).trim();return f==='dan dung'||f==='dd'?'DD':f==='du an'||f==='da'?'DA':f==='export'||f==='ex'||f==='xuat khau'?'EX':'';};
 const yes31=t=>['true','1','x','co','yes','ngung'].includes(fold30(t).trim());
 const COLS31={code:['ma kh'],name:['ten khach hang','ten cong ty','khach hang'],segment:['segment'],sales:['email sales','sales'],cs:['email cs phu trach','email cs','cs phu trach'],
- wh:['kho mac dinh'],addr:['dia chi giao','dia chi'],off:['ngung dung'],erp:['ma kh erp'],ext:['ma dia chi'],a1:['dia chi 1'],a2:['dia chi 2'],a3:['dia chi 3'],a4:['dia chi 4 / nguoi nhan','dia chi 4']};
+ wh:['kho mac dinh'],area:['area'],aread:['area chi tiet'],addr:['dia chi giao','dia chi'],off:['ngung dung'],erp:['ma kh erp'],ext:['ma dia chi'],a1:['dia chi 1'],a2:['dia chi 2'],a3:['dia chi 3'],a4:['dia chi 4 / nguoi nhan','dia chi 4']};
 function head31(row){const h=row.map(x=>fold30(x).trim());const ix={};for(const[k,names]of Object.entries(COLS31)){const i=h.findIndex(x=>names.includes(x));if(i>=0)ix[k]=i;}return ix;}
 function parseBook31(sheets){const custs=[],addrs=[];let nC=0,nA=0;
  for(const rows of sheets){if(!rows.length)continue;const hi=rows.findIndex(r=>{const ix=head31(r);return ix.code!=null&&(ix.name!=null||ix.ext!=null);});if(hi<0)continue;
@@ -38,7 +38,7 @@ function parseBook31(sheets){const custs=[],addrs=[];let nC=0,nA=0;
     addrs.push({row:hi+i+2,code:v(r,'code'),ext:v(r,'ext'),label:a.label,province:a.province,active:!yes31(v(r,'off'))});});}
   else{nC++;rows.slice(hi+1).forEach((r,i)=>{if(!v(r,'code')&&!v(r,'name'))return;
     custs.push({row:hi+i+2,code:v(r,'code'),name:v(r,'name'),segment:seg31(v(r,'segment')),sales_email:v(r,'sales').includes('@')?v(r,'sales'):'',cs_email:v(r,'cs').includes('@')?v(r,'cs'):'',
-     default_wh:v(r,'wh'),erp:v(r,'erp'),active:!yes31(v(r,'off')),_addr:v(r,'addr')});});}}
+     default_wh:v(r,'wh'),erp:v(r,'erp'),area:v(r,'area'),area_detail:v(r,'aread'),active:!yes31(v(r,'off')),_addr:v(r,'addr')});});}}
  // Khách không có dòng nào ở bảng địa chỉ: lấy cột "Địa chỉ giao" làm địa chỉ mã KH
  const has=new Set(addrs.map(a=>a.code));
  custs.forEach(c=>{if(c._addr&&!has.has(c.code)){const a=addr31([c._addr]);addrs.push({row:c.row,code:c.code,ext:'KH',label:a.label,province:a.province,active:true});}delete c._addr;});
@@ -62,7 +62,7 @@ async function impRun31(apply){const M=V.modal;M.err='';setBusy(true);render();
 function impList31(arr,cnt,cls){if(!cnt)return '';return `<div class="tbl-wrap" style="max-height:220px;overflow:auto;margin-top:6px"><table><thead><tr><th>Bảng</th><th class="r">Dòng</th><th>Nội dung</th></tr></thead><tbody>${arr.map(x=>`<tr><td>${x.sheet==='DC'?'Địa chỉ':'Khách'}</td><td class="r num">${x.row??''}</td><td class="${cls}">${esc(x.msg)}</td></tr>`).join('')}</tbody></table></div>${cnt>arr.length?`<p class="small muted">… và ${cnt-arr.length} dòng khác</p>`:''}`;}
 M29.custImp=function(){const M=V.modal;const R=M.res;const D=M.data;
  return `<h3>NHẬP KHÁCH HÀNG TỪ FILE</h3>
- <p class="small muted">File Excel (.xlsx) hoặc CSV. Bảng khách: Mã KH · Tên khách hàng · Segment · Email Sales · Email CS phụ trách · Kho mặc định · Địa chỉ giao · Ngừng dùng · Mã KH ERP. Bảng địa chỉ (tùy chọn): Mã KH · Mã địa chỉ · Địa chỉ 1 – 4 · Ngừng dùng. Khách đã có (trùng Mã KH) được cập nhật; khách không có trong file giữ nguyên.</p>
+ <p class="small muted">File Excel (.xlsx) hoặc CSV. Bảng khách: Mã KH · Tên khách hàng · Segment · Email Sales · Email CS phụ trách · Kho mặc định · Địa chỉ giao · Ngừng dùng · Mã KH ERP · Area · Area chi tiết. Bảng địa chỉ (tùy chọn): Mã KH · Mã địa chỉ · Địa chỉ 1 – 4 · Ngừng dùng. Khách đã có (trùng Mã KH) được cập nhật; khách không có trong file giữ nguyên.</p>
  <div class="row" style="gap:10px;flex-wrap:wrap;margin:8px 0"><input type="file" class="inp" accept=".xlsx,.xls,.csv" data-imp31="1" aria-label="Chọn file"><button class="btn ghost sm" data-a="impTpl">Tải file mẫu</button></div>
  ${M.err?`<div class="err">${esc(M.err)}</div>`:''}
  ${D&&R?`<div class="panel" style="margin-top:8px"><b>${esc(M.file||'')}</b> · ${D.custs.length.toLocaleString('vi-VN')} dòng khách, ${D.addrs.length.toLocaleString('vi-VN')} dòng địa chỉ
@@ -75,8 +75,8 @@ M29.custImp=function(){const M=V.modal;const R=M.res;const D=M.data;
 A.impOpen=()=>{V.modal={type:'custImp',wide:true,err:'',data:null,res:null};render();};
 A.impGo=()=>impRun31(true);
 A.impTpl=()=>{if(typeof XLSX==='undefined')return toast('Chưa tải được thư viện Excel, thử lại sau vài giây.');const wb=XLSX.utils.book_new();
- XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Mã KH','Tên khách hàng','Segment','Email Sales','Email CS phụ trách','Kho mặc định','Địa chỉ giao','Ngừng dùng','Mã KH ERP'],
-  ['103518','Công ty mẫu','Dân dụng','sales@congty.vn','cs@congty.vn','JM2','Số 3 Đường 9A, KCN Biên Hòa 2, Đồng Nai','FALSE','C103518']]),'Khách hàng');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Mã KH','Tên khách hàng','Segment','Email Sales','Email CS phụ trách','Kho mặc định','Địa chỉ giao','Ngừng dùng','Mã KH ERP','Area','Area chi tiết'],
+  ['103518','Công ty mẫu','Dân dụng','sales@congty.vn','cs@congty.vn','JM2','Số 3 Đường 9A, KCN Biên Hòa 2, Đồng Nai','FALSE','C103518','South','Đồng Nai']]),'Khách hàng');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Mã KH','Mã địa chỉ','Địa chỉ 1','Địa chỉ 2','Địa chỉ 3','Địa chỉ 4 / người nhận','Ngừng dùng'],
   ['103518','D0001','Số 3 Đường 9A','Khu Công Nghiệp Biên Hòa 2','Thành Phố Biên Hòa','Tỉnh Đồng Nai','FALSE']]),'Địa chỉ giao');
  XLSX.writeFile(wb,'mau-nhap-khach-hang.xlsx');};

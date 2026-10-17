@@ -44,16 +44,15 @@ await p.click('[data-a="csSeg"][data-v="DA"]'); await p.waitForTimeout(200); con
 check('Admin Khách: Dân dụng / Dự án = SQL', ddA === DD && daA === DA, `${ddA}/${daA} vs ${DD}/${DA}`);
 await p.click('[data-a="csSeg"][data-v="all"]'); await p.waitForTimeout(200);
 await p.screenshot({ path: '/tmp/e2e-shots/ss-2-admin-cust.png', fullPage: true });
-// 4. DB-05
-await p.click('[data-a="goDb5"]'); await p.waitForTimeout(700);
+// 4. Bảng thống kê · tab Sales (thay DB-05)
+await p.click('[data-a="goDb5"]'); await p.waitForFunction(() => V.dz && V.dz.D && !V.dz.busy, null, { timeout: 15000 }); await p.waitForTimeout(300);
 const db = await p.locator('.panel').first().innerText();
-check('DB-05 built: KPI + sections', /Tổng đã đặt/.test(db) && /THEO SEGMENT/i.test(db) && /THEO SALES/i.test(db) && /THEO KHÁCH HÀNG/i.test(db) && /LÝ DO TỪ CHỐI/i.test(db));
-check('DB-05 segment totals', db.includes(DD) && db.includes(DA));
+check('Bảng thống kê tab Sales: ô số + các phần', await p.evaluate(() => V.dz.tab) === 'sales' && /Tổng đã đặt/.test(db) && /THEO SEGMENT/i.test(db) && /THEO SALES/i.test(db) && /TOP KHÁCH/i.test(db) && /NHU CẦU BỊ MẤT/i.test(db));
+const segSum = await p.evaluate(() => { const Z = V.dz; Z.per = 'month'; Z.anchor = TODAY; const L = dzScope(Z, ...dzRange(Z)).list.filter(isBook); const f = g => dzSum(L.filter(r => r.g === g)).toFixed(2).replace('.', ','); return [f('DD'), f('DA')]; });
+check('Bảng thống kê: tổng Dân dụng / Dự án = SQL', segSum[0] === DD && segSum[1] === DA, segSum.join('/') + ' vs ' + DD + '/' + DA);
 await p.screenshot({ path: '/tmp/e2e-shots/ss-3-db05.png', fullPage: true });
-await p.click('[data-a="db5Sort"][data-k="ok"]'); await p.waitForTimeout(200);
-check('DB-05 sort by confirmed', /Đã xác nhận ▼/.test(await p.locator('.panel').first().innerText()));
-await p.click('[data-a="dbMonth"][data-d="-1"]'); await p.waitForTimeout(900);
-check('DB-05 previous month loads', /THÁNG \d\d\/\d{4}/.test(await p.locator('.db5bar').innerText()));
+await p.click('[data-a="dzNav"][data-k="-1"]'); await p.waitForFunction(() => V.dz.D && !V.dz.busy && V.dz.key.startsWith(V.dz.D.from), null, { timeout: 15000 });
+check('Bảng thống kê: tháng trước tải được', /\d\d\/\d\d\/\d{4} – /.test(await p.locator('.dz-bar').innerText()));
 await p.context().close();
 
 // 5. s1 với phạm vi Dân dụng: thống kê toàn DD nhưng danh sách booking vẫn chỉ khách mình
