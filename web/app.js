@@ -224,7 +224,7 @@ function impBar(u){const left=Math.min(60,Math.max(0,Math.floor(S.imp.expiresAt/
  return `<div class="impbar" role="status"><span>Đang <b>Login as ${esc(u.name)}</b> · ${ROLE_LABEL[u.role]}${u.customerId&&cust(u.customerId)?' · '+esc(cust(u.customerId).name):''} — bạn thấy và thao tác đúng như người này. Mọi thao tác ghi nhật ký là ${esc(S.imp.by)} làm thay.</span><span class="small">Còn ${left} phút</span><button class="btn sm" data-a="impStop">Thoát Login as</button></div>`;}
 function topbar(u){const w=WHALL.find(x=>x.id===V.wh);
  return `<header class="top"><button class="logo" data-a="go" data-v="calendar"><span class="mark">${IC.truck.replace('<svg','<svg width="16" height="16"')}</span>ĐẶT XE</button>
- <div class="ctx">Lịch Đặt Xe – ${esc(w.full)}</div>
+ <div class="ctx">Lịch Đặt Xe – ${V.whAll&&V.view==='calendar'?'Tất cả kho':esc(w.full)}</div>
  <button class="gsbtn" data-a="gsOpen" aria-label="Tìm kiếm (Ctrl+K)">${SEARCH_SVG}<span>Tìm kiếm…</span><kbd>Ctrl K</kbd></button>
  <button class="userbtn" data-a="menu" aria-haspopup="true"><span class="avatar">${esc(u.name.split(' ').slice(-1)[0][0])}</span><span>${esc(u.name)}</span><span aria-hidden="true">▾</span></button>
  ${V.menu?`<div class="menu"><div class="sub">${esc(u.email)}</div><div class="sub">Vai trò: ${ROLE_LABEL[u.role]}${u.segment?' · Segment '+SEG_LABEL[u.segment]:''}${u.customerId?' · '+esc(cust(u.customerId).name)+' · '+SEG_LABEL[cust(u.customerId).segment]:''}</div><button data-a="go" data-v="profile">Hồ sơ cá nhân</button><button data-a="refresh">Tải lại dữ liệu</button><button data-a="logout">Đăng xuất</button></div>`:''}</header>`;}
