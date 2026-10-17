@@ -193,6 +193,12 @@
 <section id="admin-users" data-g="Admin" data-t="Người dùng và phân quyền">
 <h2>Người dùng và phân quyền</h2>
 <ul><li><b>Setting user account › Người dùng</b>: cấp quyền tài khoản (email, vai trò, segment, kho), khóa / mở, reset 2 lớp.</li><li><b>Phân quyền</b>: ma trận quyền theo vai trò; bấm để bật / tắt, có nút khôi phục mặc định.</li><li>Tạo hàng loạt tài khoản: dùng file SQL do quản trị chạy trong Supabase (mật khẩu ban đầu chung, mỗi người tự đổi).</li></ul>
+<h3>Tạo, lọc, xóa tài khoản (chỉ Admin)</h3>
+<ul><li><b>+ Tạo tài khoản</b>: nhập họ tên, email hoặc tên ngắn (<code>hung.phan</code> → <code>hung.phan@bluescope.com</code>), vai trò; mật khẩu tạm tự sinh (📋 copy). Mặc định bắt đổi mật khẩu khi đăng nhập lần đầu; tick <b>Gửi email chào mừng</b> nếu muốn. Mật khẩu chỉ hiện một lần.</li>
+<li><b>Tạo hàng loạt</b>: dán từ Excel <i>Họ tên | Email | Vai trò | Segment | SĐT | Kho</i>; dòng lỗi tô đỏ; xong tải CSV danh sách mật khẩu tạm.</li>
+<li><b>Gán vai trò</b>: cho email đã có tài khoản đăng nhập (tạo trong Supabase trước đây).</li>
+<li><b>🔑</b> đặt lại mật khẩu tạm; <b>🗑</b> xóa hẳn tài khoản. Tài khoản đang phụ trách khách / booking phải chọn người nhận chuyển giao (hoặc Khóa thay vì xóa). Lịch sử vẫn ghi tên kèm "(đã xóa)". Gõ <b>XOA</b> để xác nhận. Không xóa được chính mình và Admin cuối cùng.</li>
+<li>Bộ lọc: tìm tên / email, Vai trò, Segment, Trạng thái, <b>Chưa đăng nhập bao giờ</b> / không đăng nhập &gt; 30 ngày. Tick ô đầu dòng để <b>xóa nhiều</b> tài khoản test một lần.</li></ul>
 <h3>RSM (quản lý vùng) xem nhóm Sales</h3>
 <ol><li>Mở hồ sơ từng Sales trong nhóm → <b>Quản lý trực tiếp (RSM)</b> = tài khoản RSM.</li>
 <li>Mở hồ sơ RSM (vai trò Sales) → <b>Phạm vi thống kê = Nhóm của tôi (RSM)</b>; tick <b>nhận thông báo khi đơn của nhóm bị từ chối / đề nghị đổi ngày</b> nếu muốn.</li></ol>

@@ -1412,6 +1412,7 @@ function showSetPassword(){
   const fail=m=>{x.hidden=false;x.textContent=m;};if(p1.length<8)return fail('Mật khẩu tối thiểu 8 ký tự.');if(p1!==p2)return fail('Hai lần nhập không khớp.');
   const btn=e.target.querySelector('button');btn.disabled=true;const{error}=await sb.auth.updateUser({password:p1});
   if(error){btn.disabled=false;return fail(/same|different/i.test(error.message)?'Mật khẩu mới phải khác mật khẩu cũ.':error.message);}
+  try{await rpc('my_pw_changed',{});}catch(_){}
   startApp();});
 }
 async function startApp(){

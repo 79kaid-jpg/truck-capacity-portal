@@ -330,6 +330,11 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 ## v3.17 — Kéo thả booking vào xe
 - `web/v44.js`: màn chi tiết ngày – kéo thả booking chờ xếp xe vào thẻ xe (chuột / cảm ứng), gợi ý xe (viền chạy quanh, xem trước tải trọng), Gợi ý tất cả, cảnh báo vượt tải / khác khuyến nghị (bắt buộc lý do), hiệu ứng bay vào xe, Hoàn tác. Ghi bằng RPC sẵn có `save_allocations` (xếp đủ tấn thì xác nhận). Không cần SQL. Test: `test/e2e/v44.mjs`.
 
+## v3.18 — Tạo / xóa tài khoản trong ứng dụng
+**Chạy `supabase/setup_all.sql` trước khi gộp.**
+- `admin_create_user` (tạo luôn tài khoản đăng nhập trong `auth.users` + `auth.identities`, mật khẩu băm bcrypt, `must_change_pw`), `admin_reset_password`, `my_pw_changed`, `admin_user_refs`, `admin_delete_user` (chuyển giao khách / booking / người nhận thay, lưu tên vào `app.deleted_users`, hàm `app.uname`). Chỉ vai trò Admin.
+- `web/v45.js`: bộ lọc (vai trò, segment, trạng thái, đăng nhập, tìm), tạo đơn lẻ / hàng loạt (CSV mật khẩu), đặt lại mật khẩu, xóa / xóa nhiều, bắt đổi mật khẩu lần đầu. Test: `test/99e_users.sql`, `test/e2e/v45.mjs`.
+
 
 
 ## Lưu ý gói miễn phí
@@ -356,6 +361,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v42.js                  Menu ô ngày (bấm 1 lần / bấm đúp)
   v43.js                  Picking list tùy chọn, nhắc xác nhận giao
   v44.js                  Kéo thả booking vào xe, gợi ý xe
+  v45.js                  Tạo / lọc / xóa tài khoản
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
