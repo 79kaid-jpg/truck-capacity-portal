@@ -285,6 +285,11 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
   - RPC: `cust_view_start`, `cust_view_stop`. Bảng: `app.cust_views`.
 - Test: `test/e2e/v38.mjs`.
 
+## v3.10 — Quay lại / đi tới màn hình
+- Phím **B B** quay lại màn hình trước, **B N** đi tới màn hình vừa rời; đồng bộ với nút Back / Forward của trình duyệt (nhớ 20 màn). Đổi được trong Cấu hình phím tắt.
+- Menu khung Hướng dẫn có lề, nhóm tách rõ; toàn màn hình không còn bị cắt mép trái. Không cần chạy SQL.
+- Test: `test/e2e/v39.mjs`.
+
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.
 - Gói Free **không có backup tự động**. Mỗi tuần nên export các bảng chính (Table Editor → schema `app` → Export CSV).
@@ -303,6 +308,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v36.js                  Lịch đặt xe mới: ô gọn, cột Tuần, lọc, tất cả kho, 2 tuần, thống kê Xe
   v37.js                  Phím tắt: bộ xử lý, bảng ?, chỉnh trong Hồ sơ / Cấu hình
   v38.js                  Xem như khách hàng (chỉ xem), khung Hướng dẫn
+  v39.js                  Lịch sử màn hình (B B / B N, Back / Forward)
   guide.html, guide/      Nội dung Hướng dẫn sử dụng + ảnh minh họa
   config.js               URL + anon key (công khai)
   favicon.svg, icon-*.png, apple-touch-icon.png, manifest.webmanifest   Biểu tượng trang / màn hình chính điện thoại
