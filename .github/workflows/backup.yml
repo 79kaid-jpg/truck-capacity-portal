@@ -11,7 +11,7 @@ permissions:
   contents: read
 jobs:
   backup:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Kiểm tra secret
@@ -43,7 +43,7 @@ jobs:
           tar -czf - -C out . | gpg --batch --yes --pinentry-mode loopback --passphrase "$PW" --symmetric --cipher-algo AES256 -o "dat-xe-$D.tar.gz.gpg"
           rm -rf out
           ls -lh dat-xe-*.gpg
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: dat-xe-${{ env.D }}
           path: dat-xe-*.gpg
