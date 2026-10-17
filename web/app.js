@@ -37,7 +37,8 @@ const TICON=t=>t==='DK'?DK_SVG():CN_SVG();
 
 /* ===================== seed data ===================== */
 let WHALL=[];let WH=[{id:'JM2',name:'PHÚ MỸ',full:'Kho Phú Mỹ'},{id:'JD9',name:'CỬA LÒ',full:'Kho Cửa Lò'},{id:'JD8',name:'HẢI PHÒNG',full:'Kho Hải Phòng'}];
-const PROVINCES=['TP. Hồ Chí Minh','Đồng Nai','Lâm Đồng','Tây Ninh','Gia Lai','Đắk Lắk','Đà Nẵng','Khánh Hòa','Cần Thơ','Nghệ An','Hà Tĩnh','Thanh Hóa','Quảng Trị','Hải Phòng','Hà Nội','Quảng Ninh','Bắc Ninh','Hưng Yên'];
+const PROVINCES=['TP. Hồ Chí Minh','Đồng Nai','Lâm Đồng','Tây Ninh','Gia Lai','Đắk Lắk','Đà Nẵng','Khánh Hòa','Cần Thơ','Nghệ An','Hà Tĩnh','Thanh Hóa','Quảng Trị','Hải Phòng','Hà Nội','Quảng Ninh','Bắc Ninh','Hưng Yên',
+ 'Quảng Ngãi','Huế','Ninh Bình','Phú Thọ','Thái Nguyên','Tuyên Quang','Lào Cai','Lạng Sơn','Cao Bằng','Lai Châu','Điện Biên','Sơn La','Vĩnh Long','Đồng Tháp','An Giang','Cà Mau'];
 const ROLE_LABEL={customer:'Khách hàng',sales:'Sales',cs:'CS',logistics:'Logistics',admin:'Admin'};
 const SEG_LABEL={DD:'Dân dụng',DA:'Dự án',EX:'Export','':'–'};
 const ST_LABEL={draft:'Lưu tạm',hold:'Chờ xếp xe',ok:'Đã xếp xe',dconf:'Đã xác nhận giao hàng',latecancel:'Hủy quá cận ngày',rejected:'Từ chối',resched:'Đề nghị đổi ngày',cancelled:'Đã hủy',loaded:'Đã bốc hàng',transit:'Đang giao',delivered:'Đã giao',failed:'Giao không thành công'};

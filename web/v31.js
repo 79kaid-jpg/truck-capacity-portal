@@ -15,15 +15,17 @@ document.addEventListener('input',e=>{const el=e.target;if(!el.dataset||!el.data
 const PROV_ALIAS31={'ho chi minh':'TP. Hồ Chí Minh','hcm':'TP. Hồ Chí Minh','sai gon':'TP. Hồ Chí Minh','binh duong':'TP. Hồ Chí Minh','ba ria':'TP. Hồ Chí Minh','vung tau':'TP. Hồ Chí Minh',
  'binh phuoc':'Đồng Nai','long an':'Tây Ninh','binh thuan':'Lâm Đồng','dak nong':'Lâm Đồng','dac nong':'Lâm Đồng','binh dinh':'Gia Lai','phu yen':'Đắk Lắk','dac lac':'Đắk Lắk',
  'quang nam':'Đà Nẵng','ninh thuan':'Khánh Hòa','hau giang':'Cần Thơ','soc trang':'Cần Thơ','quang binh':'Quảng Trị','hai duong':'Hải Phòng','thai binh':'Hưng Yên','bac giang':'Bắc Ninh',
- 'ha noi':'Hà Nội','hanoi':'Hà Nội'};
-function prov31(t){let f=fold30(t).replace(/[.,]/g,' ').replace(/\s+/g,' ').trim();if(!f)return '';
+ 'ha noi':'Hà Nội','hanoi':'Hà Nội','ha giang':'Tuyên Quang','yen bai':'Lào Cai','bac kan':'Thái Nguyên','bac can':'Thái Nguyên','vinh phuc':'Phú Thọ','hoa binh':'Phú Thọ',
+ 'ha nam':'Ninh Bình','nam dinh':'Ninh Bình','kon tum':'Quảng Ngãi','ben tre':'Vĩnh Long','tra vinh':'Vĩnh Long','tien giang':'Đồng Tháp','bac lieu':'Cà Mau','kien giang':'An Giang',
+ 'thua thien hue':'Huế','dak lak':'Đắk Lắk','daklak':'Đắk Lắk','buon me thuot':'Đắk Lắk','buon ma thuot':'Đắk Lắk','dak nong':'Lâm Đồng','daknong':'Lâm Đồng','tphcm':'TP. Hồ Chí Minh','tp hcm':'TP. Hồ Chí Minh'};
+function prov31(t){let f=fold30(t).replace(/ð/g,'d').replace(/[.,]/g,' ').replace(/\s+/g,' ').trim();if(!f)return '';
  f=f.replace(/^(tinh|thanh pho|tp)\s+/,'');
  for(const p of PROVINCES){const k=fold30(p).replace(/^tp\.?\s*/,'');if(f===k||f.endsWith(' '+k))return p;}
- for(const[k,p]of Object.entries(PROV_ALIAS31))if(f===k||f.endsWith(' '+k)||f.includes(k))return p;return '';}
+ for(const[k,p]of Object.entries(PROV_ALIAS31))if(f===k||f.endsWith(' '+k))return p;return '';}
 // Địa chỉ nhiều dòng: dòng cuối là tỉnh thì tách ra; không thì thử phần sau dấu phẩy cuối
 function addr31(lines){lines=lines.map(x=>String(x||'').trim()).filter(Boolean);if(!lines.length)return{label:'',province:''};
  const last=lines[lines.length-1];let p=prov31(last);if(p&&lines.length>1&&fold30(last).length<40)return{label:lines.slice(0,-1).join(', '),province:p};
- const parts=lines.join(', ').split(',');p=prov31(parts[parts.length-1])||(parts.length>1?prov31(parts[parts.length-2]):'');return{label:lines.join(', '),province:p};}
+ const parts=lines.join(', ').split(/[,(]/);p='';for(let i=parts.length-1;i>=0&&!p;i--)p=prov31(parts[i]);return{label:lines.join(', '),province:p};}
 const seg31=t=>{const f=fold30(t).trim();return f==='dan dung'||f==='dd'?'DD':f==='du an'||f==='da'?'DA':f==='export'||f==='ex'||f==='xuat khau'?'EX':'';};
 const yes31=t=>['true','1','x','co','yes','ngung'].includes(fold30(t).trim());
 const COLS31={code:['ma kh'],name:['ten khach hang','ten cong ty','khach hang'],segment:['segment'],sales:['email sales','sales'],cs:['email cs phu trach','email cs','cs phu trach'],
