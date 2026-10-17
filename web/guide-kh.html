@@ -1,0 +1,111 @@
+<!-- Hướng dẫn dành riêng cho khách hàng. Ảnh: test/e2e/guide_kh_shots.mjs -->
+<section id="kh-gioi-thieu" data-g="Bắt đầu" data-t="Cổng Đặt xe là gì">
+<h2>Cổng Đặt xe BlueScope</h2>
+<p>Đây là nơi bạn theo dõi <b>lịch bốc hàng</b> các đơn của công ty mình tại kho BlueScope: ngày nào kho còn nhận được bao nhiêu hàng, đơn nào đã có xe, đơn nào đang chờ, đơn nào được đề nghị đổi ngày.</p>
+<div class="tip">Đơn hàng do <b>CS / Sales BlueScope</b> đặt cho bạn. Muốn đặt thêm, đổi ngày hay hủy đơn, vui lòng liên hệ <b>Sales phụ trách</b> (tên và số điện thoại luôn hiện ở khung bên phải).</div>
+<p>Đơn vị khối lượng: <b>MT</b> (metric tấn).</p>
+</section>
+
+<section id="kh-dang-nhap" data-g="Bắt đầu" data-t="Đăng nhập, mật khẩu">
+<h2>Đăng nhập</h2>
+<ol><li>Mở <b>truck-capacity-portal.pages.dev</b>.</li>
+<li>Nhập <b>email</b> BlueScope đã đăng ký cho bạn và <b>mật khẩu</b>.</li>
+<li>Nếu hệ thống hỏi <b>mã xác thực</b>, mở email để lấy mã 6 số rồi nhập vào.</li></ol>
+<img src="guide/kh-dang-nhap.jpg" alt="Màn đăng nhập">
+<p><b>Đổi mật khẩu:</b> bấm tên của bạn ở góc trên phải → <b>Hồ sơ</b>.</p>
+<p><b>Quên mật khẩu:</b> bấm "Quên mật khẩu?" ở màn đăng nhập, hệ thống gửi link đặt lại vào email.</p>
+<p>Dùng máy tính chung thì nhớ bấm tên → <b>Đăng xuất</b> khi xong.</p>
+</section>
+
+<section id="kh-lich" data-g="Đọc màn hình" data-t="Lịch tất cả kho">
+<h2>Đọc lịch "Tất cả kho"</h2>
+<p>Đây là màn hình chính, mở ngay khi đăng nhập.</p>
+<img src="guide/kh-lich-tat-ca.jpg" alt="Lịch tất cả kho, có đánh số">
+<ol>
+<li><b>Chọn tháng</b>: bấm ‹ › để xem tháng trước / sau.</li>
+<li><b>Chọn kho</b>: <b>Tất cả kho</b> hoặc từng kho. Kho bạn hay đặt đứng đầu; số nhỏ cạnh tên (ví dụ <i>· 3</i>) là số đơn của bạn ở kho đó trong tháng. Lần sau mở, hệ thống nhớ kho bạn chọn.</li>
+<li><b>Ô ngày</b>: mỗi dòng là một kho, ghi số MT <b>còn nhận được</b> trong ngày đó. Chữ xám gạch ngang <i>Đã đầy</i> nghĩa là kho đã kín lịch.</li>
+<li><b>Huy hiệu 📦</b>: ngày có đơn của bạn, ghi kho, số đơn và số MT. Màu cho biết tình trạng (xem mục <a data-gd="link" data-s="kh-trang-thai">Màu và trạng thái đơn</a>). Ô có đơn của bạn được tô nền xanh nhạt.</li>
+<li><b>Đơn của tôi</b>: tóm tắt đơn của bạn (xem mục <a data-gd="link" data-s="kh-don-cua-toi">Khung Đơn của tôi</a>).</li>
+</ol>
+<ul><li><b>Chưa mở lịch xe</b>: kho chưa xếp lịch xe cho ngày đó (thường là ngày còn xa).</li>
+<li><b>Không bốc hàng</b>: Chủ nhật, ngày lễ hoặc ngày kho nghỉ.</li>
+<li><b>Bấm vào ô ngày</b> để xem chi tiết đơn của bạn trong ngày.</li></ul>
+</section>
+
+<section id="kh-mot-kho" data-g="Đọc màn hình" data-t="Xem một kho">
+<h2>Xem một kho</h2>
+<p>Bấm tên kho trên hàng nút để chỉ xem kho đó.</p>
+<img src="guide/kh-lich-mot-kho.jpg" alt="Lịch một kho">
+<ul><li><b>… MT Có thể đặt</b>: kho còn nhận được bấy nhiêu MT trong ngày.</li>
+<li><b>Bạn đã đặt: … MT</b>: đơn của bạn đã có xe.</li>
+<li><b>Đang chờ xác nhận: … MT</b>: đơn đã giữ chỗ, đang chờ xếp xe.</li>
+<li>Nút <b>Chi tiết</b>: xem danh sách đơn trong ngày.</li></ul>
+<p>Muốn quay lại xem mọi kho, bấm <b>Tất cả kho</b>.</p>
+</section>
+
+<section id="kh-chi-tiet" data-g="Đọc màn hình" data-t="Chi tiết đơn trong ngày">
+<h2>Chi tiết đơn trong ngày</h2>
+<img src="guide/kh-chi-tiet.jpg" alt="Chi tiết đơn trong ngày">
+<ul><li>Dòng đầu: số MT còn nhận được của từng kho trong ngày.</li>
+<li><b>Kho</b>, <b>Mã booking</b> (mã BlueScope dùng khi trao đổi), <b>Ref</b> (số tham chiếu / PO của bạn).</li>
+<li><b>Sản phẩm · Màu · Độ dày × Khổ</b>: từng dòng hàng và số MT.</li>
+<li><b>Nơi giao</b>, <b>Ngày giao YC</b>: địa chỉ và ngày bạn yêu cầu giao.</li>
+<li><b>Trạng thái</b>: nếu bị từ chối hoặc đề nghị đổi ngày, lý do và ngày đề xuất ghi ngay bên dưới.</li></ul>
+<p>Bấm <b>Đóng</b> hoặc phím <b>Esc</b> để đóng.</p>
+</section>
+
+<section id="kh-don-cua-toi" data-g="Đọc màn hình" data-t="Khung Đơn của tôi">
+<h2>Khung "Đơn của tôi"</h2>
+<img src="guide/kh-don-cua-toi.jpg" alt="Khung Đơn của tôi">
+<ul><li><b>3 con số</b>: số đơn <b>chờ xếp xe</b>, số đơn <b>đã xếp xe</b> và tổng <b>MT</b> trong tháng đang xem (không tính đơn đã hủy / bị từ chối).</li>
+<li><b>14 ngày tới</b>: đơn từ hôm nay đến 13 ngày sau ở mọi kho, gồm ngày, kho, MT, trạng thái. Bấm một dòng để xem chi tiết.</li>
+<li><b>Sales phụ trách</b>: người liên hệ khi cần đặt thêm, đổi ngày hay hỏi về đơn.</li></ul>
+<p>Khi đang xem một kho, khung này chỉ tính đơn của kho đó.</p>
+</section>
+
+<section id="kh-trang-thai" data-g="Đọc màn hình" data-t="Màu và trạng thái đơn">
+<h2>Màu và trạng thái đơn</h2>
+<table><thead><tr><th>Trạng thái</th><th>Ý nghĩa</th><th>Bạn cần làm gì</th></tr></thead><tbody>
+<tr><td><span class="st st-hold">Chờ xếp xe</span></td><td>Đơn đã giữ chỗ trong ngày, BlueScope đang xếp xe.</td><td>Chờ; khi có xe sẽ đổi sang Đã xếp xe.</td></tr>
+<tr><td><span class="st st-ok">Đã xếp xe</span></td><td>Đơn đã có xe, sẽ bốc hàng đúng ngày.</td><td>Chuẩn bị nhận hàng.</td></tr>
+<tr><td><span class="st st-resched">Đề nghị đổi ngày</span></td><td>Ngày bạn đặt không đủ chỗ; BlueScope đề xuất ngày khác (ghi trong chi tiết).</td><td>Liên hệ Sales để đồng ý hoặc chọn ngày khác.</td></tr>
+<tr><td><span class="st st-rejected">Từ chối</span></td><td>Đơn không nhận được; lý do ghi trong chi tiết.</td><td>Liên hệ Sales nếu cần đặt lại.</td></tr>
+<tr><td><span class="st st-dconf">Đã xác nhận giao hàng</span></td><td>BlueScope đã chốt danh sách cuộn giao cho đơn.</td><td>Đối chiếu khi nhận hàng.</td></tr>
+<tr><td><span class="st st-delivered">Đã bốc / đang giao / đã giao</span></td><td>Hàng đã lên xe hoặc đã giao.</td><td>—</td></tr>
+</tbody></table>
+<p>Huy hiệu 📦 trên lịch lấy màu của đơn "cần chú ý" nhất trong ngày: <b>đỏ</b> từ chối, <b>cam</b> đề nghị đổi ngày, <b>xanh dương</b> chờ xếp xe, <b>xanh lá</b> đã xếp xe.</p>
+<p>Thanh màu số MT còn nhận: <b>xanh</b> còn chỗ, <b>cam</b> sắp đầy, <b>xám</b> đã đầy.</p>
+</section>
+
+<section id="kh-thong-bao" data-g="Đọc màn hình" data-t="Thông báo">
+<h2>Thông báo 🔔</h2>
+<p>Biểu tượng chuông ở thanh bên trái có số đỏ khi có thông báo mới, khi đơn của bạn:</p>
+<ul><li><b>Giữ chỗ</b>: đơn mới đã vào lịch, chờ xếp xe.</li><li><b>Xác nhận</b>: đơn đã được xếp xe.</li><li><b>Đổi ngày</b> / <b>Từ chối</b>: kèm ngày đề xuất hoặc lý do.</li><li><b>Hủy booking</b>.</li><li><b>Đã load</b> / <b>Đang giao</b>: hàng đã lên xe, xe đang trên đường.</li></ul>
+<img src="guide/kh-thong-bao.jpg" alt="Thông báo">
+<p>Bấm vào một thông báo để mở thẳng ngày có đơn đó trên lịch.</p>
+</section>
+
+<section id="kh-dien-thoai" data-g="Đọc màn hình" data-t="Dùng trên điện thoại">
+<h2>Dùng trên điện thoại</h2>
+<img src="guide/kh-dien-thoai.jpg" alt="Lịch trên điện thoại" style="max-width:300px">
+<ul><li>Lịch hiện thành danh sách ngày, cuộn dọc để xem.</li>
+<li>Hàng nút kho vuốt ngang được.</li>
+<li>Khung <b>Đơn của tôi</b> nằm cuối trang.</li></ul>
+</section>
+
+<section id="kh-hoi-dap" data-g="Hỏi đáp" data-t="Câu hỏi thường gặp">
+<h2>Câu hỏi thường gặp</h2>
+<h3>Tôi muốn đặt thêm hàng hoặc đổi ngày?</h3>
+<p>Liên hệ <b>Sales phụ trách</b> (khung bên phải). Sales / CS sẽ đặt hoặc sửa đơn; lịch của bạn tự cập nhật trong vòng 30 giây.</p>
+<h3>"Còn 0 MT" / "Đã đầy" nghĩa là sao?</h3>
+<p>Kho đã kín lịch ngày đó. Bạn xem các ngày hoặc kho khác còn chỗ rồi báo Sales.</p>
+<h3>Vì sao đơn "Chờ xếp xe" lâu?</h3>
+<p>Đơn đã giữ chỗ trong ngày; BlueScope thường xếp xe gần ngày bốc. Nếu sắp tới ngày mà vẫn chờ, hãy hỏi Sales.</p>
+<h3>Tôi không thấy đơn vừa đặt?</h3>
+<p>Kiểm tra đang xem đúng <b>tháng</b> và chọn <b>Tất cả kho</b>. Đơn đang được CS soạn (chưa gửi) sẽ chưa hiện.</p>
+<h3>Quên mật khẩu?</h3>
+<p>Bấm "Quên mật khẩu?" ở màn đăng nhập, mở email và làm theo link.</p>
+<h3>Màn hình cũ, không thấy thay đổi mới?</h3>
+<p>Nhấn <b>Ctrl+F5</b> (máy tính) hoặc kéo xuống để tải lại (điện thoại).</p>
+</section>

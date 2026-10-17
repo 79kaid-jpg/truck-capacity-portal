@@ -53,9 +53,21 @@ await session('kh@demo.vn', async p => {
   S('mobile'); await p.setViewportSize({ width: 390, height: 800 }); await p.waitForTimeout(300);
   const sw = await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1); ok(sw, 'điện thoại: không cuộn ngang trang');
   await shot(p, 'cust-mobile');
+  S('guide-kh'); await p.setViewportSize({ width: 1440, height: 1000 }); await p.click('.cal36bar [data-a="guide"]'); await p.waitForSelector('#guide nav a');
+  const nav = await p.locator('#guide nav').innerText();
+  ok(!/LOGISTICS|CS\n|ADMIN|SALES/.test(nav) && /ĐỌC MÀN HÌNH/.test(nav), 'khách chỉ thấy hướng dẫn của khách', nav.slice(0, 120));
+  ok(/Tất cả kho/.test(await p.locator('#guide article h2').innerText()), '"Hướng dẫn màn này" mở mục đọc lịch');
+  ok(await p.locator('#guide article img').count() === 1 && await p.evaluate(() => document.querySelector('#guide article img').naturalWidth > 0), 'ảnh minh họa tải được');
+  await p.fill('#guide [data-gd="q"]', 'xep xe'); await p.waitForTimeout(400); ok(!/Logistics|Xếp xe theo/.test(await p.locator('#guide article').innerText()), 'tìm kiếm chỉ trong hướng dẫn khách');
+  await shot(p, 'guide-kh');
 });
 await session('admin@demo.vn', async p => {
   S('admin'); ok(await p.locator('.whsel select').count() === 1 && await p.locator('.cwh').count() === 0, 'nội bộ giữ ô chọn kho cũ');
+  await p.evaluate(() => A.guide({})); await p.waitForSelector('#guide nav a'); ok(/ADMIN/.test(await p.locator('#guide nav').innerText()), 'nội bộ vẫn thấy hướng dẫn đầy đủ');
+  const cid = await p.evaluate(() => S.customers.find(c => c.code === 'KH0101')?.id || S.customers[0].id); await p.evaluate(x => A.cvStart({ id: x }), cid); await p.waitForTimeout(900);
+  ok(await p.locator('#guide').count() === 0, 'vào Xem như khách thì đóng khung hướng dẫn');
+  await p.evaluate(() => A.guide({})); await p.waitForSelector('#guide nav a'); ok(/ĐỌC MÀN HÌNH/.test(await p.locator('#guide nav').innerText()) && !/ADMIN/.test(await p.locator('#guide nav').innerText()), 'Xem như khách: hướng dẫn của khách');
+  await p.evaluate(() => A.cvStop()); await p.waitForTimeout(900); await p.evaluate(() => A.guide({})); await p.waitForSelector('#guide nav a'); ok(/ADMIN/.test(await p.locator('#guide nav').innerText()), 'thoát Xem như khách: hướng dẫn đầy đủ trở lại');
 });
 await browser.close();
 console.log(`${pass} OK, ${errors.length} lỗi`); if (errors.length) { console.log(errors.join('\n')); process.exit(1); }

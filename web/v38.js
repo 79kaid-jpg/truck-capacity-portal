@@ -27,8 +27,8 @@ function cvBar(){const cv=S.custView;const left=Math.min(60,Math.max(0,Math.floo
  return `<div class="cvbar" role="status"><span>👁 Đang <b>Xem như khách hàng: ${esc(cv.name)}</b> — chỉ xem, đúng giao diện khách thấy. Mọi thao tác bị khóa.</span><span class="small">Còn ${left} phút</span><span class="grow"></span><button class="btn sm" data-a="cvStop">Thoát xem như khách</button></div>`;}
 {const m0=mutate;mutate=async function(fn,args,opts){if(S&&S.custView&&fn!=='cust_view_stop'){toast('Đang ở chế độ Xem như khách (chỉ xem). Bấm "Thoát xem như khách" trước khi thao tác.');return;}return m0(fn,args,opts);};}
 Object.assign(A,{
- cvStart:d=>{const c=cust(d.id);mutate('cust_view_start',{p_customer:d.id},{ok:r=>{V.view='calendar';V.modal=null;V.asg=null;V.menu=false;if(typeof GS!=='undefined'&&GS.open)gsClose();render();toast(`Đang xem như khách ${r.name} trong ${r.minutes} phút (chỉ xem)`);}});},
- cvStop:()=>mutate('cust_view_stop',{},{ok:()=>{V.view='users';V.uTab='customers';V.modal=null;render();toast('Đã thoát chế độ xem như khách');}})
+ cvStart:d=>{const c=cust(d.id);mutate('cust_view_start',{p_customer:d.id},{ok:r=>{if(V.guide)guideClose();V.view='calendar';V.modal=null;V.asg=null;V.menu=false;if(typeof GS!=='undefined'&&GS.open)gsClose();render();toast(`Đang xem như khách ${r.name} trong ${r.minutes} phút (chỉ xem)`);}});},
+ cvStop:()=>mutate('cust_view_stop',{},{ok:()=>{if(V.guide)guideClose();V.view='users';V.uTab='customers';V.modal=null;render();toast('Đã thoát chế độ xem như khách');}})
 });
 {const r0=render;render=function(){r0();document.body.classList.toggle('cv',!!(S&&S.custView));};}
 
@@ -42,8 +42,9 @@ document.addEventListener('pointerdown',e=>{if(!e.target.classList||!e.target.cl
  const mv=ev=>{GD.w=Math.max(360,Math.min(innerWidth*0.95,innerWidth-ev.clientX));gSize();};const up=()=>{g.classList.remove('drag');removeEventListener('pointermove',mv);removeEventListener('pointerup',up);gSave();};
  addEventListener('pointermove',mv);addEventListener('pointerup',up);});
 addEventListener('resize',()=>gSize());
-function guideOpen(sec){V.guide=true;GD.cur=sec||GD.cur||({cs:'cs-day',logistics:'log-day',sales:'sales-read',admin:'start',customer:'cust-start'}[role()]||'start');
- if(GD.html==null&&!GD.loading){GD.loading=true;fetch('guide.html',{cache:'no-cache'}).then(r=>r.text()).then(t=>{GD.html=t;GD.loading=false;guideRender();}).catch(()=>{GD.loading=false;GD.html='<section id="start" data-t="Hướng dẫn"><h2>Không tải được hướng dẫn</h2><p>Kiểm tra mạng rồi thử lại.</p></section>';guideRender();});}
+function guideOpen(sec){V.guide=true;const src=role()==='customer'?'guide-kh.html':'guide.html';if(GD.src!==src){GD.src=src;GD.html=null;GD.loading=false;GD.cur='';GD.q='';}
+ GD.cur=sec||GD.cur||({cs:'cs-day',logistics:'log-day',sales:'sales-read',admin:'start',customer:'kh-lich'}[role()]||'start');
+ if(GD.html==null&&!GD.loading){GD.loading=true;fetch(src,{cache:'no-cache'}).then(r=>r.text()).then(t=>{GD.html=t;GD.loading=false;guideRender();}).catch(()=>{GD.loading=false;GD.html='<section id="start" data-t="Hướng dẫn"><h2>Không tải được hướng dẫn</h2><p>Kiểm tra mạng rồi thử lại.</p></section>';guideRender();});}
  guideRender();}
 function guideClose(){V.guide=false;const g=document.getElementById('guide');if(g)g.remove();}
 function guideRender(){if(!V.guide)return;let g=document.getElementById('guide');if(!g){g=document.createElement('aside');g.id='guide';g.setAttribute('aria-label','Hướng dẫn sử dụng');document.body.appendChild(g);}
@@ -70,8 +71,9 @@ document.addEventListener('input',e=>{if(e.target.dataset&&e.target.dataset.gd==
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&V.guide&&!V.modal){guideClose();}});
 A.guide=d=>{V.guide&&!d.s?guideClose():guideOpen(d.s);};
 // nút ❓ trên thanh trên cùng + link "Hướng dẫn màn này"
+const GD_VIEW_KH={calendar:'kh-lich',notifs:'kh-thong-bao',profile:'kh-dang-nhap'};
 const GD_VIEW={calendar:'cal',day:'log-xep',booking:'cs-xuly',bookings:'cs-xuly',approvals:'log-xep',fleet:'log-fleet',dash:'dash',config:'admin-cfg',users:'admin-users',profile:'start-login',notifs:'start-rules'};
 {const r0=render;render=function(){r0();if(!S)return;const tb=document.querySelector('.top .userbtn');if(tb&&!document.querySelector('.top [data-a="guide"]')){const b=document.createElement('button');b.className='btn ghost sm';b.dataset.a='guide';b.title='Hướng dẫn sử dụng';b.textContent='❓ Hướng dẫn';b.style.marginRight='8px';tb.parentNode.insertBefore(b,tb);}
- const h=document.querySelector('.main .cal36bar')||document.querySelector('.main .pagehead')||document.querySelector('.main .calhead');if(h&&!h.querySelector('[data-a="guide"]')&&GD_VIEW[V.view]){const l=document.createElement('button');l.className='linkbtn small';l.dataset.a='guide';l.dataset.s=GD_VIEW[V.view];l.textContent='Hướng dẫn màn này';l.style.marginLeft='10px';h.appendChild(l);}
+ const h=document.querySelector('.main .cal36bar')||document.querySelector('.main .pagehead')||document.querySelector('.main .calhead');if(h&&!h.querySelector('[data-a="guide"]')&&(role()==='customer'?GD_VIEW_KH:GD_VIEW)[V.view]){const l=document.createElement('button');l.className='linkbtn small';l.dataset.a='guide';l.dataset.s=(role()==='customer'?GD_VIEW_KH:GD_VIEW)[V.view];l.textContent='Hướng dẫn màn này';l.style.marginLeft='10px';h.appendChild(l);}
  if(V.guide)guideRender();};}
 if(typeof SC!=='undefined'){SC.push(['goGuide','global','Mở / đóng Hướng dẫn','G H',()=>A.guide({})]);SC_BY.goGuide=SC[SC.length-1];}

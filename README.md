@@ -296,6 +296,8 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - Khung "Đơn của tôi": KPI tháng + đơn 14 ngày tới mọi kho. Khách không còn thấy tooltip nội bộ. Không cần SQL.
 - Test: `test/e2e/v40.mjs`.
 
+
+
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.
 - Gói Free **không có backup tự động**. Mỗi tuần nên export các bảng chính (Table Editor → schema `app` → Export CSV).
