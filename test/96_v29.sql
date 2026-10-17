@@ -191,7 +191,7 @@ set local role authenticated;
 \echo --- giao lại -> load -> đã giao; hủy đơn đã giao -> expect ERROR "đã đóng"
 select set_config('request.jwt.claim.sub', :'LOG', true);
 reset role;
-select app.truck_code('JM2', :'d2'::date, 'CN', 4) as c4 \gset
+select app.truck_code('JM2', :'d2'::date, 'XT', 4) as c4 \gset
 set local role authenticated;
 select public.save_allocations(:'bk', jsonb_build_array(jsonb_build_object('truck', :'c4', 'tons', 10)), 'test', true);
 select public.mark_loaded(:'bk', '{}', '');

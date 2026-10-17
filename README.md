@@ -205,6 +205,17 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - Ô đăng nhập và Quên mật khẩu nhận cả tên ngắn: gõ `hung.phan`, app tự thêm `@bluescope.com`. Email khác (như Gmail) vẫn gõ đủ.
 - Muốn đổi tên miền thì thêm `LOGIN_DOMAIN:'tenmien.com'` vào `web/config.js`. Test: `test/e2e/login32.mjs`.
 
+## v3.3 – giao trễ ngày bốc, xe thùng XT, icon xe theo tải
+- **Xác nhận giao hàng sau ngày bốc:** đơn có ngày bốc đã qua thì bắt buộc nhập **Ngày giao thực tế** (từ hôm nay trở đi). Khi lưu:
+  - đơn chuyển sang ngày đó, gỡ xe ngày cũ;
+  - trạng thái thành **Đã XN giao hàng · Chờ xếp xe**, Logistics nhận thông báo "Giao hàng gấp";
+  - lịch sử ghi lại lần đổi ngày, không tính vào số lần đổi ngày của đơn.
+- **Xe container (CN) đổi thành xe thùng (XT):** chạy `setup_all.sql` sẽ đổi mã xe cũ `…-CN-01` thành `…-XT-01`. Cột `cn_count` và cấu hình `capCN` giữ nguyên tên trong database.
+- **Icon xe theo tải:**
+  - Đầu kéo có 3 cuộn tôn, trống thì trắng, xếp đến đâu tô màu đến đó. Xe thùng tô thùng theo % tải.
+  - Màu: xanh dưới ngưỡng gần đầy, cam từ ngưỡng gần đầy, đỏ khi đủ tải, đỏ đậm khi vượt tải, xám kèm 🔒 khi xe đã đóng.
+- Test: `test/99_v33.sql`, `test/e2e/v33.mjs`.
+
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.
 - Gói Free **không có backup tự động**. Mỗi tuần nên export các bảng chính (Table Editor → schema `app` → Export CSV).

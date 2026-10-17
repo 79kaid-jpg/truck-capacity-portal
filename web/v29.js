@@ -201,6 +201,10 @@ function mDeliv29(){const M=V.modal;const D=delivState29();const b=D.b;const c=c
  const restDays=[...Array(14)].map((_,i)=>addDays(b.date<TODAY?TODAY:b.date,i)).filter(d=>d>=TODAY&&S.fleet[b.wh][d]);
  return `<div class="mhead"><span class="meta">${b.id} · ${esc(c.name)}</span><span class="meta">Ngày bốc ${dmy(b.date)} · ${t2(D.T)} t</span></div>
  <h2 style="margin-bottom:10px">XÁC NHẬN GIAO HÀNG</h2>
+ ${b.date<TODAY?`<div class="addrbox" style="margin-bottom:10px"><b>Ngày bốc ${dmy(b.date)} đã qua – nhập ngày giao thực tế <span class="req">*</span></b>
+  <div class="row" style="gap:10px;margin-top:6px;flex-wrap:wrap"><input type="date" id="dv-ad" class="inp" style="max-width:190px" min="${TODAY}" value="${M.actualDay||''}" data-f="v9" data-k="actualDay" data-r="1">
+  ${M.actualDay&&S.fleet[b.wh]&&S.fleet[b.wh][M.actualDay]?`<span class="small muted">Còn đặt được ${t2(dayM(b.wh,M.actualDay).avail)} t${isHoliday(b.wh,M.actualDay)?' · ⚠ ngày nghỉ':''}</span>`:M.actualDay?'<span class="small muted">Ngày này chưa khai báo xe</span>':''}</div>
+  <span class="small muted">Đơn chuyển sang ngày này, gỡ xe đã gán ngày ${dmy(b.date)}; trạng thái Đã xác nhận giao hàng · Chờ xếp xe, Logistics được báo xếp xe gấp.</span></div>`:''}
  <div class="addrbox"><b>Địa chỉ giao <span class="req">*</span></b>
   <select class="inp" data-f="v9" data-k="addrId" data-r="1">${c.addresses.map(a=>`<option value="${a.id}" ${M.addrId===a.id?'selected':''}>${esc(a.label)}, ${esc(a.ward)}, ${esc(a.province)}</option>`).join('')}<option value="new" ${M.addrId==='new'?'selected':''}>+ Địa chỉ khác</option></select>
   ${M.addrId==='new'?`<div class="fgrid" style="margin-top:6px"><div class="field span2"><label for="dv-a">Địa chỉ</label><input id="dv-a" class="inp" data-f="v9" data-k="address" value="${esc(M.address)}" placeholder="Số nhà, đường, phường/xã"></div><div class="field"><label for="dv-p">Tỉnh/Thành</label><select id="dv-p" class="inp" data-f="v9" data-k="province"><option value="">Chọn</option>${PROVINCES.map(p=>`<option ${M.province===p?'selected':''}>${p}</option>`).join('')}</select></div></div>`:''}</div>
@@ -275,7 +279,7 @@ Object.assign(A,{
  v9BulkMove:d=>{const M=V.modal;const s=M.sent[+d.r-1];if(s)s.day=d.d;const r=M.res.rows.find(x=>x.row===+d.r);if(r){r.day=d.d;r.error='Đã chuyển sang '+dm(d.d)+' – bấm “Sửa các dòng lỗi trong form” để gửi lại';r.suggest=[];}render();},
  v9BulkAgain:()=>A.bulkNew(),
  v9Deliv:d=>{const b=bkById(d.id);const c=cust(b.customerId);const addr=b.addrId&&c.addresses.some(a=>a.id===b.addrId)?b.addrId:(b.addrText?'new':(c.addresses[0]?.id||'new'));
-  V.modal={type:'deliv',wide:true,id:b.id,addrId:addr,address:addr==='new'?b.addrText:'',province:b.province||'',text:'',restMode:'split',restDay:'',restReason:'',restNote:'',updTons:false,warn:'',err:''};render();
+  V.modal={type:'deliv',wide:true,id:b.id,addrId:addr,address:addr==='new'?b.addrText:'',province:b.province||'',text:'',restMode:'split',restDay:'',restReason:'',restNote:'',updTons:false,warn:'',err:'',actualDay:b.date<TODAY?TODAY:''};render();
   if(b.coils)rpc('get_coils',{p_id:b.id}).then(cs=>{if(V.modal&&V.modal.type==='deliv'&&V.modal.id===b.id&&!V.modal.text){V.modal.text=['Whs\tOrder no\tLn\tItmno\tName\tLot number\tAllocated qty\tAttr value\tCustomer',...cs.map(x=>[x.whs,x.order_no,x.ln,x.itmno,x.name,x.lot,x.qty,x.attr,x.customer].join('\t'))].join('\n');render();}}).catch(()=>{});},
  v9DelivSave:async(d)=>{const M=V.modal;const D=delivState29();M.err='';
   if(M.addrId==='new'&&!String(M.address||'').trim()){M.err='Nhập địa chỉ giao (bắt buộc khi xác nhận giao hàng).';return render();}
@@ -284,7 +288,8 @@ Object.assign(A,{
   if(D.custs.length>1){M.err='Danh sách cuộn có nhiều khách; mỗi đơn chỉ giao cho một khách.';return render();}
   if(D.kind==='short'&&M.restMode==='drop'&&!M.restReason){M.err='Chọn lý do không giao phần còn lại.';return render();}
   if(D.kind==='excess'&&!M.updTons){M.err='Tổng cuộn nhiều hơn booking: tick “Cập nhật số tấn booking theo cuộn” để lưu.';return render();}
-  const p={id:M.id,coils:D.P.coils,force:!!d.force||!!M.forced,update_tons:!!M.updTons};
+  if(D.b.date<TODAY&&!(M.actualDay>=TODAY)){M.err='Ngày bốc '+dmy(D.b.date)+' đã qua: chọn ngày giao thực tế từ hôm nay trở đi.';return render();}
+  const p={id:M.id,coils:D.P.coils,force:!!d.force||!!M.forced,update_tons:!!M.updTons};if(D.b.date<TODAY)p.actual_day=M.actualDay;
   if(M.addrId==='new'){p.address=M.address;p.province=M.province;}else p.address_id=M.addrId;
   if(D.kind==='short'){p.rest_mode=M.restMode;p.rest_day=M.restMode==='split'?M.restDay||'':'';p.rest_reason=M.restReason;p.rest_note=M.restNote;}
   if(V.busy)return;setBusy(true);
