@@ -1,0 +1,230 @@
+<!-- Hướng dẫn sử dụng Đặt Xe (Portal). Mỗi mục là một <section id data-g="nhóm" data-t="tiêu đề">. Ảnh minh họa trong guide/*.jpg
+     (chụp lại bằng: node test/e2e/guide_shots.mjs). Sửa chữ ở file này, không cần sửa code. -->
+
+<section id="start" data-g="Bắt đầu" data-t="Giới thiệu">
+<h2>Đặt Xe – hệ thống đặt năng lực giao hàng</h2>
+<p>Portal thay cho bảng tính Đặt xe. CS đặt đơn theo <b>ngày bốc</b> và <b>kho</b>, Logistics khai báo xe và xếp xe, Sales và quản lý theo dõi số liệu. Mọi người cùng nhìn một dữ liệu và thấy thay đổi của nhau sau tối đa 30 giây.</p>
+<img src="guide/lich-thang.jpg" alt="Lịch đặt xe">
+<h3>Chọn hướng dẫn theo vai trò</h3>
+<ul><li><a data-gd="link" data-s="cs-day">CS – Customer Service</a></li><li><a data-gd="link" data-s="log-day">Logistics</a></li><li><a data-gd="link" data-s="sales-read">Sales / quản lý</a></li><li><a data-gd="link" data-s="admin-users">Admin</a></li></ul>
+<div class="tip">Bấm <b>?</b> ở bất kỳ màn hình nào để xem phím tắt. Bấm <b>Hướng dẫn màn này</b> để mở đúng mục của màn đang dùng.</div>
+</section>
+
+<section id="start-login" data-g="Bắt đầu" data-t="Đăng nhập, mật khẩu, 2 lớp">
+<h2>Đăng nhập</h2>
+<ol><li>Mở <b>truck-capacity-portal.pages.dev</b>.</li><li>Ô đăng nhập: gõ <b>tên trước dấu @</b> (ví dụ <code>hung.phan</code>), hệ thống tự thêm <code>@bluescope.com</code>. Email khác (Gmail…) thì gõ đủ.</li><li>Mật khẩu ban đầu do Admin cấp. Lần đầu vào, mở <b>Hồ sơ</b> (bấm tên ở góc trên phải) để đổi mật khẩu.</li></ol>
+<p><b>Quên mật khẩu:</b> bấm "Quên mật khẩu?" ở màn đăng nhập, hệ thống gửi link đặt lại vào email.</p>
+<p><b>Xác thực 2 lớp</b> (bắt buộc với Admin): cài ứng dụng Google Authenticator / Microsoft Authenticator, quét mã QR lần đầu, sau đó mỗi lần đăng nhập nhập mã 6 số.</p>
+<p>Ứng dụng giữ phiên đăng nhập nhiều tuần; dùng máy chung thì nhớ <b>Đăng xuất</b> (menu tên).</p>
+</section>
+
+<section id="start-life" data-g="Bắt đầu" data-t="Vòng đời một đơn">
+<h2>Vòng đời một đơn</h2>
+<p><b>Lưu tạm (Nháp)</b> → <b>Chờ xếp xe</b> → <b>Đã xếp xe</b> → <b>Đã XN giao hàng</b> → <b>Đã bốc hàng</b> → <b>Đang giao</b> → <b>Đã giao</b></p>
+<ul>
+<li><b>Lưu tạm</b>: CS mới nhập, <u>chưa trừ năng lực giao</u>. Bấm <b>Gửi Logistics</b> để giữ chỗ. Quá giờ chốt hệ thống nhắc; quá ngày bốc 2 ngày tự hủy.</li>
+<li><b>Chờ xếp xe</b>: đã trừ năng lực, Logistics cần gán xe.</li>
+<li><b>Đã xếp xe</b>: có xe. Khi CS dán danh sách cuộn → <b>Đã xác nhận giao hàng</b>.</li>
+<li><b>Đã XN giao hàng · Chờ xếp xe</b>: có cuộn nhưng chưa có xe (đơn gấp, hoặc giao trễ ngày bốc) – Logistics được báo xếp xe ngay.</li>
+<li>Nhánh khác: <b>Từ chối</b> (nhu cầu bị mất), <b>Đề nghị đổi ngày</b>, <b>Đã hủy</b>, <b>Hủy quá cận ngày</b> (hủy đơn đã xếp xe sau giờ chốt), <b>Giao lỗi</b>.</li>
+</ul>
+</section>
+
+<section id="start-rules" data-g="Bắt đầu" data-t="Quy tắc chung">
+<h2>Quy tắc chung</h2>
+<ul>
+<li><b>Đơn vị</b>: MT (metric tấn).</li>
+<li><b>Giờ chốt xe</b> (mặc định 16:00): đặt sau giờ chốt cho ngày hôm sau = <b>đơn khẩn</b> 🚨; hủy đơn đã xếp xe sau giờ chốt = <b>Hủy quá cận ngày</b>.</li>
+<li><b>Ngày nghỉ</b> (Chủ nhật, lễ): chỉ đặt được khi Logistics khai báo xe kèm lý do; ô lịch có cảnh báo đỏ.</li>
+<li><b>Kho</b>: JM2 – Phú Mỹ, JD8 – Hải Phòng, JD9 – Cửa Lò. Mỗi khách có kho mặc định nhưng đặt được ở mọi kho.</li>
+<li><b>Sửa trùng</b>: nếu người khác vừa sửa đơn bạn đang mở, hệ thống báo "Đơn … vừa được X cập nhật" và tải lại bản mới – kiểm tra rồi làm lại.</li>
+<li><b>Thông báo</b>: chuông 🔔 trên thanh bên trái; email theo mức chọn trong Hồ sơ (Tất cả / Chỉ việc gấp / Không).</li>
+</ul>
+</section>
+
+<section id="cal" data-g="Bắt đầu" data-t="Đọc lịch đặt xe">
+<h2>Lịch đặt xe</h2>
+<img src="guide/lich-thang.jpg" alt="Lịch tháng">
+<ul>
+<li>Mỗi ô ngày: <b>Còn đặt được</b> (số lớn), thanh năng lực (xanh &lt; 80% · cam ≥ 80% · đỏ đầy), đã xếp / chờ / năng lực, số xe DK / XT đã dùng.</li>
+<li>Nhãn chỉ hiện khi <b>Gần đầy</b> / <b>Đã đầy</b>. "⏳ n đơn chờ xếp xe" = đơn đã giữ chỗ chưa có xe.</li>
+<li><b>Bấm vào ô</b> để mở chi tiết ngày; nút <b>＋</b> ở góc ô để đặt hàng cho ngày đó.</li>
+<li><b>Rê chuột</b> lên ô để xem nhanh khách, MT, trạng thái và xe trống.</li>
+<li>Cột <b>Tuần</b>: còn đặt được của cả tuần.</li>
+</ul>
+<img src="guide/lich-xem-nhanh.jpg" alt="Xem nhanh khi rê chuột">
+<h3>Lọc và kiểu xem</h3>
+<ul><li><b>Có đơn chờ xếp xe / Có đơn khẩn / Đơn của tôi</b>: làm mờ các ngày không liên quan.</li><li>Ô Kho → <b>Tất cả kho</b>: mỗi ô hiện từng kho, bấm dòng kho để mở ngày của kho đó.</li><li><b>Xem 2 tuần</b>: hiện tên khách trong từng ngày.</li></ul>
+<img src="guide/lich-2-tuan.jpg" alt="Xem 2 tuần">
+<p>Khung bên phải: tab <b>Xe</b> (sử dụng năng lực, lấp đầy xe, ngày cao điểm, xe non tải…) và <b>Khách</b> (bấm từng dòng để xem danh sách đơn). Nút <b>Thu gọn »</b> để lịch rộng hơn.</p>
+</section>
+
+<section id="cs-day" data-g="CS" data-t="Việc hằng ngày của CS">
+<h2>Việc hằng ngày (CS)</h2>
+<ol>
+<li>Sáng: mở <b>Bảng thống kê › CS</b> – xem <b>Cần đổi ngày</b>, <b>Ngày bốc đã qua nhưng chưa chốt</b>, <b>Lưu tạm sắp đến ngày</b>.</li>
+<li>Nhận yêu cầu khách → <a data-gd="link" data-s="cs-order">Đặt hàng</a> (lưới nhiều dòng).</li>
+<li>Đơn còn Lưu tạm → <a data-gd="link" data-s="cs-send">Gửi Logistics</a> trước giờ chốt.</li>
+<li>Khi có picking list từ ERP → <a data-gd="link" data-s="cs-deliv">Xác nhận giao hàng</a>.</li>
+<li>Theo dõi chuông 🔔: đơn bị từ chối / đề nghị đổi ngày cần báo khách.</li>
+</ol>
+</section>
+
+<section id="cs-order" data-g="CS" data-t="Đặt hàng (lưới, dán Excel, tải file)">
+<h2>Đặt hàng</h2>
+<p>Bấm <b>+ Đặt hàng</b> (hoặc phím <b>N</b>). Khung mở to gần toàn màn hình; kéo góc dưới phải để co giãn, <b>A− / A+</b> phóng to cả bảng.</p>
+<img src="guide/dat-hang-luoi.jpg" alt="Lưới đặt hàng">
+<ol>
+<li>Chọn <b>Kho</b> và <b>Ngày bốc mặc định</b> (áp dụng cho mọi dòng).</li>
+<li>Cột <b>Mã KH</b>: gõ mã hoặc tên (không dấu cũng được), ↑↓ Enter để chọn. Kho tự theo kho mặc định của khách.</li>
+<li>Nhập <b>Số tấn</b>. Địa chỉ giao không bắt buộc lúc đặt (nhập khi xác nhận giao hàng). Địa chỉ mới sẽ được hỏi có lưu vào hồ sơ khách không.</li>
+<li><b>Dán từ Excel</b>: chọn một ô rồi Ctrl+V (cột Mã KH · Số tấn · Địa chỉ · Ref · Ghi chú, hoặc theo file mẫu). Tab <b>Tải file</b> để tải CSV/XLSX.</li>
+<li>Khung bên phải hiện năng lực còn lại theo kho · ngày đang nhập.</li>
+<li><b>Lưu tạm (Nháp)</b> (Ctrl+Enter) – chưa trừ năng lực; hoặc <b>Đặt & gửi Logistics</b> (Ctrl+Shift+Enter) – giữ chỗ luôn.</li>
+</ol>
+<div class="tip">Dòng lỗi (khách không có, vượt năng lực, ngày chưa khai báo xe) tô đỏ kèm lý do. Sau khi gửi, bấm <b>Sửa các dòng lỗi</b> để mở lại lưới chỉ với các dòng chưa được nhận.</div>
+</section>
+
+<section id="cs-send" data-g="CS" data-t="Gửi Logistics">
+<h2>Gửi Logistics</h2>
+<p>Đơn <b>Lưu tạm</b> chưa trừ năng lực. Mở đơn → <b>Gửi Logistics</b> (phím L), hoặc ở Danh sách booking tab <b>Lưu tạm</b> bấm <b>Gửi Logistics các nháp của tôi</b>. Hệ thống kiểm tra ngày, kho, xe đã khai báo và năng lực còn lại.</p>
+</section>
+
+<section id="cs-xuly" data-g="CS" data-t="Xử lý một đơn đã có">
+<h2>Xử lý một đơn</h2>
+<img src="guide/chi-tiet-booking.jpg" alt="Chi tiết booking">
+<ul>
+<li><b>Sửa</b> (E): đổi số tấn, ngày, ref, ghi chú. Đơn đã xếp xe sửa sẽ quay về Chờ xếp xe (xe được gỡ).</li>
+<li><b>Đổi ngày</b>: chọn lý do và bên yêu cầu (Khách / CS / Logistics); số lần đổi được đếm.</li>
+<li><b>Hủy</b>: chọn lý do. Hủy đơn đã xếp xe sau giờ chốt = Hủy quá cận ngày.</li>
+<li><b>Đề nghị đổi ngày</b> từ Logistics: báo khách, chọn ngày mới rồi <b>Đặt lại</b>.</li>
+<li><b>Đổi kho</b>: chỉ khi kho của đơn đã ngừng dùng; đơn về Lưu tạm.</li>
+<li><b>Cờ khẩn</b> (U, Admin): đặt / bỏ cờ khẩn kèm lý do.</li>
+</ul>
+</section>
+
+<section id="cs-deliv" data-g="CS" data-t="Xác nhận giao hàng (danh sách cuộn)">
+<h2>Xác nhận giao hàng</h2>
+<img src="guide/xac-nhan-giao-hang.jpg" alt="Xác nhận giao hàng">
+<ol>
+<li>Mở đơn → <b>Xác nhận giao hàng</b> (D).</li>
+<li>Chọn <b>địa chỉ giao</b> (bắt buộc).</li>
+<li>Dán <b>danh sách cuộn</b> từ Excel/ERP, có dòng tiêu đề: Whs · Order no · Ln · Itmno · Name · Lot number · Allocated qty · Attr value · Customer (tối đa 300 cuộn).</li>
+<li>Hệ thống so tổng cuộn với số tấn: thiếu → chọn <b>Tách đơn</b> (phần còn lại thành đơn -N) hoặc <b>Không giao phần còn lại</b>; dư → tick cập nhật số tấn.</li>
+<li>Cảnh báo Customer / Whs khác mã ERP: kiểm tra rồi bấm "Đã kiểm tra – vẫn lưu".</li>
+</ol>
+<div class="warn"><b>Ngày bốc đã qua</b> mà mới xác nhận: bắt buộc nhập <b>Ngày giao thực tế</b> (từ hôm nay). Đơn chuyển sang ngày đó, gỡ xe cũ, thành <b>Đã XN giao hàng · Chờ xếp xe</b>, Logistics được báo xếp xe gấp. Không tính vào số lần đổi ngày.</div>
+</section>
+
+<section id="cs-email" data-g="CS" data-t="Thông báo CS nhận">
+<h2>Thông báo / email CS nhận</h2>
+<ul><li>Đơn bị từ chối, đề nghị đổi ngày (cần báo khách).</li><li>Nháp quá giờ chốt chưa gửi; nháp bị tự hủy.</li><li>Bốc thiếu cần xử lý phần còn lại.</li><li>Khi CS nghỉ phép: chọn người nhận thay trong Hồ sơ.</li></ul>
+</section>
+
+<section id="log-day" data-g="Logistics" data-t="Việc hằng ngày của Logistics">
+<h2>Việc hằng ngày (Logistics)</h2>
+<ol><li><a data-gd="link" data-s="log-fleet">Khai báo xe</a> cho các ngày tới.</li><li>Mở <b>Approval request</b> (G A) hoặc lọc lịch <b>Có đơn chờ xếp xe</b> → <a data-gd="link" data-s="log-xep">xếp xe</a>.</li><li>Ưu tiên đơn 🚨 khẩn và đơn "Đã XN giao hàng · Chờ xếp xe".</li><li>Cuối ngày: <a data-gd="link" data-s="log-ship">bốc hàng, đóng xe</a>, cập nhật đang giao / đã giao.</li><li>Xem <b>Bảng thống kê › Logistics</b>: lấp đầy 14 ngày tới, thời gian xác nhận.</li></ol>
+<img src="guide/thong-ke-logistics.jpg" alt="Thống kê Logistics">
+</section>
+
+<section id="log-fleet" data-g="Logistics" data-t="Khai báo xe theo ngày">
+<h2>Khai báo xe</h2>
+<img src="guide/khai-bao-xe.jpg" alt="Khai báo xe">
+<ul><li>Nhập số <b>đầu kéo (DK)</b> và <b>xe thùng (XT)</b> cho từng ngày, từng kho. Năng lực = số xe × tải trọng chuẩn (Cấu hình).</li><li>Giảm xe phải nhập lý do. Không giảm dưới số xe đang chở hàng.</li><li>Ngày nghỉ muốn giao: khai báo xe kèm lý do.</li><li>Đổi tải trọng một xe trong ngày: mở xe ở Chi tiết ngày → sửa tải trọng (có lý do).</li></ul>
+</section>
+
+<section id="log-xep" data-g="Logistics" data-t="Xếp xe">
+<h2>Xếp xe</h2>
+<img src="guide/chi-tiet-ngay.jpg" alt="Chi tiết ngày">
+<p>Chi tiết ngày hiện thẻ từng xe: biểu tượng tô màu theo tải (đầu kéo: 3 cuộn; xe thùng: thùng), % tải, khách trên xe, khu vực. Bên phải là danh sách <b>Booking chờ xếp xe</b> và <b>Gợi ý gộp xe</b> theo khu vực.</p>
+<img src="guide/xep-xe.jpg" alt="Gán xe cho booking">
+<ol><li>Mở booking chờ → bảng <b>Gán xe</b>: nhập số tấn cho từng xe, hoặc <b>Gợi ý xếp xe</b> (X).</li><li>Xe khác khu vực / vượt tải: hệ thống cảnh báo, cần lý do override.</li><li>Bấm <b>Xác nhận</b> → đơn thành Đã xếp xe, CS được báo.</li><li>Không xếp được: <b>Từ chối</b> hoặc <b>Đề nghị đổi ngày</b> kèm lý do.</li></ol>
+<div class="tip">Trên thẻ xe: bấm <b>Xếp đơn</b> để chọn đơn chờ cho đúng xe đó. Phím J / K đi qua các đơn chờ trong ngày.</div>
+</section>
+
+<section id="log-ship" data-g="Logistics" data-t="Bốc hàng, giao hàng, đóng xe">
+<h2>Bốc hàng và giao hàng</h2>
+<ul><li><b>Đã bốc hàng</b>: tick các cuộn đã lên xe; cuộn không lên phải ghi chú → CS xử lý phần bốc thiếu.</li><li><b>Đang giao</b>: nhập giờ dự kiến tới. <b>Đã giao</b> / <b>Giao lỗi</b> (có lý do).</li><li><b>Đóng xe</b>: khóa không xếp thêm (ghi tải thực tế, lý do); mở lại nếu cần.</li></ul>
+</section>
+
+<section id="log-urgent" data-g="Logistics" data-t="Đơn khẩn và hủy cận ngày">
+<h2>Đơn khẩn và hủy cận ngày</h2>
+<p>🚨 <b>Khẩn</b>: đặt sau giờ chốt cho hôm sau, hoặc Admin đặt cờ. <b>Hủy quá cận ngày</b>: đơn đã xếp xe bị hủy sau giờ chốt – xe trống đột xuất. Theo dõi ở <b>Bảng thống kê › Ngoại lệ</b>.</p>
+</section>
+
+<section id="sales-read" data-g="Sales / quản lý" data-t="Đọc lịch và thống kê khách">
+<h2>Sales: đọc số liệu</h2>
+<p>Sales chỉ thấy khách mình phụ trách (hoặc theo phạm vi Admin cấp). Khung <b>Khách</b> bên phải lịch: tổng đã đặt tháng, theo trạng thái, nửa tháng, bị từ chối, khách đặt nhiều / ít nhất, <b>khách chưa đặt tháng này</b> (bấm để xem danh sách kèm Sales).</p>
+</section>
+
+<section id="dash" data-g="Sales / quản lý" data-t="Bảng thống kê">
+<h2>Bảng thống kê</h2>
+<img src="guide/thong-ke-tong-quan.jpg" alt="Bảng thống kê – Tổng quan">
+<ul><li>Tab: <b>Tổng quan · CS · Logistics · Sales · Ngoại lệ · Lịch đơn · Mục tiêu · Hệ thống</b> (mỗi vai trò mở sẵn tab của mình).</li><li>Bộ lọc: Ngày / Tuần / Tháng / Quý / Năm / Tùy chọn, Kho, Segment.</li><li><b>Bấm vào ô số, cột, thanh, ô bảng</b> → danh sách đơn đúng phần đó; bấm đơn để mở; <b>Quay lại</b> về đúng chỗ.</li><li>⬇ Excel, In / PDF ở góc trên.</li></ul>
+<img src="guide/thong-ke-danh-sach-don.jpg" alt="Danh sách đơn khi bấm biểu đồ">
+</section>
+
+<section id="tgt" data-g="Sales / quản lý" data-t="Mục tiêu (target)">
+<h2>Mục tiêu</h2>
+<img src="guide/thong-ke-muc-tieu.jpg" alt="Tab Mục tiêu">
+<p>Đồng hồ % đạt và đánh giá tiến độ (Đúng / Hơi chậm / Chậm – so với số ngày làm việc đã qua, trừ Chủ nhật), đường cộng dồn so với mục tiêu, bảng 12 tháng + quý + năm. Admin nhập mục tiêu ở <b>Cấu hình › Mục tiêu</b> (tháng × Dân dụng / Dự án / Export; Country = tổng).</p>
+</section>
+
+<section id="admin-users" data-g="Admin" data-t="Người dùng và phân quyền">
+<h2>Người dùng và phân quyền</h2>
+<ul><li><b>Setting user account › Người dùng</b>: cấp quyền tài khoản (email, vai trò, segment, kho), khóa / mở, reset 2 lớp.</li><li><b>Phân quyền</b>: ma trận quyền theo vai trò; bấm để bật / tắt, có nút khôi phục mặc định.</li><li>Tạo hàng loạt tài khoản: dùng file SQL do quản trị chạy trong Supabase (mật khẩu ban đầu chung, mỗi người tự đổi).</li></ul>
+</section>
+
+<section id="admin-import" data-g="Admin" data-t="Khách hàng, nhập từ file">
+<h2>Khách hàng</h2>
+<img src="guide/khach-hang.jpg" alt="Danh sách khách hàng">
+<p>Ô tìm theo mã / tên / mã ERP (hiện tối đa 100 dòng). Mỗi dòng: <b>👁 Xem như khách</b>, Sửa, Ngừng dùng.</p>
+<h3>Nhập từ file</h3>
+<img src="guide/nhap-khach-tu-file.jpg" alt="Nhập khách hàng từ file">
+<ol><li>Bấm <b>Nhập từ file</b> → chọn Excel/CSV (bảng "Khách hàng" và "Địa chỉ giao", hoặc <b>Tải file mẫu</b>).</li><li>Hệ thống <b>kiểm tra trước</b>: số khách mới / cập nhật / lỗi / cảnh báo (Sales, CS chưa có tài khoản; tỉnh chưa nhận ra…).</li><li>Bấm <b>Ghi</b>. Khách trùng mã được cập nhật, khách không có trong file giữ nguyên. Tỉnh tự nhận theo 34 tỉnh mới (cả tên tỉnh cũ).</li></ol>
+</section>
+
+<section id="admin-cfg" data-g="Admin" data-t="Cấu hình">
+<h2>Cấu hình</h2>
+<img src="guide/cau-hinh-kho.jpg" alt="Cấu hình kho">
+<ul><li><b>Ngưỡng & tải trọng</b>: tải trọng DK / XT, ngưỡng gần đầy, giờ chốt, ngưỡng lệch cuộn…</li><li><b>Khu vực giao hàng</b>: khu vực theo kho, tỉnh tương ứng, khu vực lân cận (gộp xe).</li><li><b>Ngày nghỉ</b>, <b>Sản phẩm / màu / độ dày / khổ</b>.</li><li><b>Kho</b>: thêm kho, sửa tên, mã ERP, ngừng dùng.</li><li><b>Mục tiêu</b>: tấn theo tháng × segment.</li><li><b>Phím tắt</b>: <a data-gd="link" data-s="keys">xem mục Phím tắt</a>.</li></ul>
+</section>
+
+<section id="admin-loginas" data-g="Admin" data-t="Login as và Xem như khách">
+<h2>Login as và Xem như khách hàng</h2>
+<ul><li><b>Login as</b> (người dùng): Setting user account › Người dùng, hoặc Ctrl+K gõ tên → Login as. Thấy và thao tác đúng như người đó; ghi nhật ký là Admin làm thay; tối đa 60 phút.</li>
+<li><b>Xem như khách hàng</b>: tab Khách hàng → <b>👁 Xem như khách</b> (hoặc Ctrl+K gõ tên khách). Thấy đúng giao diện khách (lịch "Có thể đặt", đơn của khách, Sales phụ trách) – <b>chỉ xem</b>, mọi thao tác bị khóa, không cần khách có tài khoản.</li></ul>
+<img src="guide/xem-nhu-khach.jpg" alt="Xem như khách hàng">
+<p>Bấm <b>Thoát xem như khách</b> trên thanh màu cam để quay lại.</p>
+</section>
+
+<section id="admin-maint" data-g="Admin" data-t="Bảo trì, cập nhật phiên bản">
+<h2>Bảo trì</h2>
+<ol><li>Mỗi bản cập nhật có nhánh riêng trên GitHub. <b>Chạy <code>supabase/setup_all.sql</code> của nhánh đó trong Supabase › SQL Editor trước</b>, đợi Success.</li><li>Sau đó mới merge vào main; Cloudflare tự deploy. Người dùng tải lại trang (Ctrl+F5).</li><li>Lỗi "Could not find the function …": SQL chưa chạy (hoặc chạy <code>notify pgrst, 'reload schema';</code>).</li></ol>
+<p>Bảng thống kê › <b>Hệ thống</b>: dung lượng, đăng nhập, email, gửi email thử.</p>
+</section>
+
+<section id="keys" data-g="Tra cứu" data-t="Phím tắt">
+<h2>Phím tắt</h2>
+<img src="guide/bang-phim-tat.jpg" alt="Bảng phím tắt">
+<ul><li>Bấm <b>?</b> để xem bảng phím tắt đang dùng. Phím một chữ chỉ chạy khi không gõ trong ô.</li><li>Chuỗi 2 phím: nhấn <b>G</b> rồi chữ thứ hai trong 1 giây (G L Lịch, G B Danh sách, G A Approval, G X Khai báo xe, G S Thống kê, G T Thông báo, G C Cấu hình, G H Hướng dẫn).</li><li>Trong lưới / hộp thoại: Ctrl+Enter lưu, Ctrl+Shift+Enter đặt & gửi, Alt+Enter thêm dòng, Esc đóng.</li></ul>
+<h3>Đổi phím của bạn</h3>
+<img src="guide/phim-tat-ho-so.jpg" alt="Phím tắt trong Hồ sơ">
+<p>Hồ sơ › <b>Phím tắt của tôi</b>: bấm ô rồi nhấn phím mới. Hệ thống <b>chặn</b> phím của trình duyệt / Windows / Unikey và phím trùng; <b>cảnh báo</b> phím hay dùng ở Teams, Zalo, Excel. Admin đặt mặc định công ty và reset ở <b>Cấu hình › Phím tắt</b>.</p>
+<img src="guide/cau-hinh-phim-tat.jpg" alt="Cấu hình phím tắt">
+</section>
+
+<section id="colors" data-g="Tra cứu" data-t="Màu và nhãn">
+<h2>Màu và nhãn</h2>
+<ul><li>Thanh năng lực ngày: <b style="color:#2e8b57">xanh</b> còn chỗ · <b style="color:#e0861a">cam</b> gần đầy (≥ ngưỡng) · <b style="color:#d33a2c">đỏ</b> đầy.</li><li>Xe: đầu kéo 3 cuộn tôn, xe thùng tô thùng theo % tải; trắng = trống, xanh &lt; 80%, cam 80–99%, đỏ 100%, đỏ đậm vượt tải, xám 🔒 đã đóng.</li><li>🚨 đơn khẩn · ⏳ đơn chờ xếp xe · ⚠ giao ngày nghỉ.</li></ul>
+</section>
+
+<section id="faq" data-g="Tra cứu" data-t="Gặp sự cố">
+<h2>Gặp sự cố</h2>
+<ul><li><b>Không đăng nhập được</b>: kiểm tra tên / mật khẩu, dùng "Quên mật khẩu?". Tài khoản bị khóa → báo Admin.</li><li><b>Số liệu chưa cập nhật</b>: bấm Làm mới (R) hoặc tải lại trang.</li><li><b>"Đơn … vừa được X cập nhật"</b>: người khác vừa sửa – xem bản mới rồi làm lại.</li><li><b>Không đặt được vào ngày</b>: ngày chưa khai báo xe, đã đầy, hoặc kho ngừng dùng.</li><li><b>Phím tắt không chạy</b>: con trỏ đang ở ô nhập liệu / hộp thoại đang mở; hoặc phím đã bị đổi (xem bảng ?).</li></ul>
+</section>
+
+<section id="cust-start" data-g="Khách hàng" data-t="Dành cho khách hàng">
+<h2>Khách hàng</h2>
+<p>Lịch hiện <b>số MT có thể đặt</b> mỗi ngày và đơn của bạn: <b>Bạn đã đặt</b> (đã xếp xe), <b>Đang chờ xác nhận</b>, <b>Đề nghị đổi ngày</b>, <b>Bị từ chối</b>. Bấm <b>Chi tiết</b> để xem đơn, danh sách cuộn khi đã giao. Khung bên phải: thống kê của bạn và Sales phụ trách.</p>
+</section>

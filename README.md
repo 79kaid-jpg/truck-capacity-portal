@@ -272,6 +272,18 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - Bấm `?` để mở bảng phím tắt. Rê chuột vào nút sẽ thấy phím tương ứng. Ctrl+K (tìm kiếm) và Esc (đóng hộp thoại) là phím cố định.
 - RPC: `save_my_shortcuts`, `admin_save_shortcuts`, `admin_reset_shortcuts`. File: `web/v37.js`. Test: `test/e2e/v37.mjs`.
 
+## v3.8 – Hướng dẫn sử dụng, Xem như khách hàng
+- **Hướng dẫn sử dụng** (`web/guide.html`, ảnh minh họa trong `web/guide/*.jpg`):
+  - Mở bằng nút ❓ Hướng dẫn trên thanh trên cùng, phím `G` → `H`, hoặc link "Hướng dẫn màn này" ở từng màn hình.
+  - Hiện ở khung bên phải, có ô tìm (gõ không dấu được), tự mở mục đúng vai trò người đọc, có nút In / PDF.
+  - Sửa nội dung trực tiếp trong `guide.html`. Khi giao diện đổi, chụp lại ảnh bằng `node test/e2e/guide_shots.mjs`.
+- **Xem như khách hàng** (Admin, quyền `users.impersonate`):
+  - Mở bằng nút 👁 ở tab Khách hàng, hoặc tìm khách bằng Ctrl+K.
+  - Hiện đúng giao diện khách thấy, **chỉ xem**, không cần khách có tài khoản. Có thanh màu cam báo đang ở chế độ này, tự hết sau 60 phút và ghi nhật ký.
+  - Máy chủ chặn mọi thao tác (kiểm tra trong `app.require_perm`) khi đang ở chế độ này.
+  - RPC: `cust_view_start`, `cust_view_stop`. Bảng: `app.cust_views`.
+- Test: `test/e2e/v38.mjs`.
+
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.
 - Gói Free **không có backup tự động**. Mỗi tuần nên export các bảng chính (Table Editor → schema `app` → Export CSV).
@@ -289,6 +301,8 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v35.js                  Bảng thống kê (8 tab, bấm biểu đồ xem đơn), Cấu hình › Mục tiêu
   v36.js                  Lịch đặt xe mới: ô gọn, cột Tuần, lọc, tất cả kho, 2 tuần, thống kê Xe
   v37.js                  Phím tắt: bộ xử lý, bảng ?, chỉnh trong Hồ sơ / Cấu hình
+  v38.js                  Xem như khách hàng (chỉ xem), khung Hướng dẫn
+  guide.html, guide/      Nội dung Hướng dẫn sử dụng + ảnh minh họa
   config.js               URL + anon key (công khai)
   favicon.svg, icon-*.png, apple-touch-icon.png, manifest.webmanifest   Biểu tượng trang / màn hình chính điện thoại
 supabase/
