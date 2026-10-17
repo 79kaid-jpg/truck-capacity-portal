@@ -171,7 +171,7 @@ const PILL={ok:'Còn chỗ',near:'Gần đầy',full:'Đã đầy',none:'Chưa m
 const pill=s=>`<span class="pill p-${s}"><i></i>${PILL[s]}</span>`;
 const truckState=(t,l)=>l<=0.001?'empty':l>=t.cap-0.001?(l>t.cap+0.001?'over':'full'):'part';
 const TS_LABEL={empty:'Trống',part:'Còn chỗ',full:'Đầy',over:'Quá tải'};
-const tsPill=(s,free)=>`<span class="pill ${s==='empty'?'p-ok':s==='part'?'p-near':'p-full'}"><i></i>${TS_LABEL[s]}${s==='part'&&free>0?' '+t2(free)+' MT':''}</span>`;
+const tsPill=(s,free)=>`<span class="pill ${s==='empty'?'p-ok':s==='part'?'p-near':'p-full'}"><i></i>${s==='part'&&free>0?'Còn '+t2(free)+' MT':TS_LABEL[s]}</span>`;
 
 /* suggestion: assign one booking (BR-04, BR-20, 5.3) */
 function suggestFor(b){

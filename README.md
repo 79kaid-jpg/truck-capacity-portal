@@ -327,6 +327,9 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - Thẻ xe: mức lấp đầy (Trống / Còn chỗ x MT / Đầy / Quá tải) + trạng thái chuyến (Chờ bốc, Đang bốc n/m, Đã bốc xong, Đang giao, Đã giao xong ✓, Giao lỗi). Xe có đơn Đang giao / Đã giao / Giao lỗi = Đã chạy → khóa xếp thêm (máy chủ chặn).
 - Test: `test/99d_trip.sql`, `test/e2e/trip.mjs`.
 
+## v3.17 — Kéo thả booking vào xe
+- `web/v44.js`: màn chi tiết ngày – kéo thả booking chờ xếp xe vào thẻ xe (chuột / cảm ứng), gợi ý xe (viền chạy quanh, xem trước tải trọng), Gợi ý tất cả, cảnh báo vượt tải / khác khuyến nghị (bắt buộc lý do), hiệu ứng bay vào xe, Hoàn tác. Ghi bằng RPC sẵn có `save_allocations` (xếp đủ tấn thì xác nhận). Không cần SQL. Test: `test/e2e/v44.mjs`.
+
 
 
 ## Lưu ý gói miễn phí
@@ -352,6 +355,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v41.js                  Yêu cầu đặt hàng (💬)
   v42.js                  Menu ô ngày (bấm 1 lần / bấm đúp)
   v43.js                  Picking list tùy chọn, nhắc xác nhận giao
+  v44.js                  Kéo thả booking vào xe, gợi ý xe
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
