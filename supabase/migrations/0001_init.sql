@@ -516,7 +516,7 @@ language sql stable security definer set search_path = '' as $$
         from app.daily_fleet f, generate_series(1, f.dk_count) g
        where f.warehouse_code = p_wh and f.day = p_day
       union all
-      select app.truck_code(p_wh, p_day, 'CN', g), 'CN', g, app.setn('capCN')
+      select app.truck_code(p_wh, p_day, 'XT', g), 'XT', g, app.setn('capCN')
         from app.daily_fleet f, generate_series(1, f.cn_count) g
        where f.warehouse_code = p_wh and f.day = p_day
     ) t
@@ -1104,7 +1104,7 @@ begin
   if b.day < app.today() then raise exception 'Ngày đã qua, không thay đổi được (BR-12).'; end if;
   perform app.lock_day(b.warehouse_code, b.day);
   v_total := app.bk_total(p_id);
-  v_pref := case when v_total > app.setn('split') then 'DK' else 'CN' end;
+  v_pref := case when v_total > app.setn('split') then 'DK' else 'XT' end;
   v_key := b.customer_id::text || '|' || b.address_text;
   select coalesce(sum(nullif(x->>'tons', '')::numeric), 0) into v_sum from jsonb_array_elements(coalesce(p_rows, '[]'::jsonb)) x where coalesce(nullif(x->>'tons', '')::numeric, 0) > 0;
   if v_sum > v_total + 0.001 then raise exception 'Tổng gán % t vượt số tấn booking % t.', app.fmt(v_sum), app.fmt(v_total); end if;
@@ -1351,10 +1351,10 @@ begin
     end if;
     if v_dk is null or v_cn is null or v_dk not between 0 and 99 or v_cn not between 0 and 99 then raise exception 'Ngày %: số xe phải là số nguyên 0–99.', app.dm(v_day); end if;
     perform app.lock_day(p_wh, v_day);
-    select coalesce(max(seq) filter (where type = 'DK'), 0), coalesce(max(seq) filter (where type = 'CN'), 0) into v_busy_dk, v_busy_cn
+    select coalesce(max(seq) filter (where type = 'DK'), 0), coalesce(max(seq) filter (where type = 'XT'), 0) into v_busy_dk, v_busy_cn
       from app.trucks(p_wh, v_day) t where app.truck_load(t.code) > 0.001;
     if v_dk < v_busy_dk then raise exception 'Ngày %: DK-% đang chở hàng; chuyển hoặc gỡ hàng trước khi giảm dưới % đầu kéo.', app.dm(v_day), lpad(v_busy_dk::text, 2, '0'), v_busy_dk; end if;
-    if v_cn < v_busy_cn then raise exception 'Ngày %: CN-% đang chở hàng; chuyển hoặc gỡ hàng trước khi giảm dưới % container.', app.dm(v_day), lpad(v_busy_cn::text, 2, '0'), v_busy_cn; end if;
+    if v_cn < v_busy_cn then raise exception 'Ngày %: XT-% đang chở hàng; chuyển hoặc gỡ hàng trước khi giảm dưới % xe thùng.', app.dm(v_day), lpad(v_busy_cn::text, 2, '0'), v_busy_cn; end if;
     select * into f from app.daily_fleet where warehouse_code = p_wh and day = v_day;
     if found and (v_dk < f.dk_count or v_cn < f.cn_count) and v_reason = '' then raise exception 'Ngày %: nhập lý do khi giảm số xe.', app.dm(v_day); end if;
     insert into app.daily_fleet (warehouse_code, day, dk_count, cn_count, reason, updated_by, updated_at)
@@ -1364,7 +1364,7 @@ begin
     delete from app.truck_days td where td.warehouse_code = p_wh and td.day = v_day
        and td.truck_code not in (select t.code from app.trucks(p_wh, v_day) t);
     v_txt := 'Kho ' || p_wh || ' ngày ' || app.dm(v_day) || ': ' || coalesce(f.dk_count::text || ' → ', '') || v_dk || ' đầu kéo, '
-             || coalesce(f.cn_count::text || ' → ', '') || v_cn || ' container' || case when v_reason <> '' then '. Lý do: ' || v_reason else '' end;
+             || coalesce(f.cn_count::text || ' → ', '') || v_cn || ' xe thùng' || case when v_reason <> '' then '. Lý do: ' || v_reason else '' end;
     perform app.audit('fleet', v_txt);
     perform app.notify(array_remove(app.role_users(array['cs','sales']) || app.logistics_of(p_wh), me.user_id), 'Capacity', v_txt,
                        jsonb_build_object('day', v_day, 'wh', p_wh));
@@ -2292,7 +2292,7 @@ declare
   me app.profiles; b app.bookings; c app.customers; w app.warehouses; cx jsonb; i int := 0;
   v_lots text[] := '{}'; v_lot text; v_qty numeric; v_total numeric := 0; v_tons numeric; v_tol numeric;
   v_dup text; v_cust text[]; v_other text; v_warn text[] := '{}'; v_child text; v_addr uuid; v_addr_text text; v_prov text; v_region text;
-  v_avail numeric; v_status text; v_n int;
+  v_avail numeric; v_status text; v_n int; v_newday date;
 begin
   me := app.require_perm('delivery.confirm');
   select * into b from app.bookings where id = p->>'id' for update;
@@ -2314,6 +2314,18 @@ begin
     v_addr := case when v_addr_text = b.address_text then b.address_id end;
   end if;
   if coalesce(v_addr_text, '') = '' then raise exception 'Nhập địa chỉ giao (bắt buộc khi xác nhận giao hàng).'; end if;
+
+  -- v3.3: ngày bốc đã qua mà chưa giao -> bắt buộc nhập ngày bốc thực tế (từ hôm nay); đơn chuyển sang ngày đó, gỡ xe cũ, chờ xếp xe
+  if b.day < app.today() then
+    v_newday := nullif(p->>'actual_day', '')::date;
+    if v_newday is null then
+      raise exception 'Ngày bốc % đã qua: nhập Ngày bốc thực tế (từ hôm nay trở đi).', app.dm(b.day) using hint = 'late_day';
+    end if;
+    if v_newday < app.today() then raise exception 'Ngày bốc thực tế phải từ hôm nay trở đi.'; end if;
+    if not exists (select 1 from app.warehouses where code = b.warehouse_code and active) then
+      raise exception 'Kho % đã ngừng dùng: đổi kho cho đơn trước.', b.warehouse_code;
+    end if;
+  end if;
 
   -- Danh sách cuộn
   if jsonb_typeof(p->'coils') <> 'array' or jsonb_array_length(p->'coils') = 0 then raise exception 'Dán danh sách cuộn (có dòng tiêu đề).'; end if;
@@ -2345,6 +2357,19 @@ begin
   end if;
   if cardinality(v_warn) > 0 and not coalesce((p->>'force')::boolean, false) then
     raise exception 'Cần kiểm tra: %.', array_to_string(v_warn, '; ') using hint = 'warn';
+  end if;
+
+  if v_newday is not null then
+    perform app.lock_day(b.warehouse_code, v_newday);
+    delete from app.allocations where booking_id = b.id;
+    update app.bookings set day = v_newday, status = 'hold', held_at = now(), original_day = coalesce(original_day, b.day), updated_at = now()
+     where id = b.id;
+    if b.status <> 'hold' then
+      perform app.status_change(b.id, b.status, 'hold', null, 'CS xác nhận giao sau ngày bốc ' || app.dm(b.day) || ', gỡ xe cũ');
+    end if;
+    perform app.audit(b.id, 'Đổi ngày bốc ' || app.dm(b.day) || ' → ' || app.dm(v_newday)
+                            || ': CS xác nhận giao sau ngày bốc (giao trễ, không tính lần đổi ngày); gỡ xe ngày cũ, chờ Logistics xếp xe');
+    b.day := v_newday; b.status := 'hold';
   end if;
 
   update app.bookings set address_id = v_addr, address_text = v_addr_text, province = coalesce(v_prov, ''),
@@ -2393,7 +2418,8 @@ begin
     b.id || ' · ' || c.name || ' ngày ' || app.dm(b.day) || ': đã có danh sách ' || i || ' cuộn, ' || app.fmt(v_total) || ' t'
     || case when v_status = 'hold' then '. Hàng sẵn sàng – cần xếp xe ngay' else '' end,
     jsonb_build_object('bk', b.id));
-  return jsonb_build_object('coils', i, 'tons', v_total, 'child', v_child, 'status', v_status);
+  if v_newday is not null then perform app.refresh_urgent(b.id); end if;
+  return jsonb_build_object('coils', i, 'tons', v_total, 'child', v_child, 'status', v_status, 'day', b.day);
 end $$;
 
 -- Danh sách cuộn của một booking (nội bộ; khách xem được cuộn của đơn mình)
@@ -2855,6 +2881,14 @@ begin
   return jsonb_build_object('custNew', n_new, 'custUpd', n_upd, 'custSame', n_same, 'addrNew', a_new, 'addrUpd', a_upd, 'addrSame', a_same,
                             'addrSkip', a_skip, 'errCount', ne, 'warnCount', nw, 'errors', errs, 'warnings', warns, 'applied', p_apply);
 end $$;
+
+-- ---------------------------------------------------------------------
+-- v3.3: xe container (CN) đổi thành xe thùng (XT): mã xe ...-CN-01 -> ...-XT-01 cho dữ liệu cũ
+-- ---------------------------------------------------------------------
+update app.truck_days t set truck_code = replace(t.truck_code, '-CN-', '-XT-')
+ where t.truck_code like '%-CN-%' and not exists (select 1 from app.truck_days x where x.truck_code = replace(t.truck_code, '-CN-', '-XT-'));
+update app.allocations set truck_code = replace(truck_code, '-CN-', '-XT-') where truck_code like '%-CN-%';
+update app.merge_suggestion_log set truck_code = replace(truck_code, '-CN-', '-XT-') where truck_code like '%-CN-%';
 
 -- ---------------------------------------------------------------------
 -- 8. Quyền gọi hàm

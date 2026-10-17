@@ -25,7 +25,7 @@
 .g30dd .o small{color:var(--muted)}
 .g30tabs{display:flex;gap:6px;align-items:center}
 .g30tabs button.on{background:var(--primary);color:var(--on-primary)}
-.st-dconf{color:var(--ok);background:var(--ok-bg);outline:1px dashed var(--ok)}
+.st-dconf{color:var(--ok);background:var(--ok-bg);outline:1px dashed var(--ok)}.st-dconfh{color:var(--pend);background:var(--pend-bg);outline:1px dashed var(--ok)}
 .st-latecancel{color:var(--bad);background:var(--bad-bg);outline:1px solid var(--bad)}
 `;document.head.appendChild(st);})();
 

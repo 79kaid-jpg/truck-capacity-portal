@@ -19,7 +19,7 @@ select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000b1'
 select save_allocations(:'bk', jsonb_build_array(jsonb_build_object('truck','JM2-'||to_char(:'d2'::date,'DDMMYY')||'-DK-05','tons',22)), '', true);
 -- CN preferred? 22>15 so DK fine. Try CN for over-capacity => need reason
 \set ON_ERROR_STOP 0
-select save_allocations(:'bk', jsonb_build_array(jsonb_build_object('truck','JM2-'||to_char(:'d2'::date,'DDMMYY')||'-CN-01','tons',22)), '', true);
+select save_allocations(:'bk', jsonb_build_array(jsonb_build_object('truck','JM2-'||to_char(:'d2'::date,'DDMMYY')||'-XT-01','tons',22)), '', true);
 \set ON_ERROR_STOP 1
 -- CS edits tons on confirmed -> back to hold (BR-11)
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000c1',false);

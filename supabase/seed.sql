@@ -107,7 +107,7 @@ insert into app.permissions (code, grp, name, descr, sort, def_roles) values
   ('booking.reject',  'Điều phối',  'Từ chối, đề nghị đổi ngày',           'Từ chối booking hoặc đề nghị ngày khác kèm lý do', 80, '{logistics,admin}'),
   ('merge.apply',     'Điều phối',  'Áp dụng gợi ý gộp xe',                'Áp dụng hoặc bỏ qua nhóm gộp xe theo khu vực', 90, '{logistics,admin}'),
   ('booking.region',  'Điều phối',  'Đổi khu vực của booking',             'Chọn lại khu vực giao hàng trên booking', 100, '{logistics,admin}'),
-  ('fleet.manage',    'Điều phối',  'Khai báo số xe theo ngày',            'Trucks capacity setting: số đầu kéo, container mỗi ngày mỗi kho', 110, '{logistics,admin}'),
+  ('fleet.manage',    'Điều phối',  'Khai báo số xe theo ngày',            'Trucks capacity setting: số đầu kéo, xe thùng mỗi ngày mỗi kho', 110, '{logistics,admin}'),
   ('config.general',  'Cấu hình',   'Ngưỡng, tải trọng, ngày nghỉ',        'Ngưỡng gần đầy, tải trọng DK/CN, ngưỡng phân loại, SLA, ngày nghỉ lễ', 120, '{logistics,admin}'),
   ('config.regions',  'Cấu hình',   'Khu vực giao hàng',                   'Thêm khu vực, khu vực lân cận, ngừng dùng', 130, '{logistics,admin}'),
   ('config.catalog',  'Cấu hình',   'Sản phẩm, màu, độ dày, khổ',          'Thêm, sửa, ngừng dùng mục trong danh mục', 140, '{logistics,admin}'),

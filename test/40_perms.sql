@@ -12,7 +12,7 @@ select r, jsonb_array_length(get_state(current_date,current_date)->'perms') n, g
 \echo '--- admin does CS + Logistics work'
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-00000000000a',false) \g /dev/null
 select save_booking(jsonb_build_object('mode','hold','wh','JM2','day',:'d','customer_id',:'kh_dd','ref','SO-ADM','address_id',:'addr_dd','region','PMY-HCM','lines',jsonb_build_array(jsonb_build_object('p','INOK','c','Không màu','th',0.5,'w',1200,'t',10)))) as bk \gset
-select :'bk' admin_booking, place_on_truck(:'bk','JM2-'||to_char(:'d'::date,'DDMMYY')||'-CN-04',10) full_on_truck;
+select :'bk' admin_booking, place_on_truck(:'bk','JM2-'||to_char(:'d'::date,'DDMMYY')||'-XT-04',10) full_on_truck;
 select confirm_group(array[:'bk']) confirmed;
 \echo '--- admin turns off CS cancel, grants Sales booking.create; tries to drop own perms.manage'
 select get_state(current_date,current_date)->'roleMatrix' as m \gset
