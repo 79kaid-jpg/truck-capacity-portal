@@ -1340,26 +1340,26 @@ document.addEventListener('keydown',e=>{if(!S)return;const tag=(e.target.tagName
 function screen(title,body,actions=''){return `<div class="login"><div class="panel loginbox"><div class="brand"><span class="mark">${IC.truck.replace('<svg','<svg width="18" height="18"')}</span>ĐẶT XE</div><h1>${title}</h1>${body}${actions}</div></div>`;}
 function showLogin(err){
  app.innerHTML=screen('Đăng nhập',`<p class="muted small" style="margin-top:0">Truck Capacity Booking Portal</p>
-  <form id="login" class="fgrid" style="grid-template-columns:1fr"><div class="field"><label for="lg-e">Email</label><input id="lg-e" class="inp" type="email" autocomplete="username" required></div>
+  <form id="login" class="fgrid" style="grid-template-columns:1fr"><div class="field"><label for="lg-e">Email hoặc tên đăng nhập</label><input id="lg-e" class="inp" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="vd. hung.phan" required><span class="small muted">Gõ phần trước @${esc(LOGIN_DOMAIN)} là đủ</span></div>
   <div class="field"><label for="lg-p">Mật khẩu</label><input id="lg-p" class="inp" type="password" autocomplete="current-password" required></div>
   ${err?`<div class="err">${esc(err)}</div>`:''}<button class="btn" type="submit">Đăng nhập</button></form>
   <p class="small"><button class="linkbtn" type="button" id="lg-forgot">Quên mật khẩu?</button></p>
   <p class="small muted">Chưa có tài khoản? Liên hệ Admin.</p>`);
- document.getElementById('lg-forgot').addEventListener('click',()=>showForgot(document.getElementById('lg-e').value.trim()));
+ document.getElementById('lg-forgot').addEventListener('click',()=>showForgot(document.getElementById('lg-e').value.trim()?loginEmail(document.getElementById('lg-e').value):''));
  document.getElementById('lg-e').focus();
  document.getElementById('login').addEventListener('submit',async e=>{e.preventDefault();const btn=e.target.querySelector('button');btn.disabled=true;btn.textContent='Đang đăng nhập…';
-  const{error}=await sb.auth.signInWithPassword({email:document.getElementById('lg-e').value.trim(),password:document.getElementById('lg-p').value});
+  const{error}=await sb.auth.signInWithPassword({email:loginEmail(document.getElementById('lg-e').value),password:document.getElementById('lg-p').value});
   if(error)return showLogin(/invalid/i.test(error.message)?'Sai email hoặc mật khẩu.':error.message);startApp();});
 }
 function showForgot(email,sent){
  app.innerHTML=screen('Quên mật khẩu',sent?`<p>Nếu <b>${esc(sent)}</b> là email đã đăng ký, bạn sẽ nhận được link đặt lại mật khẩu trong vài phút. Kiểm tra cả hộp thư Spam.</p><p class="small muted">Link chỉ dùng được một lần và hết hạn sau 1 giờ.</p>`
   :`<p class="muted small" style="margin-top:0">Nhập email đăng nhập, hệ thống gửi link để bạn đặt mật khẩu mới.</p>
-  <form id="fg" class="fgrid" style="grid-template-columns:1fr"><div class="field"><label for="fg-e">Email</label><input id="fg-e" class="inp" type="email" autocomplete="username" required value="${esc(email||'')}"></div>
+  <form id="fg" class="fgrid" style="grid-template-columns:1fr"><div class="field"><label for="fg-e">Email hoặc tên đăng nhập</label><input id="fg-e" class="inp" type="text" autocapitalize="none" autocomplete="username" required value="${esc(email||'')}"></div>
   <div class="err" id="fg-err" hidden></div><button class="btn" type="submit">Gửi link đặt lại mật khẩu</button></form>`,
   '<p class="small"><button class="linkbtn" type="button" id="fg-back">← Quay lại đăng nhập</button></p>');
  document.getElementById('fg-back').addEventListener('click',()=>showLogin());
  const f=document.getElementById('fg');if(!f)return;document.getElementById('fg-e').focus();
- f.addEventListener('submit',async e=>{e.preventDefault();const btn=f.querySelector('button');btn.disabled=true;btn.textContent='Đang gửi…';const em=document.getElementById('fg-e').value.trim();
+ f.addEventListener('submit',async e=>{e.preventDefault();const btn=f.querySelector('button');btn.disabled=true;btn.textContent='Đang gửi…';const em=loginEmail(document.getElementById('fg-e').value);
   const{error}=await sb.auth.resetPasswordForEmail(em,{redirectTo:location.origin+location.pathname});
   if(error&&!/not found|user/i.test(error.message)){const x=document.getElementById('fg-err');x.hidden=false;x.textContent=/rate|seconds/i.test(error.message)?'Bạn vừa yêu cầu gần đây, vui lòng đợi một lát rồi thử lại.':error.message;btn.disabled=false;btn.textContent='Gửi link đặt lại mật khẩu';return;}
   showForgot(em,em);});
@@ -1390,6 +1390,9 @@ async function poll(tick){if(!S||document.hidden||V.busy||poll.on)return;const a
  const idle=!V.modal&&!(V.asg&&V.view==='booking')&&!(ae&&['INPUT','TEXTAREA','SELECT'].includes(ae.tagName));poll.on=true;
  try{const v=await rpc('get_ver');if(!v)return;const ch=!VER||v.d!==VER.d||v.c!==VER.c||v.n!==VER.n;
   if(ch&&idle){await reload();render();}else if(tick&&idle)render();}catch(e){}finally{poll.on=false;}}
+// v3.2: đăng nhập bằng tên ngắn – không có @ thì tự thêm tên miền công ty (config.js: LOGIN_DOMAIN)
+const LOGIN_DOMAIN=(window.APP_CONFIG||{}).LOGIN_DOMAIN||'bluescope.com';
+const loginEmail=v=>{v=String(v||'').trim().toLowerCase();return v&&!v.includes('@')?v+'@'+LOGIN_DOMAIN:v;};
 async function boot(){
  const C=window.APP_CONFIG||{};
  if(!window.supabase){app.innerHTML=screen('Không tải được thư viện','<p>Không tải được supabase-js từ cdn.jsdelivr.net. Kiểm tra mạng rồi tải lại trang.</p>');return;}

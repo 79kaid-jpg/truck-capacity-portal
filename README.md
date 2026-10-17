@@ -201,6 +201,10 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - **Segment Export** (F7).
 - RPC mới: `get_ver`, `import_customers`. Test: `test/98_v31.sql`, `test/e2e/v31.mjs`.
 
+## v3.2 – đăng nhập bằng tên ngắn
+- Ô đăng nhập và Quên mật khẩu nhận cả tên ngắn: gõ `hung.phan`, app tự thêm `@bluescope.com`. Email khác (như Gmail) vẫn gõ đủ.
+- Muốn đổi tên miền thì thêm `LOGIN_DOMAIN:'tenmien.com'` vào `web/config.js`. Test: `test/e2e/login32.mjs`.
+
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.
 - Gói Free **không có backup tự động**. Mỗi tuần nên export các bảng chính (Table Editor → schema `app` → Export CSV).
