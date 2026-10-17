@@ -322,6 +322,11 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - Đang giao báo thêm Sales. `app.escalate` nhắc Logistics đơn Đã load / Đang giao quá hạn (mỗi ngày 1 lần, 7h–20h; `shipRemindHours`, `shipAdminDays`). Ngoại lệ "Chưa xác nhận giao".
 - Test: `test/99c_scope.sql`, `test/e2e/v43.mjs`.
 
+## v3.16 — Trạng thái chuyến xe
+**Chạy `supabase/setup_all.sql` trước khi gộp** (`app.truck_departed`, `app.truck_locked`; `day_metrics` không tính chỗ trống của xe đã chạy / đã đóng).
+- Thẻ xe: mức lấp đầy (Trống / Còn chỗ x MT / Đầy / Quá tải) + trạng thái chuyến (Chờ bốc, Đang bốc n/m, Đã bốc xong, Đang giao, Đã giao xong ✓, Giao lỗi). Xe có đơn Đang giao / Đã giao / Giao lỗi = Đã chạy → khóa xếp thêm (máy chủ chặn).
+- Test: `test/99d_trip.sql`, `test/e2e/trip.mjs`.
+
 
 
 ## Lưu ý gói miễn phí

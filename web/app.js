@@ -129,6 +129,22 @@ const isHoliday=(wh,date)=>(S.cfg.sundayOff&&dow(date)===0)||S.cfg.holidays.incl
 function trucksOf(wh,date){const f=(S.fleet[wh]||{})[date];if(!f)return[];const out=[];const mk=(type,n,cap)=>{for(let i=1;i<=n;i++){const code=`${wh}-${ddmmyy(date)}-${type}-${pad(i)}`;const inf=(S.truckInfo||{})[code]||null;out.push({code,short:`${type}-${pad(i)}`,type,cap:inf&&inf.cap!=null?inf.cap:cap,defCap:cap,info:inf,idx:i,wh,date,closed:!!(inf&&inf.closed)});}};mk('DK',f.dk,S.cfg.capDK);mk('XT',f.cn,S.cfg.capCN);return out;}
 const truckByCode=code=>{const[wh,dd,type,n]=code.split('-');const date=`20${dd.slice(4)}-${dd.slice(2,4)}-${dd.slice(0,2)}`;return trucksOf(wh,date).find(t=>t.code===code);};
 const liveAllocsOnTruck=code=>S.allocs.filter(a=>a.truck===code&&LIVE_ST.includes(bkById(a.bk)?.status));
+// v3.16: trạng thái chuyến theo các đơn trên xe; xe đã chạy (có đơn Đang giao / Đã giao / Giao lỗi) hoặc đã đóng → khóa
+let TA_IX={src:null,m:{}};const truckAllocs=code=>{if(TA_IX.src!==S.allocs){const m={};S.allocs.forEach(a=>(m[a.truck]=m[a.truck]||[]).push(a));TA_IX={src:S.allocs,m};}return TA_IX.m[code]||[];};
+function tripOf(code){const bs=[...new Set(truckAllocs(code).map(a=>a.bk))].map(bkById).filter(b=>b&&['ok','loaded','transit','delivered','failed'].includes(b.status));const n=bs.length;if(!n)return null;
+ const c=k=>bs.filter(b=>b.status===k).length;const ld=c('loaded'),tr=c('transit'),dv=c('delivered'),fl=c('failed'),moved=tr+dv+fl;
+ if(fl)return{k:'fail',l:`Giao lỗi ${fl}/${n} đơn`,n,dep:true};
+ if(dv===n)return{k:'done',l:'Đã giao xong',n,dep:true};
+ if(dv)return{k:'transit',l:`Đã giao ${dv}/${n} đơn`,n,dep:true};
+ if(tr)return{k:'transit',l:tr===n?'Đang giao':`Đang giao ${tr}/${n} đơn`,n,dep:true};
+ if(ld===n)return{k:'loaded',l:`Đã bốc xong ${n}/${n} đơn`,n,dep:false};
+ if(ld)return{k:'loading',l:`Đang bốc ${ld}/${n} đơn`,n,dep:false};
+ return{k:'wait',l:'Chờ bốc',n,dep:false};}
+const TRIP_CLS={wait:'p-ok',loading:'p-near',loaded:'p-near',transit:'p-near',done:'p-ok',fail:'p-full'};
+const tripPill=code=>{const t=tripOf(code);return t?`<span class="pill trip trip-${t.k} ${TRIP_CLS[t.k]}" title="Trạng thái chuyến"><i></i>${t.k==='done'?'✓ ':t.k==='transit'?'🚚 ':''}${t.l}</span>`:'';};
+const truckDeparted=code=>{const t=tripOf(code);return !!(t&&t.dep);};
+const truckLocked=t=>!!t.closed||truckDeparted(t.code);
+const tripFoot=trucks=>{const c={};trucks.forEach(t=>{const tr=tripOf(t.code);if(tr)c[tr.k]=(c[tr.k]||0)+1;});const L=[['wait','CHỜ BỐC'],['loading','ĐANG BỐC'],['loaded','ĐÃ BỐC XONG'],['transit','ĐANG GIAO'],['done','ĐÃ GIAO'],['fail','GIAO LỖI']];return L.filter(([k])=>c[k]).map(([k,l])=>`<span>${l}: ${c[k]}</span>`).join('');};
 const loadOf=(code,exceptBk)=>r2(liveAllocsOnTruck(code).filter(a=>a.bk!==exceptBk).reduce((s,a)=>s+a.tons,0));
 const truckRegions=(code,exceptBk)=>[...new Set(liveAllocsOnTruck(code).filter(a=>a.bk!==exceptBk).map(a=>bkById(a.bk).region))];
 const addrKey=b=>b.customerId+'|'+b.addrText;
@@ -144,7 +160,7 @@ function dayM(wh,date){
  if(S.me.role==='customer'){const c=S.cal[wh+'|'+date]||{avail:0,status:isHoliday(wh,date)?'off':'none',declared:false,off:isHoliday(wh,date)};return{trucks:[],cap:0,loaded:0,held:0,free:0,avail:+c.avail,usage:0,status:c.status,uDK:0,uCN:0,nDK:0,nCN:0,holds:[],reason:'',declared:c.declared,off:c.off};}
  const trucks=trucksOf(wh,date);const f=(S.fleet[wh]||{})[date];const off=isHoliday(wh,date);
  let cap=0,loaded=0,free=0,uDK=0,uCN=0,nDK=0,nCN=0;
- for(const t of trucks){const l=loadOf(t.code);cap+=t.cap;loaded+=l;free+=Math.max(0,t.cap-l);if(t.type==='DK'){nDK++;if(l>0.001)uDK++;}else{nCN++;if(l>0.001)uCN++;}}
+ for(const t of trucks){const l=loadOf(t.code);cap+=t.cap;loaded+=l;if(!truckLocked(t))free+=Math.max(0,t.cap-l);if(t.type==='DK'){nDK++;if(l>0.001)uDK++;}else{nCN++;if(l>0.001)uCN++;}}
  const holds=S.bookings.filter(b=>b.wh===wh&&b.date===date&&b.status==='hold');
  let held=0;holds.forEach(b=>held+=Math.max(0,bkTotal(b)-allocSum(b.id)));
  const avail=Math.max(0,r2(free-held));const usage=cap?(loaded+held)/cap:0;
@@ -154,12 +170,12 @@ function dayM(wh,date){
 const PILL={ok:'Còn chỗ',near:'Gần đầy',full:'Đã đầy',none:'Chưa mở lịch',off:'Không bốc'};
 const pill=s=>`<span class="pill p-${s}"><i></i>${PILL[s]}</span>`;
 const truckState=(t,l)=>l<=0.001?'empty':l>=t.cap-0.001?(l>t.cap+0.001?'over':'full'):'part';
-const TS_LABEL={empty:'Trống',part:'Đang xếp',full:'Đầy',over:'Quá tải'};
-const tsPill=s=>`<span class="pill ${s==='empty'?'p-ok':s==='part'?'p-near':'p-full'}"><i></i>${TS_LABEL[s]}</span>`;
+const TS_LABEL={empty:'Trống',part:'Còn chỗ',full:'Đầy',over:'Quá tải'};
+const tsPill=(s,free)=>`<span class="pill ${s==='empty'?'p-ok':s==='part'?'p-near':'p-full'}"><i></i>${TS_LABEL[s]}${s==='part'&&free>0?' '+t2(free)+' MT':''}</span>`;
 
 /* suggestion: assign one booking (BR-04, BR-20, 5.3) */
 function suggestFor(b){
- const trucks=trucksOf(b.wh,b.date).filter(t=>!t.closed);let need=bkTotal(b);const pref=need>S.cfg.split?'DK':'XT';
+ const trucks=trucksOf(b.wh,b.date).filter(t=>!truckLocked(t));let need=bkTotal(b);const pref=need>S.cfg.split?'DK':'XT';
  const free={};trucks.forEach(t=>free[t.code]=r2(t.cap-loadOf(t.code,b.id)));
  const res=[];const used=new Set();
  const partial=t=>loadOf(t.code,b.id)>0.001;
@@ -187,7 +203,7 @@ function suggestFor(b){
 function groupSuggest(wh,date){
  if(!S.cfg.suggestOn)return[];
  const holds=S.bookings.filter(b=>b.wh===wh&&b.date===date&&b.status==='hold'&&b.region!=='NONE').map(b=>({b,need:r2(bkTotal(b)-allocSum(b.id))})).filter(x=>x.need>0.001&&x.need<=S.cfg.split);
- const trucks=trucksOf(wh,date).filter(t=>!t.closed);
+ const trucks=trucksOf(wh,date).filter(t=>!truckLocked(t));
  const groups=[];const leftovers=[];
  const byReg={};holds.forEach(x=>(byReg[x.b.region]=byReg[x.b.region]||[]).push(x));
  for(const rid of Object.keys(byReg)){
@@ -390,7 +406,7 @@ function vDay(){
  const regs=[...new Set(S.bookings.filter(b=>b.wh===V.wh&&b.date===date&&['hold','ok'].includes(b.status)).map(b=>b.region))];
  const groups=isLog||role()!=='customer'?groupSuggest(V.wh,date):[];
  const card=t=>truckCard(t,past);
- const filt=t=>{const l=loadOf(t.code);const s=truckState(t,l);const f=V.dayFilter;if(f.st!=='all'&&!(f.st===s||(f.st==='full'&&s==='over')))return false;return true;};
+ const TRIPK=['wait','loading','loaded','transit','done','fail'];const filt=t=>{const l=loadOf(t.code);const s=truckState(t,l);const f=V.dayFilter;if(f.st==='all')return true;if(TRIPK.includes(f.st)){const tr=tripOf(t.code);return !!tr&&tr.k===f.st;}return f.st===s||(f.st==='full'&&s==='over');};
  const dk=m.trucks.filter(t=>t.type==='DK').filter(filt),cn=m.trucks.filter(t=>t.type==='XT').filter(filt);
  const holdsVis=m.holds.filter(b=>visibleBk(b)&&(V.dayFilter.region==='all'||b.region===V.dayFilter.region));
  const byReg={};holdsVis.forEach(b=>(byReg[b.region]=byReg[b.region]||[]).push(b));
@@ -402,7 +418,7 @@ function vDay(){
  ${past?`<div class="note">Ngày đã qua: chỉ xem, không thay đổi (BR-12).</div>`:''}
  ${m.reason?`<div class="note"><b>Ghi chú ngày:</b> ${esc(m.reason)}</div>`:''}
  ${!m.declared||m.off?`<div class="empty">${m.off?'Ngày nghỉ – không bốc hàng.':'Chưa khai báo xe cho ngày này.'} ${isLog&&!m.off?'<button class="btn sm" data-a="go" data-v="fleet">Khai báo xe</button>':''}</div>${offDayList(date,m)}`:`
- <div class="filters"><div class="field"><label for="f-st">Trạng thái xe</label><select id="f-st" class="inp" data-a="dayFilter" data-k="st">${[['all','Tất cả'],['empty','Trống'],['part','Đang xếp'],['full','Đầy']].map(([v,l])=>`<option value="${v}" ${V.dayFilter.st===v?'selected':''}>${l}</option>`).join('')}</select></div>
+ <div class="filters"><div class="field"><label for="f-st">Trạng thái xe</label><select id="f-st" class="inp" data-a="dayFilter" data-k="st">${[['all','Tất cả'],['empty','Trống'],['part','Còn chỗ'],['full','Đầy'],['wait','Chuyến: Chờ bốc'],['loading','Chuyến: Đang bốc'],['loaded','Chuyến: Đã bốc xong'],['transit','Chuyến: Đang giao'],['done','Chuyến: Đã giao xong'],['fail','Chuyến: Giao lỗi']].map(([v,l])=>`<option value="${v}" ${V.dayFilter.st===v?'selected':''}>${l}</option>`).join('')}</select></div>
  <div class="field"><label for="f-rg">Khu vực</label><select id="f-rg" class="inp" data-a="dayFilter" data-k="region"><option value="all">Tất cả khu vực</option>${regs.map(r=>`<option value="${r}" ${V.dayFilter.region===r?'selected':''}>${esc(regName(r))}</option>`).join('')}</select></div></div>
  <div class="daygrid"><div style="min-width:0">
   <div class="grp"><h3>${m.nDK} xe đầu kéo (DK)</h3><div class="cards">${dk.map(card).join('')||'<div class="muted small">Không có xe phù hợp bộ lọc.</div>'}</div></div>
@@ -413,7 +429,7 @@ function vDay(){
   ${V.dayTab==='pending'?(Object.keys(byReg).length?Object.entries(byReg).map(([rid,list])=>`<div class="rgrp"><h4><span>${esc(regName(rid))}</span><span class="num">${list.length} booking · ${t2(list.reduce((s,b)=>s+bkTotal(b),0))} MT</span></h4>${list.map(b=>pendItem(b,past)).join('')}</div>`).join(''):'<div class="empty small">Không có booking chờ xếp xe.</div>')
    :(groups.length?groups.map(g=>suggCard(g,past)).join(''):'<div class="empty small">Chưa có nhóm gộp đạt điều kiện (cùng khu vực, ≥ 2 booking, lấp đầy ≥ '+S.cfg.fillMin+'%, tối đa '+S.cfg.maxStops+' điểm giao).</div>')}
  </aside></div>
- <div class="foot num"><span>TỔNG SỐ: ${m.trucks.length} XE</span><span>ĐẦY: ${full}</span><span>ĐANG XẾP: ${part}</span><span>TRỐNG: ${m.trucks.length-full-part}</span><span>· Đã xếp: ${t2(m.loaded)} MT</span><span>Đang giữ chỗ: ${t2(m.held)} MT</span><span>Có thể đặt: ${t2(m.avail)} MT</span><span class="grow"></span>${can('booking.create')&&!past?`<button class="btn" data-a="newBk" data-d="${date}">Đặt hàng mới</button>`:''}</div>`}
+ <div class="foot num"><span>TỔNG SỐ: ${m.trucks.length} XE</span><span>ĐẦY: ${full}</span><span>CÒN CHỖ: ${part}</span>${tripFoot(m.trucks)}<span>TRỐNG: ${m.trucks.length-full-part}</span><span>· Đã xếp: ${t2(m.loaded)} MT</span><span>Đang giữ chỗ: ${t2(m.held)} MT</span><span>Có thể đặt: ${t2(m.avail)} MT</span><span class="grow"></span>${can('booking.create')&&!past?`<button class="btn" data-a="newBk" data-d="${date}">Đặt hàng mới</button>`:''}</div>`}
  </div>`;
 }
 function truckCard(t,past){
@@ -422,12 +438,13 @@ function truckCard(t,past){
  const lines=al.slice(0,2).map(a=>{const b=bkById(a.bk);return `<div>${ownsCust(b.customerId)?esc(cust(b.customerId).name):'Khách khác'} · ${t2(a.tons)} MT · ${esc(b.addrText.split(',').pop().trim())}</div>`;}).join('')+(al.length>2?`<div class="muted">+${al.length-2} phần hàng khác</div>`:'');
  const badRegion=regs.length>1&&regs.some((r,i)=>regs.some((q,j)=>j>i&&relation(r,q)==='other'));
  const hl=V.hl&&V.hl.includes(t.code)?'hl':'';const dim=V.dayFilter.region!=='all'&&regs.length&&!regs.includes(V.dayFilter.region)?'dim':'';
- return `<div class="tcard ${hl} ${dim}" style="--tc:${TCOL[tLoadState(l,t.cap,t.closed)]}" data-a="truck" data-c="${t.code}" tabindex="0" role="button" aria-label="Xe ${t.short}">
-  <div class="tc-top">${TICON(t.type,l,t.cap,t.closed)}<span class="grow"></span>${tsPill(s)}</div><div style="min-width:0"><div class="tc-code">${t.short}</div><div class="tc-full muted">${t.code}</div>${t.cap!==t.defCap?`<div class="capchip" title="${esc(t.info&&t.info.reason||'')}">Tải trọng hôm nay ${t2(t.cap)} MT · chuẩn ${t.defCap} MT</div>`:''}${t.info&&t.info.plate?`<div class="small muted">${esc(t.info.plate)}${t.info.driver?' · '+esc(t.info.driver):''}</div>`:''}</div>
+ const lk=truckLocked(t);const trip=tripOf(t.code);
+ return `<div class="tcard ${hl} ${dim} ${lk?'locked':''}" style="--tc:${TCOL[tLoadState(l,t.cap,lk)]}" data-a="truck" data-c="${t.code}" tabindex="0" role="button" aria-label="Xe ${t.short}">
+  <div class="tc-top">${TICON(t.type,l,t.cap,lk)}${trip&&trip.k==='done'?'<span class="tdone" title="Chuyến đã giao xong">✓</span>':''}<span class="grow"></span>${lk?`<span class="pill p-full" title="${t.closed?'Logistics đã đóng xe':'Xe đã rời kho'}"><i></i>🔒 ${t.closed?'Đã đóng':'Đã chạy'}</span>`:tsPill(s,t.cap-l)}</div>${trip?`<div style="margin:2px 0">${tripPill(t.code)}</div>`:''}<div style="min-width:0"><div class="tc-code">${t.short}</div><div class="tc-full muted">${t.code}</div>${t.cap!==t.defCap?`<div class="capchip" title="${esc(t.info&&t.info.reason||'')}">Tải trọng hôm nay ${t2(t.cap)} MT · chuẩn ${t.defCap} MT</div>`:''}${t.info&&t.info.plate?`<div class="small muted">${esc(t.info.plate)}${t.info.driver?' · '+esc(t.info.driver):''}</div>`:''}</div>
   <div class="small num">${pct(l/t.cap)} (${t2(l)}/${t.cap} MT)</div><div class="bar">${segs}</div>
   ${regs.length?`<div class="row" style="gap:4px">${regs.map(r=>`<span class="rtag ${badRegion?'warn':''}">${esc(regName(r))}</span>`).join('')}${badRegion?'<span class="small" title="Khác khu vực" style="color:var(--bad)">⚠</span>':''}</div>`:''}
   ${al.length?`<div class="tc-lines">${lines}</div>`:''}
-  <div class="tc-acts"><button class="btn ghost sm" data-a="truck" data-c="${t.code}">Chi tiết</button>${can('alloc.assign')&&!past&&l<t.cap-0.001?`<button class="btn sm" data-a="place" data-c="${t.code}">Xếp đơn</button>`:''}</div></div>`;
+  <div class="tc-acts"><button class="btn ghost sm" data-a="truck" data-c="${t.code}">Chi tiết</button>${can('alloc.assign')&&!past&&!lk&&l<t.cap-0.001?`<button class="btn sm" data-a="place" data-c="${t.code}">Xếp đơn</button>`:''}</div></div>`;
 }
 function pendItem(b,past){const need=r2(bkTotal(b)-allocSum(b.id));const wait=S.clock-b.heldAt;const pref=bkTotal(b)>S.cfg.split?'DK':'XT';
  return `<div class="pitem"><div class="row"><b class="grow">${esc(cust(b.customerId).name)}</b><span class="chip">${pref}</span></div>
@@ -848,15 +865,15 @@ function modalView(){const M=V.modal;switch(M.type){case'truck':return mTruck();
 function mTruck(){const t=truckByCode(V.modal.code);const al=liveAllocsOnTruck(t.code);const l=r2(al.reduce((s,a)=>s+a.tons,0));const s=truckState(t,l);const past=t.date<TODAY;const isLog=can('alloc.assign');
  const byBk={};al.forEach(a=>{(byBk[a.bk]=byBk[a.bk]||{bk:a.bk,tons:0,ids:[]});byBk[a.bk].tons+=a.tons;byBk[a.bk].ids.push(a.id);});const segs=Object.values(byBk);
  return `<div class="mhead"><span class="meta">${WHALL.find(w=>w.id===t.wh).full.toUpperCase()}</span><span class="meta">Ngày: ${dmy(t.date)}</span></div>
- <div class="truckbig">${TICON(t.type,l,t.cap,t.closed)}<div><div class="row"><span class="code">${t.short}</span>${tsPill(s)}${t.closed?`<span class="pill p-full"><i></i>🔒 Đã đóng</span>`:''}</div><div class="small muted">${t.code}${t.closed&&t.info.closedReason?' · Đóng xe: '+esc(t.info.closedReason):''}</div>
+ <div class="truckbig">${TICON(t.type,l,t.cap,truckLocked(t))}<div><div class="row"><span class="code">${t.short}</span>${tsPill(s,t.cap-l)}${tripPill(t.code)}${t.closed?`<span class="pill p-full"><i></i>🔒 Đã đóng</span>`:truckDeparted(t.code)?`<span class="pill p-full" title="Có đơn Đang giao / Đã giao: không xếp thêm"><i></i>🔒 Đã chạy</span>`:''}</div><div class="small muted">${t.code}${t.closed&&t.info.closedReason?' · Đóng xe: '+esc(t.info.closedReason):''}</div>
  <div style="font-family:var(--f-display);font-weight:800;font-size:24px;margin-top:6px" class="num">${pct(l/t.cap)} (${t2(l)} tấn)</div>
  <div class="small">Loại: ${t.type==='DK'?'Đầu kéo':'Xe thùng'} · Tải trọng: ${t2(t.cap)} MT${t.cap!==t.defCap?` (chuẩn ${t.defCap} MT)`:''} · Còn trống: ${t2(Math.max(0,t.cap-l))} MT${truckRegions(t.code).length?' · Khu vực: '+truckRegions(t.code).map(regName).map(esc).join(', '):''} · Điểm giao: ${truckStops(t.code).size}/${S.cfg.maxStops}</div></div></div>
  ${truckInfoBlock(t,l,past)}
  <h3 style="margin-top:16px;font-size:15px">CHI TIẾT XẾP HÀNG – XE ${t.short}</h3>
  <div class="floor">${segs.map(g=>{const b=bkById(g.bk);const own=ownsCust(b.customerId);return `<div style="width:${g.tons/Math.max(t.cap,l)*100}%;background:${own?custColor(b.customerId):'var(--mask)'}">${isLog&&!past?`<button class="ed" data-a="editAl" data-id="${g.ids[0]}">Sửa</button>`:''}<span>${own?esc(cust(b.customerId).name):'Khách khác'} – ${t2(g.tons)} MT</span><span class="num">(${pct(g.tons/t.cap)})</span></div>`;}).join('')}${l<t.cap?`<div class="free" style="width:${(t.cap-l)/t.cap*100}%"><span>Còn trống – ${t2(t.cap-l)} MT</span><span class="num">(${pct((t.cap-l)/t.cap)})</span></div>`:''}</div>
  <div class="orders">${segs.map((g,i)=>{const b=bkById(g.bk);const own=ownsCust(b.customerId);return own?`<div><h4 style="color:${custColor(b.customerId)}">ĐƠN HÀNG ${i+1}: ${esc(cust(b.customerId).name)}</h4><div>${b.id} · ${esc(b.ref)} · <span class="st st-${stKey(b)}">${ST_LABEL[stKey(b)]}</span></div><div class="num">Trên xe này: <b>${t2(g.tons)} MT</b> / tổng ${t2(bkTotal(b))} MT</div><div>${b.lines.map(x=>`${esc(x.p)} · ${esc(x.c)} · ${x.th}×${x.w} · ${t2(x.t)} MT`).join('<br>')}</div><div>Điểm giao: ${esc(b.addrText)}</div><div>Khu vực: ${esc(regName(b.region))}</div><div class="row" style="margin-top:6px;gap:6px"><button class="btn ghost sm" data-a="openBk" data-id="${b.id}">Mở booking</button>${can('booking.edit')&&(b.status==='hold'||b.status==='ok'&&!past)?`<button class="btn ghost sm" data-a="editBk" data-id="${b.id}">Sửa booking</button>`:''}</div></div>`:`<div><h4>ĐƠN HÀNG ${i+1}: Khách khác</h4><div class="num">${t2(g.tons)} MT</div><div class="muted small">Không thuộc khách bạn phụ trách.</div></div>`;}).join('')||'<div class="muted">Xe chưa có hàng.</div>'}</div>
- <div class="small" style="margin-top:12px;font-weight:700">TÌNH TRẠNG: ${TS_LABEL[s].toUpperCase()} – ${pct(l/t.cap)} (${t2(l)}/${t.cap} tấn)</div>
- ${typeof truckClose29==='function'?truckClose29(t,l,past):''}<div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button>${isLog&&!past&&!t.closed&&l<t.cap-0.001?`<button class="btn" data-a="place" data-c="${t.code}">Xếp đơn</button>`:''}</div>`;}
+ <div class="small" style="margin-top:12px;font-weight:700">TÌNH TRẠNG: ${tripOf(t.code)?tripOf(t.code).l.toUpperCase()+' · ':''}${(TS_LABEL[s]+(s==='part'?' '+t2(t.cap-l)+' MT':'')).toUpperCase()} – ${pct(l/t.cap)} (${t2(l)}/${t.cap} tấn)</div>
+ ${typeof truckClose29==='function'?truckClose29(t,l,past):''}<div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button>${isLog&&!past&&!truckLocked(t)&&l<t.cap-0.001?`<button class="btn" data-a="place" data-c="${t.code}">Xếp đơn</button>`:''}</div>`;}
 
 function truckInfoBlock(t,l,past){const M=V.modal;const inf=t.info||{};const canEdit=(can('fleet.manage')||can('alloc.assign'))&&!past;
  if(!canEdit){return inf.plate||inf.driver||inf.phone||t.cap!==t.defCap?`<div class="panel tinfo"><b>Thông tin xe hôm nay</b><div class="small">${inf.plate?'Biển số: <b>'+esc(inf.plate)+'</b> · ':''}${inf.driver?'Tài xế: '+esc(inf.driver)+' · ':''}${inf.phone?'SĐT: '+esc(inf.phone)+' · ':''}Tải trọng: ${t2(t.cap)} MT${t.cap!==t.defCap?' (chuẩn '+t.defCap+' MT'+(inf.reason?'; '+esc(inf.reason):'')+')':''}</div></div>`:'';}
