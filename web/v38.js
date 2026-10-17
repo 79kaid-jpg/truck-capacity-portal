@@ -14,7 +14,11 @@
 #guide article .tip{background:var(--blue-bg);border-radius:8px;padding:8px 10px;margin:8px 0}
 #guide article .warn{background:var(--bad-bg);border-radius:8px;padding:8px 10px;margin:8px 0}
 #guide article mark{background:#ffe9a8}
-@media (max-width:700px){#guide .gb{grid-template-columns:1fr}#guide nav{display:none}}
+#guide .grip{position:absolute;left:-5px;top:0;bottom:0;width:10px;cursor:ew-resize;z-index:2}#guide .grip:hover,#guide.drag .grip{background:color-mix(in srgb,var(--blue) 35%,transparent)}
+#guide.drag{user-select:none}#guide.max{width:100vw!important;border-left:0}#guide .gsel{display:none;margin:8px 14px 0}
+#guide.narrow .gb{grid-template-columns:1fr}#guide.narrow nav{display:none}#guide.narrow .gsel{display:block}
+#guide article{font-size:var(--gfs,14px)}#guide article h2{font-size:calc(var(--gfs,14px)*1.3)}#guide article h3{font-size:calc(var(--gfs,14px)*1.08)}
+@media (max-width:700px){#guide{width:100vw!important}#guide .gb{grid-template-columns:1fr}#guide nav{display:none}#guide .gsel{display:block}#guide .grip{display:none}}
 @media print{body>*:not(#guide){display:none!important}#guide{position:static;width:auto;border:0;box-shadow:none}#guide nav,#guide .gh{display:none}#guide article{overflow:visible}}
 `;document.head.appendChild(st);})();
 
@@ -30,25 +34,38 @@ Object.assign(A,{
 
 /* ---------- Hướng dẫn sử dụng ---------- */
 const GD={html:null,loading:false,q:'',cur:''};
+try{const o=JSON.parse(localStorage.getItem('guide-ui')||'{}');GD.w=o.w;GD.fs=o.fs;GD.max=!!o.max;}catch(e){}
+const gSave=()=>{try{localStorage.setItem('guide-ui',JSON.stringify({w:GD.w,fs:GD.fs,max:GD.max}));}catch(e){}};
+function gSize(){const g=document.getElementById('guide');if(!g)return;const w=Math.max(360,Math.min(innerWidth*0.95,GD.w||560));g.style.width=GD.max?'':w+'px';g.classList.toggle('max',!!GD.max);
+ g.classList.toggle('narrow',!GD.max&&w<520);g.style.setProperty('--gfs',(GD.fs||14)+'px');}
+document.addEventListener('pointerdown',e=>{if(!e.target.classList||!e.target.classList.contains('grip'))return;const g=document.getElementById('guide');if(!g||GD.max)return;e.preventDefault();g.classList.add('drag');
+ const mv=ev=>{GD.w=Math.max(360,Math.min(innerWidth*0.95,innerWidth-ev.clientX));gSize();};const up=()=>{g.classList.remove('drag');removeEventListener('pointermove',mv);removeEventListener('pointerup',up);gSave();};
+ addEventListener('pointermove',mv);addEventListener('pointerup',up);});
+addEventListener('resize',()=>gSize());
 function guideOpen(sec){V.guide=true;GD.cur=sec||GD.cur||({cs:'cs-day',logistics:'log-day',sales:'sales-read',admin:'start',customer:'cust-start'}[role()]||'start');
  if(GD.html==null&&!GD.loading){GD.loading=true;fetch('guide.html',{cache:'no-cache'}).then(r=>r.text()).then(t=>{GD.html=t;GD.loading=false;guideRender();}).catch(()=>{GD.loading=false;GD.html='<section id="start" data-t="Hướng dẫn"><h2>Không tải được hướng dẫn</h2><p>Kiểm tra mạng rồi thử lại.</p></section>';guideRender();});}
  guideRender();}
 function guideClose(){V.guide=false;const g=document.getElementById('guide');if(g)g.remove();}
 function guideRender(){if(!V.guide)return;let g=document.getElementById('guide');if(!g){g=document.createElement('aside');g.id='guide';g.setAttribute('aria-label','Hướng dẫn sử dụng');document.body.appendChild(g);}
- if(GD.html==null){g.innerHTML='<div class="gh"><b class="grow">HƯỚNG DẪN SỬ DỤNG</b><button class="btn ghost sm" data-gd="x">✕</button></div><div class="empty">Đang tải…</div>';return;}
+ if(GD.html==null){gSize();g.innerHTML='<div class="gh"><b class="grow">HƯỚNG DẪN SỬ DỤNG</b><button class="btn ghost sm" data-gd="x">✕</button></div><div class="empty">Đang tải…</div>';return;}
  const doc=new DOMParser().parseFromString(GD.html,'text/html');const secs=[...doc.querySelectorAll('section[id]')];const q=fold30(GD.q.trim());
  const hit=s=>!q||fold30(s.textContent).includes(q);const groups={};secs.forEach(s=>{const k=s.dataset.g||'Chung';(groups[k]=groups[k]||[]).push(s);});
  if(!secs.some(s=>s.id===GD.cur))GD.cur=secs[0]?secs[0].id:'';
  const list=q?secs.filter(hit):secs.filter(s=>s.id===GD.cur);
  let body=list.map(s=>s.outerHTML).join('<hr>')||'<p class="muted">Không thấy mục nào có từ này.</p>';
  if(q){const re=new RegExp('('+GD.q.trim().replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');body=body.replace(/>([^<]+)</g,(m,t)=>'>'+t.replace(re,'<mark>$1</mark>')+'<');}
- g.innerHTML=`<div class="gh"><b>HƯỚNG DẪN</b><input class="inp" style="flex:1" placeholder="Tìm trong hướng dẫn (không dấu cũng được)" value="${esc(GD.q)}" data-gd="q" aria-label="Tìm trong hướng dẫn"><button class="btn ghost sm" data-gd="print" title="In / PDF">In</button><button class="btn ghost sm" data-gd="x" aria-label="Đóng hướng dẫn">✕</button></div>
+ g.innerHTML=`<div class="gh"><b>HƯỚNG DẪN</b><input class="inp" style="flex:1" placeholder="Tìm trong hướng dẫn (không dấu cũng được)" value="${esc(GD.q)}" data-gd="q" aria-label="Tìm trong hướng dẫn"><button class="btn ghost sm" data-gd="zo" title="Chữ nhỏ hơn">A−</button><button class="btn ghost sm" data-gd="zi" title="Chữ to hơn">A+</button><button class="btn ghost sm" data-gd="max" title="${GD.max?'Thu nhỏ':'Toàn màn hình'}">${GD.max?'🗗':'⛶'}</button><button class="btn ghost sm" data-gd="print" title="In / PDF">In</button><button class="btn ghost sm" data-gd="x" aria-label="Đóng hướng dẫn">✕</button></div>
+ <select class="inp gsel" data-gd="sel" aria-label="Chọn mục hướng dẫn">${secs.map(s=>`<option value="${s.id}" ${s.id===GD.cur?'selected':''}>${esc((s.dataset.g||'')+' · '+(s.dataset.t||s.id))}</option>`).join('')}</select>
  <div class="gb"><nav>${Object.entries(groups).map(([k,l])=>`<b>${esc(k.toUpperCase())}</b>${l.map(s=>`<a class="${s.id===GD.cur&&!q?'on':''} ${hit(s)?'':'muted'}" data-gd="s" data-s="${s.id}">${esc(s.dataset.t||s.id)}</a>`).join('')}`).join('')}</nav><article>${body}</article></div>`;
+ gSize();const gr=document.createElement('div');gr.className='grip';gr.title='Kéo để đổi độ rộng';g.appendChild(gr);
  const inp=g.querySelector('[data-gd="q"]');if(inp&&GD.focus){inp.focus();inp.setSelectionRange(GD.q.length,GD.q.length);GD.focus=false;}}
 document.addEventListener('click',e=>{const el=e.target.closest&&e.target.closest('[data-gd]');if(!el)return;const k=el.dataset.gd;
  if(k==='x')guideClose();else if(k==='s'){GD.cur=el.dataset.s;GD.q='';guideRender();const a=document.querySelector('#guide article');if(a)a.scrollTop=0;}
  else if(k==='print'){const q=GD.q;GD.q='';const doc=new DOMParser().parseFromString(GD.html,'text/html');const a=document.querySelector('#guide article');if(a){a.innerHTML=[...doc.querySelectorAll('section[id]')].map(s=>s.outerHTML).join('');setTimeout(()=>{window.print();GD.q=q;guideRender();},100);}}
- else if(k==='link'){GD.cur=el.dataset.s;GD.q='';guideRender();}});
+ else if(k==='link'){GD.cur=el.dataset.s;GD.q='';guideRender();}
+ else if(k==='zi'||k==='zo'){GD.fs=Math.max(11,Math.min(22,(GD.fs||14)+(k==='zi'?1:-1)));gSave();gSize();}
+ else if(k==='max'){GD.max=!GD.max;gSave();guideRender();}});
+document.addEventListener('change',e=>{if(e.target.dataset&&e.target.dataset.gd==='sel'){GD.cur=e.target.value;GD.q='';guideRender();const a=document.querySelector('#guide article');if(a)a.scrollTop=0;}});
 document.addEventListener('input',e=>{if(e.target.dataset&&e.target.dataset.gd==='q'){GD.q=e.target.value;GD.focus=true;clearTimeout(GD.t);GD.t=setTimeout(guideRender,200);}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&V.guide&&!V.modal){guideClose();}});
 A.guide=d=>{V.guide&&!d.s?guideClose():guideOpen(d.s);};
