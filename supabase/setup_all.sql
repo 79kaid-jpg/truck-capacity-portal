@@ -609,6 +609,17 @@ language sql stable security definer set search_path = '' as $$
   select coalesce((select closed from app.truck_days where truck_code = p_code), false)
 $$;
 
+-- v3.16: xe đã chạy = có đơn trên xe Đang giao / Đã giao / Giao lỗi. Đã chạy hoặc đã đóng → khóa xếp thêm, chỗ trống không tính vào còn đặt được
+create or replace function app.truck_departed(p_code text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from app.allocations a join app.bookings b on b.id = a.booking_id
+                  where a.truck_code = p_code and b.status in ('transit','delivered','failed'))
+$$;
+create or replace function app.truck_locked(p_code text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select app.truck_closed(p_code) or app.truck_departed(p_code)
+$$;
+
 create or replace function app.short_code(p_code text) returns text
 language sql immutable set search_path = '' as $$ select split_part(p_code, '-', 3) || '-' || split_part(p_code, '-', 4) $$;
 
@@ -651,7 +662,8 @@ begin
   v_declared := exists (select 1 from app.daily_fleet f where f.warehouse_code = p_wh and f.day = p_day);
   for t in select * from app.trucks(p_wh, p_day) loop
     l := app.truck_load(t.code, p_except);
-    v_cap := v_cap + t.cap; v_loaded := v_loaded + l; v_free := v_free + greatest(0, t.cap - l);
+    v_cap := v_cap + t.cap; v_loaded := v_loaded + l;
+    if not app.truck_locked(t.code) then v_free := v_free + greatest(0, t.cap - l); end if;
   end loop;
   select coalesce(sum(greatest(0, app.bk_total(b.id) - app.alloc_sum(b.id))), 0) into v_held
     from app.bookings b
@@ -1195,6 +1207,9 @@ begin
     if app.truck_closed(t.code) and v_ex + v_tons > t.cap + 0.001 then
       raise exception 'Xe % đã đóng, không xếp thêm được (BR-47). Mở lại xe trước.', app.short_code(t.code);
     end if;
+    if app.truck_departed(t.code) and not exists (select 1 from app.allocations a where a.booking_id = p_id and a.truck_code = t.code) then
+      raise exception 'Xe % đã chạy (có đơn Đang giao / Đã giao), không xếp thêm được.', app.short_code(t.code);
+    end if;
     if v_ex + v_tons > t.cap + 0.001 then v_warn := v_warn || (t.type || '-' || lpad(t.seq::text, 2, '0') || ' vượt tải trọng'); v_ov := true; end if;
     if t.type <> v_pref then v_warn := v_warn || (t.type || '-' || lpad(t.seq::text, 2, '0') || ' khác loại xe gợi ý'); v_ov := true; end if;
     v_regs := app.truck_regions(t.code, p_id);
@@ -1236,7 +1251,7 @@ begin
   perform app.lock_day(b.warehouse_code, b.day);
   select * into t from app.trucks(b.warehouse_code, b.day) x where x.code = p_truck;
   if not found then raise exception 'Xe không thuộc ngày của booking.'; end if;
-  if app.truck_closed(t.code) then raise exception 'Xe % đã đóng, không xếp thêm được (BR-47).', app.short_code(t.code); end if;
+  if app.truck_locked(t.code) then raise exception 'Xe % đã đóng hoặc đã chạy, không xếp thêm được (BR-47).', app.short_code(t.code); end if;
   v_rem := app.bk_total(p_id) - app.alloc_sum(p_id);
   if coalesce(p_tons, 0) <= 0 then raise exception 'Nhập số tấn lớn hơn 0.'; end if;
   if p_tons > v_rem + 0.001 then raise exception 'Vượt phần chưa gán của booking (% MT).', app.fmt(v_rem); end if;
@@ -1266,7 +1281,7 @@ begin
   if v_cur <= 0 then raise exception 'Booking không có hàng trên xe này.'; end if;
   if p_mode = 'adjust' then
     if p_tons is null or p_tons < 0 then raise exception 'Số tấn không hợp lệ.'; end if;
-    if app.truck_closed(p_truck) and p_tons > v_cur + 0.001 then raise exception 'Xe % đã đóng, không tăng hàng được (BR-47).', app.short_code(p_truck); end if;
+    if app.truck_locked(p_truck) and p_tons > v_cur + 0.001 then raise exception 'Xe % đã đóng hoặc đã chạy, không tăng hàng được (BR-47).', app.short_code(p_truck); end if;
     delete from app.allocations where booking_id = p_id and truck_code = p_truck;
     if p_tons > 0 then
       insert into app.allocations (booking_id, truck_code, tons, override, override_reason)
@@ -1277,7 +1292,7 @@ begin
   elsif p_mode = 'move' then
     select * into tg from app.trucks(b.warehouse_code, b.day) x where x.code = p_target;
     if not found or p_target = p_truck then raise exception 'Chọn xe đích hợp lệ.'; end if;
-    if app.truck_closed(p_target) then raise exception 'Xe % đã đóng, không chuyển hàng sang được (BR-47).', app.short_code(p_target); end if;
+    if app.truck_locked(p_target) then raise exception 'Xe % đã đóng hoặc đã chạy, không chuyển hàng sang được (BR-47).', app.short_code(p_target); end if;
     if p_tons is null or p_tons <= 0 or p_tons > v_cur + 0.001 then raise exception 'Số tấn chuyển phải > 0 và ≤ % MT.', app.fmt(v_cur); end if;
     if v_cur - p_tons > 0.001 then
       update app.allocations set tons = v_cur - p_tons where booking_id = p_id and truck_code = p_truck;
@@ -1371,7 +1386,7 @@ begin
   perform app.lock_day(v_wh, v_day);
   select * into t from app.trucks(v_wh, v_day) x where x.code = p_truck;
   if not found then raise exception 'Xe không thuộc ngày của nhóm.'; end if;
-  if app.truck_closed(p_truck) then raise exception 'Xe % đã đóng, không xếp thêm được (BR-47).', app.short_code(p_truck); end if;
+  if app.truck_locked(p_truck) then raise exception 'Xe % đã đóng hoặc đã chạy, không xếp thêm được (BR-47).', app.short_code(p_truck); end if;
   if app.truck_load(p_truck) + (select sum(x) from unnest(p_tons) x) > t.cap + 0.001 then raise exception 'Nhóm vượt tải trọng xe; dữ liệu đã thay đổi, hãy tải lại.'; end if;
   for i in 1 .. array_length(p_ids, 1) loop
     select * into b from app.bookings where id = p_ids[i] for update;
