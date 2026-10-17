@@ -1551,7 +1551,7 @@ begin
   me := app.require_perm('config.general');
   for k in select jsonb_object_keys(p) loop
     if k not in ('near','capDK','capCN','split','sla','maxStops','fillMin','suggestOn','sundayOff','holidays','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours',
-                 'shipRemindHours','shipAdminDays','requirePicking','chatOn','chatRoles','chatDaily') then
+                 'shipRemindHours','shipAdminDays','requirePicking','chatOn','chatRoles','chatDaily','chatDailyRole','chatDailyTotal') then
       raise exception 'Cấu hình % không hợp lệ.', k;
     end if;
     -- v3.15: bật/tắt bắt buộc picking list – chỉ Admin
@@ -1561,8 +1561,12 @@ begin
       insert into app.audit_log (entity_id, detail, actor) values ('config', me.full_name || case when (p->>k)::boolean then ' BẬT' else ' TẮT' end
         || ' bắt buộc CS nhập danh sách cuộn (picking list) trước khi load hàng', me.user_id);
     end if;
-    if k in ('near','capDK','capCN','split','sla','maxStops','fillMin','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours','shipRemindHours','shipAdminDays','chatDaily') and not ((p->>k)::numeric > 0) then
+    if k in ('near','capDK','capCN','split','sla','maxStops','fillMin','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours','shipRemindHours','shipAdminDays','chatDaily','chatDailyTotal') and not ((p->>k)::numeric > 0) then
       raise exception 'Giá trị % phải lớn hơn 0.', k;
+    end if;
+    if k = 'chatDailyRole' and (jsonb_typeof(p->k) <> 'object' or exists (select 1 from jsonb_each(p->k) e
+        where e.key not in ('cs','sales','logistics','admin','customer') or jsonb_typeof(e.value) <> 'number' or (e.value #>> '{}')::numeric < 0)) then
+      raise exception 'Hạn mức trợ lý theo vai trò không hợp lệ (số ≥ 0 cho cs, sales, logistics, admin, customer).';
     end if;
     -- Không đánh dấu nghỉ một ngày đang có booking (khách sẽ không thấy đơn của mình trên lịch)
     if k = 'holidays' then
@@ -3421,7 +3425,7 @@ $$;
 -- Gọi trước mỗi lượt hỏi AI (Cloudflare Function gọi bằng token của người dùng): kiểm tra quyền + hạn mức ngày, ghi nhật ký
 create or replace function public.chat_use(p_tools text[] default '{}') returns jsonb
 language plpgsql volatile security definer set search_path = '' as $$
-declare me app.profiles; v_lim int := coalesce(app.setn('chatDaily'), 150)::int; v_used int;
+declare me app.profiles; v_lim int; v_used int; v_tot int := coalesce(app.setn('chatDailyTotal'), 2000)::int; v_all int;
 begin
   select * into me from app.profiles where user_id = app.uid() and active;
   if not found then raise exception 'Tài khoản chưa được cấp quyền.' using errcode = '42501'; end if;
@@ -3429,6 +3433,15 @@ begin
     raise exception 'Đang ở chế độ Xem như khách hàng: chatbot tạm tắt.' using errcode = '42501';
   end if;
   if not app.chat_allowed(me) then raise exception 'Chatbot chưa được bật cho tài khoản của bạn.' using errcode = '42501'; end if;
+  -- v3.20: hạn mức theo vai trò (chatDailyRole), mặc định chatDaily; chặn tổng toàn hệ thống (chatDailyTotal)
+  v_lim := coalesce(nullif(app.setting('chatDailyRole') ->> me.role, '')::numeric, app.setn('chatDaily'), 150)::int;
+  select count(*) into v_all from app.chat_log where at >= (app.today()::timestamp at time zone 'Asia/Ho_Chi_Minh');
+  if v_all >= v_tot then raise exception 'Trợ lý đã dùng hết hạn mức chung của hệ thống hôm nay (% lượt). Mai dùng tiếp nhé.', v_tot using errcode = '42501'; end if;
+  if v_all + 1 >= ceil(v_tot * 0.8)::int and not exists (select 1 from app.notifications where type = 'Nhắc việc' and text like 'Trợ lý (chatbot) đã dùng 80%%'
+       and created_at >= (app.today()::timestamp at time zone 'Asia/Ho_Chi_Minh')) then
+    perform app.notify(array(select user_id from app.profiles where role = 'admin' and active), 'Nhắc việc',
+      'Trợ lý (chatbot) đã dùng 80% hạn mức chung hôm nay (' || (v_all + 1) || '/' || v_tot || ' lượt). Tăng hạn mức hoặc nhắc người dùng.', null);
+  end if;
   select count(*) into v_used from app.chat_log where user_id = me.user_id and at >= (app.today()::timestamp at time zone 'Asia/Ho_Chi_Minh');
   if v_used >= v_lim then raise exception 'Bạn đã dùng hết % lượt chatbot hôm nay. Mai dùng tiếp nhé.', v_lim using errcode = '42501'; end if;
   insert into app.chat_log (user_id, tools) values (me.user_id, coalesce(p_tools, '{}'));
@@ -3455,7 +3468,13 @@ begin
               select (at at time zone 'Asia/Ho_Chi_Minh')::date d, count(*) n from app.chat_log where at > now() - interval '14 days' group by 1) x),
     'top', (select coalesce(jsonb_agg(jsonb_build_array(app.uname(user_id), n) order by n desc), '[]') from (
               select user_id, count(*) n from app.chat_log where at > now() - interval '7 days' group by 1 order by 2 desc limit 5) y),
-    'today', (select count(*) from app.chat_log where at >= (app.today()::timestamp at time zone 'Asia/Ho_Chi_Minh')));
+    'today', (select count(*) from app.chat_log where at >= (app.today()::timestamp at time zone 'Asia/Ho_Chi_Minh')),
+    'roles', (select coalesce(jsonb_object_agg(r, jsonb_build_array(t, w)), '{}') from (
+              select coalesce(p.role, d.role, '?') r,
+                     count(*) filter (where l.at >= (app.today()::timestamp at time zone 'Asia/Ho_Chi_Minh')) t, count(*) w
+                from app.chat_log l left join app.profiles p on p.user_id = l.user_id left join app.deleted_users d on d.user_id = l.user_id
+               where l.at > now() - interval '7 days' group by 1) z),
+    'total', coalesce(app.setn('chatDailyTotal'), 2000));
 end $$;
 
 -- ---------------------------------------------------------------------
