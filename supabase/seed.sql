@@ -125,6 +125,8 @@ insert into app.permissions (code, grp, name, descr, sort, def_roles) values
   ('booking.urgent',  'Đặt hàng',   'Đặt / bỏ cờ đơn khẩn',                'Ghi đè cờ khẩn tự tính, bắt buộc lý do (BR-41)', 55, '{admin}'),
   ('config.shortcuts','Cấu hình','Phím tắt','Đặt phím tắt mặc định của công ty; reset phím tắt của một người hoặc mọi người',127,'{admin}'),
   ('config.targets','Cấu hình','Mục tiêu','Nhập mục tiêu tấn theo tháng × segment (tab Mục tiêu của Bảng thống kê)',126,'{admin}'),
+  ('req.create','Đặt hàng','Gửi yêu cầu đặt hàng','Ghi nhanh yêu cầu của khách (ví dụ "20 MT HC 0.5 xanh dương") lên lịch để CS tạo đơn',31,'{sales,cs,admin}'),
+  ('req.handle','Đặt hàng','Xử lý yêu cầu đặt hàng','Đánh dấu yêu cầu đã tạo đơn / không nhận (kèm lý do)',32,'{cs,admin}'),
   ('config.warehouses','Cấu hình',  'Kho',                                 'Thêm kho, sửa tên, mã ERP, ngừng dùng kho', 125, '{logistics,admin}')
 on conflict (code) do update set grp = excluded.grp, name = excluded.name, descr = excluded.descr, sort = excluded.sort, def_roles = excluded.def_roles;
 

@@ -1,0 +1,50 @@
+# Sao lưu Supabase mỗi tối Chủ nhật 22:00 (giờ VN), mã hóa, lưu 90 ngày ở mục Actions → Artifacts.
+# Cần 2 secret (Settings → Secrets and variables → Actions):
+#   SUPABASE_DB_URL  : chuỗi kết nối Postgres (Supabase → Connect → Session pooler), có mật khẩu DB
+#   BACKUP_PASSWORD  : mật khẩu tự đặt để mã hóa file sao lưu (cất kỹ, mất là không mở được)
+name: Sao lưu dữ liệu
+on:
+  schedule:
+    - cron: '0 15 * * 0'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Kiểm tra secret
+        env: { DB: '${{ secrets.SUPABASE_DB_URL }}', PW: '${{ secrets.BACKUP_PASSWORD }}' }
+        run: |
+          [ -n "$DB" ] || { echo "::error::Chưa có secret SUPABASE_DB_URL"; exit 1; }
+          [ ${#PW} -ge 12 ] || { echo "::error::BACKUP_PASSWORD phải có ít nhất 12 ký tự"; exit 1; }
+      - name: Cài pg_dump 17
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common >/dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y -qq postgresql-client-17 >/dev/null
+      - name: Xuất dữ liệu
+        env: { DB: '${{ secrets.SUPABASE_DB_URL }}' }
+        run: |
+          set -euo pipefail
+          D=$(TZ=Asia/Ho_Chi_Minh date +%Y-%m-%d)
+          mkdir out
+          /usr/lib/postgresql/17/bin/pg_dump "$DB" --schema=app --no-owner --no-privileges -Fc -f out/app.dump
+          /usr/lib/postgresql/17/bin/pg_dump "$DB" --data-only --no-owner --no-privileges -Fc \
+            --table=auth.users --table=auth.identities --table=auth.mfa_factors -f out/auth.dump
+          psql "$DB" -Atc "select 'bookings', count(*) from app.bookings union all select 'customers', count(*) from app.customers union all select 'profiles', count(*) from app.profiles" > out/dem-so-dong.txt
+          cat out/dem-so-dong.txt
+          echo "D=$D" >> "$GITHUB_ENV"
+      - name: Mã hóa
+        env: { PW: '${{ secrets.BACKUP_PASSWORD }}' }
+        run: |
+          tar -czf - -C out . | gpg --batch --yes --pinentry-mode loopback --passphrase "$PW" --symmetric --cipher-algo AES256 -o "dat-xe-$D.tar.gz.gpg"
+          rm -rf out
+          ls -lh dat-xe-*.gpg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dat-xe-${{ env.D }}
+          path: dat-xe-*.gpg
+          retention-days: 90
