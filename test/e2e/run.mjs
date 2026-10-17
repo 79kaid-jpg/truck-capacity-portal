@@ -32,7 +32,7 @@ await session('kh@demo.vn', async p => {
   S('cal'); await p.waitForSelector('.cal'); await shot(p, '1-customer-calendar');
   const txt = await p.locator('.main').innerText();
   log('customer sees fleet words?', /Đã đặt:|xe đầu kéo/.test(txt), '| "Có thể đặt" cells:', (txt.match(/Có thể đặt/g) || []).length);
-  S('custDay'); const btn = p.locator('[data-a="custDay"]').first(); if (await btn.count()) { await btn.click(); await shot(p, '1b-customer-day'); await p.click('[data-a="close"]'); } else log('customer: no custDay button');
+  S('custDay'); const btn = p.locator('[data-a="custDay"]').first(); if (await btn.count()) { await btn.dblclick(); await shot(p, '1b-customer-day'); await p.click('[data-a="close"]'); } else log('customer: no custDay button');
 });
 await session('log@demo.vn', async p => {
   S('cal'); await p.waitForSelector('.cal'); await shot(p, '2-logistics-calendar');
