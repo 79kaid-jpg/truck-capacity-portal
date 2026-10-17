@@ -41,7 +41,7 @@ await session('kh@demo.vn', async p => {
   ok(await p.locator('aside.cmy').count() === 1 && /14 ngày tới/i.test(await p.locator('aside.cmy').innerText()), 'khung Đơn của tôi');
   await shot(p, 'cust-all');
   const badge = p.locator('.cbadge').first();
-  if (await badge.count()) { await badge.click(); await p.waitForTimeout(300); ok(/Tất cả kho/i.test(await p.locator('.modal').innerText()) && /Kho/i.test(await p.locator('.modal th').first().innerText()), 'chi tiết ngày: mọi kho có cột Kho'); await shot(p, 'cust-day'); await p.keyboard.press('Escape'); await p.evaluate(() => { V.modal = null; render(); }); }
+  if (await badge.count()) { await badge.dblclick(); await p.waitForTimeout(300); ok(/Tất cả kho/i.test(await p.locator('.modal').innerText()) && /Kho/i.test(await p.locator('.modal th').first().innerText()), 'chi tiết ngày: mọi kho có cột Kho'); await shot(p, 'cust-day'); await p.keyboard.press('Escape'); await p.evaluate(() => { V.modal = null; render(); }); }
   else ok(false, 'có huy hiệu đơn trong tháng');
   await p.hover('.cell.call >> nth=20'); await p.waitForTimeout(300); ok(!(await p.locator('#calTip').isVisible().catch(() => false)), 'khách không thấy tooltip nội bộ (năng lực, xe trống)');
   S('one'); const w = await p.locator('.cwh button').nth(1).getAttribute('data-w'); await p.locator('.cwh button').nth(1).click(); await p.waitForTimeout(300);
