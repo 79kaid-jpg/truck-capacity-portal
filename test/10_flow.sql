@@ -10,7 +10,7 @@ select app.bootstrap_admin('admin@demo.vn','Hoàng Kiên');
 -- as admin
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-00000000000a',false);
-select admin_upsert_profile('{"email":"log@demo.vn","name":"Minh","role":"logistics","wh":"PMY"}');
+select admin_upsert_profile('{"email":"log@demo.vn","name":"Minh","role":"logistics","wh":"JM2"}');
 select admin_upsert_profile('{"email":"cs@demo.vn","name":"Trúc","role":"cs"}');
 select admin_upsert_profile('{"email":"s1@demo.vn","name":"Bảo","role":"sales","segment":"DD","phone":"0903"}');
 select admin_upsert_profile('{"email":"s2@demo.vn","name":"Hà","role":"sales","segment":"DA","phone":"0908"}');

@@ -34,24 +34,32 @@ const dmy = s => s.split('-').reverse().join('/');
 let bk = '';
 
 await session('cs@demo.vn', async p => {
-  S('bulk-open'); await p.click('[data-a="go"][data-v="bookings"]'); await p.click('[data-a="bulkNew"]');
-  ok(await p.locator('text=ĐẶT HÀNG NHIỀU KHÁCH').count() === 1, 'bulk modal opens from Danh sách booking');
-  S('bulk-paste');
+  S('grid-open'); await p.click('[data-a="go"][data-v="bookings"]'); await p.click('[data-a="newBk"]');
+  ok(await p.locator('.g30 h2', { hasText: 'ĐẶT HÀNG' }).count() === 1, 'Đặt hàng opens grid');
+  S('grid-paste');
   const day = d(5);
-  await fillArea(p, '#bu-t', `Kho\tNgày bốc\tMã KH\tSố tấn\tĐịa chỉ\tRef\tGhi chú\nPMY\t${dmy(day)}\tKH0102\t30\tKCN Phú Mỹ 1\tSO-7788\t\nPMY\t${dmy(day)}\tXX999\t10\t\t\t\nPMY\t${dmy(day)}\tKH0101\t250\t\t\t`);
-  const prev = await p.locator('#v9-prev').innerText();
-  ok(/3 dòng/.test(prev) && /2 dòng sẽ không được nhận/.test(prev), 'preview: 3 rows, 2 flagged', prev.slice(0, 200));
-  ok(/Không có mã khách/.test(prev) && /Vượt sức chứa/.test(prev), 'preview reasons: unknown code + over capacity');
-  await shot(p, '1-bulk-preview');
-  S('bulk-send'); await p.click('[data-a="v9BulkGo"][data-m="hold"]'); await p.waitForSelector('text=KẾT QUẢ NHẬP NHIỀU DÒNG');
+  await p.evaluate(t => { const el = document.querySelector('[data-g="code"][data-i="0"]'); const dt = new DataTransfer(); dt.setData('text/plain', t); el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); },
+    `Kho\tNgày bốc\tMã KH\tSố tấn\tĐịa chỉ\tRef\tGhi chú\nJM2\t${dmy(day)}\tKH0102\t30\tKCN Phú Mỹ 1\tSO-7788\t\nJM2\t${dmy(day)}\tXX999\t10\t\t\t\nJM2\t${dmy(day)}\tKH0101\t250\t\t\t`);
+  await p.waitForTimeout(300);
+  const g = await p.locator('.g30 tbody').innerText();
+  ok(/Vạn Thành/.test(g) && /Không có mã khách/.test(g) && /Vượt năng lực/.test(g), 'grid: name filled, unknown code + over capacity flagged', g.slice(0, 300));
+  ok(/còn/.test(await p.locator('#g30cap').innerText()), 'capacity panel shows remaining');
+  await shot(p, '1-grid');
+  S('grid-send'); await p.click('[data-a="g30Go"][data-m="hold"]'); await p.waitForTimeout(200);
+  ok(/Dòng 2/.test(await p.locator('.modal .err').innerText()), 'unknown customer blocks sending');
+  await p.click('[data-a="g30Del"][data-i="1"]'); await p.click('[data-a="g30Go"][data-m="hold"]'); await p.waitForTimeout(200);
+  ok(/LƯU ĐỊA CHỈ MỚI/.test(await p.locator('.modal').innerText()), 'asks to save new address');
+  await p.selectOption('[data-a30="prov"][data-k="0"]', 'Đồng Nai'); await p.waitForTimeout(150); await shot(p, '1b-ask-addr');
+  await p.click('[data-a="g30AskGo"]'); await p.waitForSelector('text=KẾT QUẢ NHẬP NHIỀU DÒNG');
   const res = await p.locator('.modal').innerText();
-  ok(/Đã nhận\s*1/.test(res) && /Không nhận\s*2/.test(res), 'result KPIs 1 nhận / 2 không nhận');
+  ok(/Đã nhận\s*1/.test(res) && /Không nhận\s*1/.test(res), 'result KPIs 1 nhận / 1 không nhận');
   ok(await p.locator('[data-a="v9BulkMove"]').count() > 0, 'over-capacity row has suggested days');
   await shot(p, '2-bulk-result');
   bk = (await p.locator('.modal [data-a="openBk"]').first().textContent()).trim();
-  ok(/^BK-PMY-/.test(bk), 'created booking id ' + bk);
+  ok(/^BK-JM2-/.test(bk), 'created booking id ' + bk);
+  ok(await p.evaluate(() => cust(S.customers.find(c => c.code === 'KH0102').id).addresses.some(a => a.label === 'KCN Phú Mỹ 1')), 'new address saved to customer');
   S('bulk-fix'); await p.click('[data-a="v9BulkFix"]');
-  ok((await p.inputValue('#bu-t')).split('\n').length === 2, 'Sửa các dòng lỗi puts 2 rows back');
+  ok(await p.locator('.g30 tbody tr').count() === 1, 'Sửa các dòng lỗi reopens grid with failed row');
   await p.click('.modal [data-a="close"]');
 
   S('deliv'); await ev(p, id => openBooking(id), bk); await p.waitForSelector('[data-a="v9Deliv"]');
@@ -77,7 +85,7 @@ await session('cs@demo.vn', async p => {
 await session('log@demo.vn', async p => {
   S('assign'); await ev(p, id => openBooking(id), bk); await p.waitForSelector('[data-a="asgSuggest"]');
   await p.click('[data-a="asgSuggest"]'); await p.waitForTimeout(200); await p.click('[data-a="asgConfirm"]'); await p.waitForTimeout(1200);
-  ok(await p.locator('.crumb .st-ok').count() === 1, 'logistics confirmed booking');
+  ok(await p.locator('.crumb .st-dconf').count() === 1, 'logistics xếp xe -> Đã xác nhận giao hàng (có cuộn)');
   S('load'); await p.click('[data-a="v9Ship"][data-k="load"]'); await p.waitForSelector('[data-f="v9off"]');
   await p.locator('[data-f="v9off"]').nth(1).uncheck(); await p.waitForTimeout(300);
   ok(/không lên xe 8,88 t/.test(await p.locator('.modal').innerText()), 'unloaded coil shows 8,88 t');
@@ -86,7 +94,7 @@ await session('log@demo.vn', async p => {
   await p.fill('#ld-n', 'Cuộn móp'); await p.locator('#ld-n').dispatchEvent('input');
   await shot(p, '5-load');
   await p.click('[data-a="v9ShipSave"]'); await p.waitForTimeout(1200);
-  ok(/Load thiếu 8,88 t/.test(await toastTxt(p)), 'load short notified');
+  ok(/Bốc thiếu 8,88 t/.test(await toastTxt(p)), 'load short notified');
   ok(await p.locator('.crumb .st-loaded').count() === 1, 'status Đã load hàng');
   S('transit'); await p.click('[data-a="v9Ship"][data-k="transit"]'); await p.click('[data-a="v9ShipSave"]'); await p.waitForTimeout(1000);
   ok(await p.locator('.crumb .st-transit').count() === 1, 'status Đang giao');

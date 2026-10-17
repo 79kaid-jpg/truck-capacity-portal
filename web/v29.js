@@ -74,7 +74,7 @@ function bkHead29(b){if(!internal()||!ownsCust(b.customerId))return '';const out
  if(can('booking.edit')&&b.status==='failed')out.push(`<button class="btn" data-a="v9Redeliver" data-id="${b.id}">Giao lại</button>`);
  if(can('booking.cancel')&&b.status==='failed')out.push(`<button class="btn danger" data-a="v9CancelFailed" data-id="${b.id}">Hủy</button>`);
  if(can('delivery.ship')){
-  if(b.status==='ok'&&b.coils)out.push(`<button class="btn" data-a="v9Ship" data-k="load" data-id="${b.id}">Đã load hàng</button>`);
+  if(b.status==='ok'&&b.coils)out.push(`<button class="btn" data-a="v9Ship" data-k="load" data-id="${b.id}">Đã bốc hàng</button>`);
   if(b.status==='loaded')out.push(`<button class="btn ghost" data-a="v9Ship" data-k="transit" data-id="${b.id}">Đang giao</button>`);
   if(['loaded','transit'].includes(b.status))out.push(`<button class="btn" data-a="v9Ship" data-k="delivered" data-id="${b.id}">Đã giao</button><button class="btn danger" data-a="v9Ship" data-k="failed" data-id="${b.id}">Giao không thành công</button>`);
  }
@@ -87,10 +87,10 @@ function bkInfo29(b){const rows=[];const root=b.parent||b.id;
  if(b.lateCancel)rows.push(['Hủy','<span class="urg">HỦY QUÁ CẬN NGÀY GIAO</span>']);
  if(b.requested&&Math.abs(+b.requested-bkTotal(b))>0.005)rows.push(['Tấn khách yêu cầu',`<span class="num">${t2(+b.requested)} t</span>`]);
  if(b.parent)rows.push(['Đơn gốc',`<button class="linkbtn" data-a="openBk" data-id="${b.parent}">${b.parent}</button>`]);
- if(kids.length)rows.push([b.parent?'Đơn tách khác':'Đơn tách',kids.map(k=>`<button class="linkbtn" data-a="openBk" data-id="${k.id}">${k.id}</button> <span class="st st-${k.status}">${ST_LABEL[k.status]}</span> <span class="num">${t2(bkTotal(k))} t</span>`).join('<br>')]);
+ if(kids.length)rows.push([b.parent?'Đơn tách khác':'Đơn tách',kids.map(k=>`<button class="linkbtn" data-a="openBk" data-id="${k.id}">${k.id}</button> <span class="st st-${stKey(k)}">${ST_LABEL[stKey(k)]}</span> <span class="num">${t2(bkTotal(k))} t</span>`).join('<br>')]);
  if(b.coils)rows.push(['Danh sách cuộn',`<span class="num">${b.coils} cuộn · ${t2(+b.coilTons||0)} t</span> · có lúc ${hm29(b.deliveryAt)} <button class="linkbtn" data-a="v9Coils" data-id="${b.id}">Xem</button>`]);
  else if(['hold','ok'].includes(b.status))rows.push(['Danh sách cuộn','<span class="muted">Chưa có – CS bấm <b>Xác nhận giao hàng</b> khi có file cuộn</span>']);
- if(b.loadedAt)rows.push(['Load xong',`${hm29(b.loadedAt)}${b.loadNote?' · '+esc(b.loadNote):''}`]);
+ if(b.loadedAt)rows.push(['Bốc xong',`${hm29(b.loadedAt)}${b.loadNote?' · '+esc(b.loadNote):''}`]);
  if((+b.shortTons||0)>0)rows.push(['Load thiếu',`<span class="err">${t2(+b.shortTons)} t – chờ CS tách đơn hoặc không giao</span>`]);
  if(b.eta)rows.push(['Dự kiến tới',hm29(b.eta)]);
  if(b.deliveredAt)rows.push(['Tới nơi lúc',hm29(b.deliveredAt)]);
@@ -166,7 +166,7 @@ function mBulk29(){const M=V.modal;
   <div class="field"><label for="bu-d">Ngày bốc mặc định</label><input id="bu-d" type="date" class="inp" min="${TODAY}" value="${M.day}" data-f="v9" data-k="day" data-r="1"></div>
   <div class="field"><label for="bu-f">Tải file</label><input id="bu-f" type="file" class="inp" accept=".xlsx,.xls,.csv" data-f="v9file"></div>
   <div class="field"><label>&nbsp;</label><button class="btn ghost" data-a="v9BulkTpl">Tải file mẫu</button></div></div>
- <div class="field" style="margin-top:8px"><label for="bu-t">Dữ liệu (dán từ Excel)</label><textarea id="bu-t" class="inp v9area" data-f="v9" data-k="text" placeholder="PMY&#9;20/10/2026&#9;KH0101&#9;12,5&#9;KCN Phú Mỹ 1&#9;SO-7788&#9;">${esc(M.text)}</textarea></div>
+ <div class="field" style="margin-top:8px"><label for="bu-t">Dữ liệu (dán từ Excel)</label><textarea id="bu-t" class="inp v9area" data-f="v9" data-k="text" placeholder="JM2&#9;20/10/2026&#9;KH0101&#9;12,5&#9;KCN Phú Mỹ 1&#9;SO-7788&#9;">${esc(M.text)}</textarea></div>
  <div id="v9-prev">${bulkPreview29()}</div>
  ${M.err?`<div class="err" style="margin-top:8px">${esc(M.err)}</div>`:''}
  <div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button><button class="btn ghost" data-a="v9BulkGo" data-m="draft">Lưu tạm cả lô</button><button class="btn" data-a="v9BulkGo" data-m="hold">Đặt &amp; gửi Logistics</button></div>`;}
@@ -194,7 +194,7 @@ function parseCoils29(text){const raw=splitRows29(text);if(!raw.length)return{co
 function delivState29(){const M=V.modal;const b=bkById(M.id);const P=parseCoils29(M.text);const tot=r2(P.coils.reduce((s,c)=>s+(num(c.qty)||0),0));const T=bkTotal(b);const tol=tolOf29(T);
  const dup=[...new Set(P.coils.map(c=>c.lot).filter((l,i,a)=>l&&a.indexOf(l)!==i))];const custs=[...new Set(P.coils.map(c=>c.customer).filter(Boolean))];
  const kind=!P.coils.length?'none':T-tot>tol?'short':tot-T>tol?'excess':'ok';return{b,P,tot,T,tol,dup,custs,kind};}
-function mDeliv29(){const M=V.modal;const D=delivState29();const b=D.b;const c=cust(b.customerId);const wh=WH.find(w=>w.id===b.wh);
+function mDeliv29(){const M=V.modal;const D=delivState29();const b=D.b;const c=cust(b.customerId);const wh=WHALL.find(w=>w.id===b.wh);
  const msg=D.kind==='none'?'':D.kind==='ok'?`<div class="capblock num">Tổng cuộn ${t2(D.tot)} t · booking ${t2(D.T)} t · lệch ${t2(D.tot-D.T)} t – khớp (ngưỡng ±${t2(D.tol)} t)</div>`
   :D.kind==='short'?`<div class="capblock over num">Tổng cuộn ${t2(D.tot)} t THIẾU ${t2(D.T-D.tot)} t so với booking ${t2(D.T)} t</div>`
   :`<div class="capblock over num">Tổng cuộn ${t2(D.tot)} t DƯ ${t2(D.tot-D.T)} t so với booking ${t2(D.T)} t</div>`;
@@ -224,14 +224,14 @@ function delivPrev29(D){if(D.P.err)return `<div class="err">${esc(D.P.err)}</div
 
 /* ---------- Logistics: load / đang giao / đã giao / giao lỗi ---------- */
 function mShip29(){const M=V.modal;const b=bkById(M.id);const c=cust(b.customerId);
- const head=`<div class="mhead"><span class="meta">${b.id} · ${esc(c.name)}</span><span class="meta">${ST_LABEL[b.status]}</span></div>`;
+ const head=`<div class="mhead"><span class="meta">${b.id} · ${esc(c.name)}</span><span class="meta">${ST_LABEL[stKey(b)]}</span></div>`;
  if(M.kind==='load'){const cs=M.coils;const off=cs?cs.filter(x=>M.off.includes(x.lot)):[];const sh=r2(off.reduce((s,x)=>s+(+x.qty),0));const T=bkTotal(b);
-  return `${head}<h2 style="margin-bottom:8px">ĐÃ LOAD HÀNG</h2><p class="small muted" style="margin:0 0 8px">Bỏ tick cuộn không lên xe. Thiếu quá ±${t2(tolOf29(T))} t thì CS nhận thông báo để tách đơn hoặc không giao phần còn lại.</p>
+  return `${head}<h2 style="margin-bottom:8px">ĐÃ BỐC HÀNG</h2><p class="small muted" style="margin:0 0 8px">Bỏ tick cuộn không lên xe. Thiếu quá ±${t2(tolOf29(T))} t thì CS nhận thông báo để tách đơn hoặc không giao phần còn lại.</p>
   ${!cs?'<div class="muted">Đang tải danh sách cuộn…</div>':`<div class="tbl-wrap" style="max-height:300px"><table class="v9tbl"><thead><tr><th>Lên xe</th><th>Lot number</th><th>Name</th><th class="r">Qty (t)</th></tr></thead><tbody>
    ${cs.map(x=>`<tr class="${M.off.includes(x.lot)?'bad':''}"><td><input type="checkbox" data-f="v9off" value="${esc(x.lot)}" ${M.off.includes(x.lot)?'':'checked'} aria-label="Cuộn ${esc(x.lot)} lên xe"></td><td>${esc(x.lot)}</td><td>${esc(x.name)}</td><td class="r num">${t2(+x.qty)}</td></tr>`).join('')}</tbody></table></div>
    <div class="capblock num ${sh>tolOf29(T)?'over':''}" style="margin-top:8px">Lên xe ${t2(r2(cs.reduce((s,x)=>s+(+x.qty),0))-sh)} t · không lên xe ${t2(sh)} t (${off.length} cuộn)</div>
    ${off.length?`<div class="field" style="margin-top:8px"><label for="ld-n">Ghi chú cuộn không lên xe <span class="req">*</span></label><input id="ld-n" class="inp" data-f="v9" data-k="note" value="${esc(M.note)}"></div>`:''}`}
-  ${M.err?`<div class="err">${esc(M.err)}</div>`:''}<div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button><button class="btn" data-a="v9ShipSave" ${cs?'':'disabled'}>Xác nhận đã load</button></div>`;}
+  ${M.err?`<div class="err">${esc(M.err)}</div>`:''}<div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button><button class="btn" data-a="v9ShipSave" ${cs?'':'disabled'}>Xác nhận đã bốc hàng</button></div>`;}
  if(M.kind==='transit')return `${head}<h2 style="margin-bottom:8px">ĐANG GIAO</h2><div class="field"><label for="tr-e">Dự kiến tới</label><input id="tr-e" type="datetime-local" class="inp" data-f="v9" data-k="at" value="${esc(M.at)}"></div>${M.err?`<div class="err">${esc(M.err)}</div>`:''}<div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button><button class="btn" data-a="v9ShipSave">Xác nhận đang giao</button></div>`;
  if(M.kind==='delivered')return `${head}<h2 style="margin-bottom:8px">ĐÃ GIAO</h2><div class="field"><label for="dl-e">Tới nơi lúc</label><input id="dl-e" type="datetime-local" class="inp" data-f="v9" data-k="at" value="${esc(M.at)}" max="${localDT29()}"></div><p class="small muted">Sau khi xác nhận, đơn đóng lại; CS không đổi ngày, số tấn hay hủy được nữa.</p>${M.err?`<div class="err">${esc(M.err)}</div>`:''}<div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button><button class="btn" data-a="v9ShipSave">Xác nhận đã giao</button></div>`;
  return `${head}<h2 style="margin-bottom:8px">GIAO KHÔNG THÀNH CÔNG</h2><div class="fgrid"><div class="field"><label for="fl-r">Lý do <span class="req">*</span></label><select id="fl-r" class="inp" data-f="v9" data-k="code">${rOpts29('fail',M.code)}</select></div><div class="field"><label for="fl-n">Mô tả <span class="req">*</span></label><input id="fl-n" class="inp" data-f="v9" data-k="note" value="${esc(M.note)}"></div></div>
@@ -263,7 +263,7 @@ const M29={bulk:mBulk29,deliv:mDeliv29,ship:mShip29,short:mShort29,urgent:mUrgen
 /* ---------- thao tác ---------- */
 Object.assign(A,{
  bulkNew:()=>{V.modal={type:'bulk',wide:true,step:'input',wh:V.wh,day:addDays(TODAY,1),text:'',mode:'hold',err:''};render();},
- v9BulkTpl:()=>downloadCsv29('mau-dat-hang-nhieu-dong.csv',[BULK_HEAD,['PMY',dmy(addDays(TODAY,2)),S.customers[0]?.code||'KH0101','12,5','','SO-0001','']]),
+ v9BulkTpl:()=>downloadCsv29('mau-dat-hang-nhieu-dong.csv',[BULK_HEAD,['JM2',dmy(addDays(TODAY,2)),S.customers[0]?.code||'KH0101','12,5','','SO-0001','']]),
  v9BulkGo:d=>{const M=V.modal;M.mode=d.m;const P=bulkParse29(M);M.err='';
   if(!P.rows.length){M.err='Chưa có dòng nào.';return render();}if(P.rows.length>300){M.err='Tối đa 300 dòng một lần.';return render();}
   const rows=P.rows.map(o=>({wh:o.wh,day:o.day&&!o.day.startsWith('x:')?o.day:String(o.day||'').slice(2),code:o.code,tons:String(o.tons),address:o.address,ref:o.ref,note:o.note}));
@@ -297,7 +297,7 @@ Object.assign(A,{
   if(d.k==='load')rpc('get_coils',{p_id:d.id}).then(cs=>{if(V.modal&&V.modal.type==='ship'){V.modal.coils=cs;render();}}).catch(e=>{V.modal.err=e.message;render();});},
  v9ShipSave:()=>{const M=V.modal;M.err='';const done=t=>({err:m=>M.err=m,ok:r=>{V.modal=null;V.asg=null;toast(t(r));}});
   if(M.kind==='load'){if(M.off.length&&!String(M.note).trim()){M.err='Nhập ghi chú cho các cuộn không lên xe.';return render();}
-   return mutate('mark_loaded',{p_id:M.id,p_unloaded:M.off,p_note:M.note||''},done(r=>r&&r.needAction?`Đã load. Load thiếu ${t2(+r.short)} t – CS đã được báo`:'Đã load hàng'));}
+   return mutate('mark_loaded',{p_id:M.id,p_unloaded:M.off,p_note:M.note||''},done(r=>r&&r.needAction?`Đã bốc hàng. Bốc thiếu ${t2(+r.short)} t – CS đã được báo`:'Đã bốc hàng'));}
   if(M.kind==='transit')return mutate('mark_transit',{p_id:M.id,p_eta:dtToIso29(M.at)},done(()=>'Đã chuyển Đang giao'));
   if(M.kind==='delivered')return mutate('mark_delivered',{p_id:M.id,p_at:dtToIso29(M.at)},done(()=>'Đã giao'));
   if(!M.code||!String(M.note).trim()){M.err='Chọn lý do và nhập mô tả.';return render();}
