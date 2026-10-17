@@ -2231,7 +2231,7 @@ begin
               select b.customer_id, b.warehouse_code, b.day, b.status, case when b.status = 'rejected' then coalesce(b.reason_code, 'OTHER') end as reason_code,
                      sum(app.bk_total(b.id)) as tons, count(*) as n
                 from app.bookings b join app.customers c on c.id = b.customer_id
-               where b.day between p_from and p_to and b.status in ('ok','hold','resched','draft','rejected')
+               where b.day between p_from and p_to and b.status in ('ok','hold','resched','draft','rejected','loaded','transit','delivered','failed')
                  and (v_scope = 'all' or (v_scope in ('DD','DA','EX') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id) or (v_scope = 'team' and app.in_team(me.user_id, c.sales_user_id)))
                group by 1, 2, 3, 4, 5) x));
 end $$;
@@ -3112,7 +3112,7 @@ begin
     'tgt', (select coalesce(jsonb_agg(jsonb_build_array(t.month, t.segment, t.tons)), '[]') from app.targets t where left(t.month, 4) in (v_y, to_char(p_from, 'YYYY'))),
     'yr', (select coalesce(jsonb_agg(jsonb_build_array(x.m, x.seg, x.booked, x.ok)), '[]') from (
              select to_char(b.day, 'YYYY-MM') m, c.segment seg,
-                    sum(app.bk_total(b.id)) filter (where b.status in ('ok','loaded','transit','delivered','failed','hold','resched','draft')) booked,
+                    sum(app.bk_total(b.id)) filter (where b.status in ('ok','loaded','transit','delivered','failed','hold','resched')) booked,
                     sum(app.bk_total(b.id)) filter (where b.status in ('ok','loaded','transit','delivered','failed')) ok
                from app.bookings b join app.customers c on c.id = b.customer_id
               where to_char(b.day, 'YYYY') = v_y

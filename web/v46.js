@@ -201,7 +201,7 @@ document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.datase
 A.custChat=d=>{const c=cust(d.id);mutate('set_customer_chat',{p_customer:c.id,p_on:!c.chatOn},{ok:()=>toast((!c.chatOn?'Đã bật':'Đã tắt')+' trợ lý cho '+c.name)});};
 
 // ---------- v3.21: Thống kê – cùng nguồn (dash_data) và cách tính với Bảng thống kê ----------
-const ST_DZ_OK=['ok','loaded','transit','delivered','failed'],ST_DZ_BOOK=[...ST_DZ_OK,'hold','resched','draft'];
+const ST_DZ_OK=['ok','loaded','transit','delivered','failed'],ST_DZ_BOOK=[...ST_DZ_OK,'hold','resched'];
 const stGrp=s=>ST_DZ_OK.includes(s.s)?'ok':s.s==='cancelled'?(s.late?'late':'canc'):s.s==='rejected'?'rej':s.s;
 function stPeriod(a){const d=dateArg(a.date)||TODAY;const[y,m]=parts(d);const per=String(a.period||'month');
  if(a.date_from||a.date_to){const f=dateArg(a.date_from)||d,t=dateArg(a.date_to)||f;return [f<=t?f:t,f<=t?t:f,'custom'];}
@@ -228,7 +228,7 @@ TOOLS.stats={d:'SỐ LIỆU TỔNG HỢP giống Bảng thống kê (dùng cho m
    con_phai_giao:{...sum(r=>['ok','loaded','transit'].includes(r.s)),dinh_nghia:'đơn đã có xe nhưng chưa giao (Đã xếp xe / Đã load / Đang giao)'},
    bi_tu_choi:sum(r=>stGrp(r)==='rej'),huy_can_ngay:sum(r=>stGrp(r)==='late'),huy_truoc_moc:sum(r=>stGrp(r)==='canc'),don_khan:sum(r=>r.x&&ST_DZ_BOOK.includes(r.s)),
    khach_co_dat:new Set(B.map(r=>r.cid)).size,top_khach:Object.entries(top).sort((x,y)=>y[1]-x[1]).slice(0,5).map(([n,v])=>n+': '+mt1(v)),
-   ...(isInt()?{link_bang_thong_ke:link}:{}),ghi_chu:'Tính theo ngày bốc trong kỳ; Tổng đã đặt = Đã có xe + Chờ xếp xe + Đổi ngày + Lưu tạm (không gồm hủy, từ chối).'};}};
+   ...(isInt()?{link_bang_thong_ke:link}:{}),ghi_chu:'Tính theo ngày bốc trong kỳ; Tổng đã đặt = Đã có xe + Chờ xếp xe + Đổi ngày (KHÔNG gồm Lưu tạm, hủy, từ chối). Lưu tạm báo riêng.'};}};
 STEP.stats='Lấy số liệu thống kê';
 // link mở Bảng thống kê đúng kỳ + bộ lọc
 {const g0=chatGo;chatGo=function(k){const p=String(k).split(':');if(p[0]!=='dash')return g0(k);if(!isInt()||!canAny('dash.'))return;

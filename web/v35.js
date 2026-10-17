@@ -27,11 +27,11 @@
 @media print{.top,.side,.dz-bar,.tabs,.dz-noprint{display:none!important}.main{padding:0!important}.dz-p,.dz-tile{break-inside:avoid}}
 `;document.head.appendChild(st);})();
 
-const DZ_OK=['ok','loaded','transit','delivered','failed'],DZ_BOOK=[...DZ_OK,'hold','resched','draft'];
+const DZ_OK=['ok','loaded','transit','delivered','failed'],DZ_BOOK=[...DZ_OK,'hold','resched']; // v3.22: Lưu tạm không tính vào Tổng đã đặt
 const GCOL={DD:'#2f6db5',DA:'#e08a1e',EX:'#7a4fb0'};
 const SCOL={ok:'#2e8b57',hold:'#e0a31a',resched:'#7a8ca8',draft:'#b8c0cc',rej:'#d33a2c',late:'#8e1b12',canc:'#9aa3ae'};
-const SNAME={ok:'Đã có xe',hold:'Chờ xếp xe',resched:'Đổi ngày',draft:'Lưu tạm',rej:'Bị từ chối',late:'Hủy cận ngày',canc:'Hủy trước mốc'};
-const SEGS=['DD','DA','EX'],PIPE=['ok','hold','resched','draft'];
+const SNAME={ok:'Đã có xe',hold:'Chờ xếp xe',resched:'Đổi ngày',draft:'Lưu tạm (chưa tính)',rej:'Bị từ chối',late:'Hủy cận ngày',canc:'Hủy trước mốc'};
+const SEGS=['DD','DA','EX'],PIPE=['ok','hold','resched'];
 const dzT=n=>(Math.round(n*10)/10).toLocaleString('vi-VN',{maximumFractionDigits:1});
 const dzTT=n=>dzT(n)+' MT';
 const dzSum=l=>l.reduce((s,r)=>s+r.t,0);
@@ -158,7 +158,7 @@ function tabLog(Z,S_,from,to){const{list,all}=S_;const cp=capRows(Z,from,to).fil
 function tabSales(Z,S_,from,to){const{list}=S_;const B=list.filter(isBook);
  const top=groupRows(B,r=>r.cid,(k,l)=>l[0].name,l=>byGrp(l,PIPE),15);const sr=groupRows(B,r=>r.sales||'-',k=>k==='-'?'(chưa gán Sales)':(Z.D.u[k]||'–'),bySeg);
  const lost=groupRows(list.filter(r=>r.grp==='rej'),r=>r.cid,(k,l)=>l[0].name,l=>[['Bị từ chối',dzSum(l),SCOL.rej]],10);
- return `<div class="dz-tiles">${dzTile('Tổng đã đặt',B,{prev:S_.prev.filter(isBook)})}${dzTile('Đã có xe',list.filter(r=>r.grp==='ok'),{color:SCOL.ok})}${dzTile('Đang chờ / đổi ngày / lưu tạm',list.filter(r=>['hold','resched','draft'].includes(r.grp)))}
+ return `<div class="dz-tiles">${dzTile('Tổng đã đặt',B,{prev:S_.prev.filter(isBook)})}${dzTile('Đã có xe',list.filter(r=>r.grp==='ok'),{color:SCOL.ok})}${dzTile('Đang chờ / đổi ngày',list.filter(r=>['hold','resched'].includes(r.grp)))}${dzTile('Lưu tạm (chưa tính)',list.filter(r=>r.grp==='draft'),{color:SCOL.draft})}
  ${dzTile('Nhu cầu bị mất (bị từ chối)',list.filter(r=>r.grp==='rej'),{color:SCOL.rej})}${dzTile('Hủy cận ngày',list.filter(r=>r.grp==='late'),{color:SCOL.late})}${dzPlain('Khách có đặt hàng',new Set(B.map(r=>r.cid)).size,'trong kỳ')}</div>
  <div class="dz-grid">${dzPanel('Top khách hàng','Tổng đã đặt trong kỳ, tách trạng thái',dzLeg(PIPE.map(k=>[SNAME[k],SCOL[k]]))+dzHbars(top,hbPick('Khách',top,PIPE,(x,k)=>x.grp===k),{n:1}))}
  ${dzPanel('Theo segment','Bấm số để xem đơn',segTable(list,S_.prev))}${dzPanel('Theo Sales phụ trách','Tổng đã đặt trong kỳ, tách segment',dzLeg(SEGS.map(g=>[SEG_LABEL[g],GCOL[g]]))+dzHbars(sr,hbPick('Sales',sr,SEGS,(x,g)=>x.g===g)))}
