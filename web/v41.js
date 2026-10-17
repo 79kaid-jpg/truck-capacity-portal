@@ -10,8 +10,10 @@
 .rqtag{font-size:10.5px;font-weight:700;border-radius:6px;padding:1px 6px;background:var(--blue-bg);color:var(--blue)}.rqtag.k{background:#f1eaff;color:#5b2fb0}
 .rqform{display:grid;grid-template-columns:1fr 1fr;gap:10px}.rqform .span2{grid-column:span 2}.rqform textarea{min-height:110px}
 @media (max-width:700px){.rqform{grid-template-columns:1fr}.rqform .span2{grid-column:auto}}
+.rqic{vertical-align:-2px;flex:none}.rqbtn .rqic{margin-right:4px}
 .g30req{margin:6px 0 8px;padding:8px 10px;border-radius:8px;background:#f1eaff;border:1px solid #c9b3f3;font-size:13px;white-space:pre-wrap}
 `;document.head.appendChild(st);})();
+const RQ_IC='<svg class="rqic" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v6a1.5 1.5 0 0 1-1.5 1.5H7l-3 3v-3h-.5A1.5 1.5 0 0 1 2 9.5z" fill="currentColor"/></svg>';
 {const a0=adopt;adopt=function(st){const s=a0(st);s.reqs=(st.reqs||[]).map(r=>({...r,at:Math.floor(r.at/60),handledAt:r.handledAt?Math.floor(r.handledAt/60):null}));return s;};}
 const RQ_ST={new:'Chờ CS xử lý',done:'Đã tạo đơn',declined:'Không nhận',cancelled:'Đã hủy'};
 const rqCanNew=()=>!!S&&!S.custView&&(role()==='customer'||can('req.create'));
@@ -21,7 +23,7 @@ const rqOf=(date,wh)=>(S&&S.reqs||[]).filter(r=>r.date===date&&(!wh||r.wh===wh)&
 const rqCustName=id=>{const c=cust(id);return c?c.name:'?';};
 function rqChip(date,wh){const l=rqOf(date,wh);if(!l.length)return '';const open=l.filter(r=>r.status==='new');
  const t=l.reduce((s,r)=>s+(+r.tons||0),0);
- return `<button type="button" class="rqchip ${open.length?'':'done'}" data-a="rqList" data-d="${date}" ${wh?`data-w="${wh}"`:''} title="${open.length?open.length+' yêu cầu đặt hàng chờ xử lý':'Yêu cầu đã xử lý'}">💬 ${open.length||l.length}${t?` · ${k1(t)} MT`:''}</button>`;}
+ return `<button type="button" class="rqchip ${open.length?'':'done'}" data-a="rqList" data-d="${date}" ${wh?`data-w="${wh}"`:''} title="${open.length?open.length+' yêu cầu đặt hàng chờ xử lý':'Yêu cầu đã xử lý'}">${RQ_IC} ${open.length||l.length}${t?` · ${k1(t)} MT`:''}</button>`;}
 const rqInject=(h,chip)=>chip?h.replace(/<\/div>\s*$/,chip+'</div>'):h;
 {const d0=dayCell;dayCell=function(date){const h=d0(date);return rqInject(h,rqChip(date,V.whAll?null:V.wh));};}
 if(typeof cAllCell==='function'){const c0=cAllCell;cAllCell=function(date){return rqInject(c0(date),rqChip(date,null));};}
@@ -102,7 +104,7 @@ A.rqMake=d=>{const r=S.reqs.find(x=>x.id===+d.id);if(!r)return;if(typeof openGri
  if(g&&M&&M.type==='grid'&&M.req&&!g.querySelector('.g30req')){const el=document.createElement('div');el.className='g30req';el.textContent='💬 Yêu cầu của '+rqCustName(M.req.customerId)+' ('+(M.req.byName||'')+'): '+M.req.body;const h=g.querySelector('.mhead');if(h)h.after(el);}
  if(!S||V.view!=='calendar')return;const bar=document.querySelector('.main .cal36bar');if(!bar||bar.querySelector('[data-a="rqList"]'))return;
  const n=rqOpen().length;const wrap=document.createElement('span');wrap.className='row';wrap.style.gap='6px';
- wrap.innerHTML=`${rqCanNew()?`<button class="btn ghost sm rqbtn" data-a="rqNew" title="Ghi nhanh yêu cầu để CS tạo đơn">+ Yêu cầu đặt hàng</button>`:''}<button class="btn ghost sm rqbtn" data-a="rqList" title="Yêu cầu đặt hàng">💬 Yêu cầu${n?`<b>${n}</b>`:''}</button>`;
+ wrap.innerHTML=`${rqCanNew()?`<button class="btn ghost sm rqbtn" data-a="rqNew" title="Ghi nhanh yêu cầu để CS tạo đơn">+ Yêu cầu đặt hàng</button>`:''}<button class="btn ghost sm rqbtn" data-a="rqList" title="Yêu cầu đặt hàng">${RQ_IC}Yêu cầu${n?`<b>${n}</b>`:''}</button>`;
  const kb=bar.querySelector('[data-a="scHelp"]');if(kb)bar.insertBefore(wrap,kb);else{const gd=bar.querySelector('[data-a="guide"]');if(gd)bar.insertBefore(wrap,gd);else bar.appendChild(wrap);}};}
 // Thông báo yêu cầu: mở thẳng danh sách yêu cầu của ngày
 {const o0=A.openNotif;A.openNotif=d=>{const n=S.notifs.find(x=>String(x.id)===String(d.id));const L=n&&n.link||{};if(!L.req)return o0(d);

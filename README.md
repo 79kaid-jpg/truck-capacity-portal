@@ -311,6 +311,9 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
   - Khôi phục: tải artifact, `gpg -d dat-xe-YYYY-MM-DD.tar.gz.gpg | tar -xz`, rồi `pg_restore --clean --if-exists --no-owner -d "$DB" app.dump`.
   - GitHub tắt lịch chạy nếu repo không có commit 60 ngày: vào Actions bấm Enable lại.
 
+## v3.14 — Menu ô ngày
+- Bấm 1 lần vào ô lịch: menu nhanh theo quyền (Yêu cầu đặt hàng ngày này, Đặt hàng, Xem yêu cầu, Chi tiết ngày / đội xe; khách: Yêu cầu, Xem đơn của tôi). Chỉ một lựa chọn thì chạy luôn. Bấm đúp: vào thẳng chi tiết ngày. Phím Y: yêu cầu cho ô đang chọn. Không cần SQL. Test: `test/e2e/v42.mjs`.
+
 
 
 ## Lưu ý gói miễn phí
@@ -334,6 +337,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v39.js                  Lịch sử màn hình (B B / B N, Back / Forward)
   v40.js                  Lịch khách hàng nhiều kho
   v41.js                  Yêu cầu đặt hàng (💬)
+  v42.js                  Menu ô ngày (bấm 1 lần / bấm đúp)
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng

@@ -37,6 +37,7 @@ const SC=[
  ['calF2','cal','Lọc: Có đơn chờ xếp xe','2',()=>A.calF({v:'hold'})],
  ['calF3','cal','Lọc: Có đơn khẩn','3',()=>A.calF({v:'urg'})],
  ['calF4','cal','Lọc: Đơn của tôi','4',()=>A.calF({v:'mine'})],
+ ['calReq','cal','Yêu cầu đặt hàng cho ô ngày đang chọn','Y',()=>A.cellReq()],
  ['calSide','cal','Thu / mở khung thống kê','S',()=>A.sideT()],
  ['dayPrev','day','Ngày trước','[',()=>A.dayNav({d:-1})],
  ['dayNext','day','Ngày sau',']',()=>A.dayNav({d:1})],
