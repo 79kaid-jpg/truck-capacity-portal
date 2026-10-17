@@ -43,7 +43,7 @@ jobs:
           tar -czf - -C out . | gpg --batch --yes --pinentry-mode loopback --passphrase "$PW" --symmetric --cipher-algo AES256 -o "dat-xe-$D.tar.gz.gpg"
           rm -rf out
           ls -lh dat-xe-*.gpg
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: dat-xe-${{ env.D }}
           path: dat-xe-*.gpg
