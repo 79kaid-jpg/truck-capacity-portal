@@ -57,9 +57,9 @@ function gridCheck30(M){const used={};const out=M.rows.map(r=>{const blank=!r.ci
  return{rows:out,groups:Object.values(groups).sort((a,b)=>a.day.localeCompare(b.day)||a.wh.localeCompare(b.wh))};}
 function capHtml30(C){if(!C.groups.length)return '<div class="small muted">Chưa có dòng nào.</div>';
  return C.groups.map(g=>{const m=dayM(g.wh,g.day);const ok=S.fleet[g.wh]&&S.fleet[g.wh][g.day];const left=r2(m.avail-g.t);const over=!ok||left<-0.001;const pc=m.cap?Math.min(100,Math.max(0,(m.cap-Math.max(0,left))/m.cap*100)):100;
-  return `<div class="${over?'over':''}"><div class="r"><b>${g.wh} · ${WDS[dow(g.day)]} ${dmy(g.day)}${isHoliday(g.wh,g.day)?' ⚠':''}</b><span>${ok?`còn <b>${t2(Math.max(0,left))}</b> / ${t2(m.cap)} t`:'chưa khai báo xe'}</span></div><div class="bar"><i style="width:${pc}%"></i></div></div>`;}).join('');}
+  return `<div class="${over?'over':''}"><div class="r"><b>${g.wh} · ${WDS[dow(g.day)]} ${dmy(g.day)}${isHoliday(g.wh,g.day)?' ⚠':''}</b><span>${ok?`còn <b>${t2(Math.max(0,left))}</b> / ${t2(m.cap)} MT`:'chưa khai báo xe'}</span></div><div class="bar"><i style="width:${pc}%"></i></div></div>`;}).join('');}
 function footHtml30(C){const rows=C.rows.filter(x=>!x.blank);const okr=rows.filter(x=>!x.err);
- return `${rows.length} dòng · ${t2(rows.reduce((s,x)=>s+x.t,0))} t · Đặt được ${okr.length} đơn, ${t2(okr.reduce((s,x)=>s+x.t,0))} t`;}
+ return `${rows.length} dòng · ${t2(rows.reduce((s,x)=>s+x.t,0))} MT · Đặt được ${okr.length} đơn, ${t2(okr.reduce((s,x)=>s+x.t,0))} MT`;}
 
 function mGrid30(){const M=V.modal;if(M.ask)return askAddr30(M);const C=gridCheck30(M);
  const whOpt=v=>WH.map(w=>`<option value="${w.id}" ${v===w.id?'selected':''}>${w.id}</option>`).join('')+(v&&!WH.some(w=>w.id===v)?`<option value="${esc(v)}" selected>${esc(v)} (?)</option>`:'');
@@ -73,7 +73,7 @@ function mGrid30(){const M=V.modal;if(M.ask)return askAddr30(M);const C=gridChec
   <td><input class="inp" style="min-width:22em;width:100%" autocomplete="off" value="${esc(r.addr)}" data-g="addr" data-i="${i}" placeholder="nhập khi xác nhận giao hàng" aria-label="Địa chỉ dòng ${i+1}"></td>
   <td><input class="inp" style="width:8.5em" value="${esc(r.ref)}" data-g="ref" data-i="${i}" placeholder="không bắt buộc" aria-label="Ref dòng ${i+1}"></td>
   <td><input class="inp" style="width:10em" value="${esc(r.note)}" data-g="note" data-i="${i}" placeholder="ghi chú" aria-label="Ghi chú dòng ${i+1}"></td>
-  <td id="g30s-${i}">${x.blank?'':x.err?`<span class="msg">${x.err}</span>`:x.left!=null?`<span class="ok">còn ${t2(x.left)} t</span>`:'<span class="ok">OK</span>'}${x.hol&&!x.blank?' <span class="urg">⚠ '+(dow(r.day)===0?'CN':'Lễ')+'</span>':''}</td>
+  <td id="g30s-${i}">${x.blank?'':x.err?`<span class="msg">${x.err}</span>`:x.left!=null?`<span class="ok">còn ${t2(x.left)} MT</span>`:'<span class="ok">OK</span>'}${x.hol&&!x.blank?' <span class="urg">⚠ '+(dow(r.day)===0?'CN':'Lễ')+'</span>':''}</td>
   <td><button class="btn ghost sm" data-a="g30Del" data-i="${i}" aria-label="Xóa dòng ${i+1}">×</button></td></tr>`;}).join('');
  return `<div class="g30" style="font-size:${M.zoom}%"><div class="mhead"><h2 style="margin:0">ĐẶT HÀNG</h2><div class="g30tabs"><button class="btn ghost sm" data-a="g30Zoom" data-d="-10">A−</button><span class="small">${M.zoom}%</span><button class="btn ghost sm" data-a="g30Zoom" data-d="10">A+</button><button class="btn ghost sm" data-a="g30Max" title="${M.max?'Thu nhỏ':'Toàn màn hình'}">${M.max?'🗗 Thu nhỏ':'⛶ Toàn màn hình'}</button>
   <button class="btn ghost sm ${M.tab==='grid'?'on':''}" data-a="g30Tab" data-t="grid">Nhập tay nhiều khách</button><button class="btn ghost sm ${M.tab==='file'?'on':''}" data-a="g30Tab" data-t="file">Tải file</button></div></div>
@@ -93,7 +93,7 @@ function mGrid30(){const M=V.modal;if(M.ask)return askAddr30(M);const C=gridChec
 /* cập nhật nhẹ (không vẽ lại cả lưới, giữ con trỏ đang gõ) */
 function refresh30(){const M=V.modal;if(!M||M.type!=='grid')return;const C=gridCheck30(M);
  const cap=document.getElementById('g30cap');if(cap)cap.innerHTML=capHtml30(C);const f=document.getElementById('g30foot');if(f)f.textContent=footHtml30(C);
- C.rows.forEach((x,i)=>{const s=document.getElementById('g30s-'+i);if(!s)return;const r=M.rows[i];s.innerHTML=x.blank?'':(x.err?`<span class="msg">${x.err}</span>`:x.left!=null?`<span class="ok">còn ${t2(x.left)} t</span>`:'<span class="ok">OK</span>')+(x.hol&&!x.blank?' <span class="urg">⚠ '+(dow(r.day)===0?'CN':'Lễ')+'</span>':'');
+ C.rows.forEach((x,i)=>{const s=document.getElementById('g30s-'+i);if(!s)return;const r=M.rows[i];s.innerHTML=x.blank?'':(x.err?`<span class="msg">${x.err}</span>`:x.left!=null?`<span class="ok">còn ${t2(x.left)} MT</span>`:'<span class="ok">OK</span>')+(x.hol&&!x.blank?' <span class="urg">⚠ '+(dow(r.day)===0?'CN':'Lễ')+'</span>':'');
   const tr=s.closest('tr');if(tr){tr.classList.toggle('bad',!!x.err&&!x.blank);tr.classList.toggle('hol',!!x.hol);}});}
 function focus30(i,g){setTimeout(()=>{const el=document.querySelector(`[data-g="${g}"][data-i="${i}"]`);if(el){el.focus();if(el.select&&el.type!=='date')el.select();}},0);}
 

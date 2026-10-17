@@ -63,7 +63,7 @@ await session('admin@demo.vn', async p => {
   const m = await ev(p, () => TODAY.slice(0, 7));
   await p.fill(`[data-tg="${m}|DD"]`, '400'); await p.fill(`[data-tg="${m}|DA"]`, '100'); await p.click('[data-a="tgtSave"]'); await p.waitForTimeout(800);
   await ev(p, () => { go('dash'); V.dz.tab = 'tgt'; V.dz.anchor = TODAY; render(); }); await waitDash(p); await shot(p, 'tab-tgt-2');
-  ok(/500,00 t|500 t/.test(await p.locator('.dz-tile').first().innerText()), 'mục tiêu tháng = 400 + 100 t', await p.locator('.dz-tile').first().innerText());
+  ok(/500(,00)? MT/.test(await p.locator('.dz-tile').first().innerText()), 'mục tiêu tháng = 400 + 100 t', JSON.stringify(await p.locator('.dz-tile').first().innerText()) + JSON.stringify(await ev(p, () => [V.dz.D.tgt, V.tgtC && V.tgtC.v])));
 });
 await session('cs@demo.vn', async p => { await ev(p, () => go('dash')); await waitDash(p); ok(await ev(p, () => V.dz.tab) === 'cs', 'CS mở sẵn tab CS'); });
 await session('s1@demo.vn', async p => { await ev(p, () => go('dash')); await waitDash(p);

@@ -227,6 +227,36 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - **Area:** khách có thêm `area` và `area_detail`, lấy từ cột Area và Area chi tiết khi nhập khách từ file.
 - Test: `test/e2e/v35.mjs`.
 
+## v3.6 – Lịch đặt xe dễ nhìn hơn, đơn vị MT
+- **Đơn vị:** mọi số tấn hiển thị là **MT** (metric tấn), cả trong thông báo và lỗi từ máy chủ.
+- **Ô lịch:**
+  - cột Chủ nhật hẹp lại, ngày đã qua và ngày chưa mở lịch xe được thu gọn;
+  - mỗi ô hiện **Còn đặt được** cỡ lớn, có thanh năng lực tô màu theo mức đặt;
+  - chỉ gắn nhãn khi Gần đầy hoặc Đầy;
+  - bấm cả ô để mở Chi tiết ngày; nút ＋ đặt hàng hiện khi rê chuột;
+  - nhãn đơn chờ ghi "⏳ n đơn chờ xếp xe · x MT";
+  - rê chuột vào ô để xem nhanh khách, số MT, trạng thái và xe trống.
+- Thêm **cột Tuần** ở cuối mỗi hàng.
+- **Lọc nhanh:** Có đơn chờ xếp xe · Có đơn khẩn · Đơn của tôi. Ô Kho có thêm lựa chọn **Tất cả kho**: mỗi ô hiện từng kho, bấm vào kho nào thì mở ngày của kho đó.
+- Thêm chế độ **Xem 2 tuần**: mỗi ngày hiện tên khách, số MT và trạng thái.
+- **Phím tắt:** ← → chuyển kỳ, T về hôm nay, N mở Đặt hàng.
+- **Khung thống kê:**
+  - **Xe:**
+    - đã xếp xe trong tháng;
+    - % sử dụng năng lực;
+    - mức lấp đầy của các xe đang chạy;
+    - số lượt DK/XT đã dùng;
+    - biểu đồ theo tuần;
+    - tình hình hôm nay và ngày mai;
+    - đơn chờ xếp xe (bấm để lọc lịch);
+    - ngày cao điểm;
+    - các ngày đầy hoặc gần đầy;
+    - xe chạy non tải;
+    - ngày có ghi chú giảm xe.
+  - **Khách:** bấm từng dòng để mở danh sách đơn trong Bảng thống kê. "Chưa đặt tháng này" mở danh sách khách chưa đặt kèm Sales phụ trách.
+  - Có nút **Thu gọn** để lịch rộng hơn; trình duyệt nhớ lựa chọn này.
+- File: `web/v36.js`. Test: `test/e2e/v36.mjs`.
+
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.
 - Gói Free **không có backup tự động**. Mỗi tuần nên export các bảng chính (Table Editor → schema `app` → Export CSV).
@@ -242,6 +272,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v30.js                  Màn hình v3.0: lưới đặt hàng, Gửi Logistics, cấu hình kho, đổi kho
   v31.js                  Màn hình v3.1: tìm khách, nhập khách hàng / địa chỉ từ file
   v35.js                  Bảng thống kê (8 tab, bấm biểu đồ xem đơn), Cấu hình › Mục tiêu
+  v36.js                  Lịch đặt xe mới: ô gọn, cột Tuần, lọc, tất cả kho, 2 tuần, phím tắt, thống kê Xe
   config.js               URL + anon key (công khai)
   favicon.svg, icon-*.png, apple-touch-icon.png, manifest.webmanifest   Biểu tượng trang / màn hình chính điện thoại
 supabase/
