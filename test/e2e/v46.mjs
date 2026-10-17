@@ -68,6 +68,11 @@ await session('admin@demo.vn', async p => {
       return { tool: [T.tong_da_dat.MT, T.tong_da_dat.don, T.da_co_xe.MT, T.khach_co_dat, T.bi_tu_choi.MT], dash: [tot, list.filter(isBook).length, ok, new Set(list.filter(isBook).map(r => r.cid)).size, dzTT(dzSum(list.filter(r => r.grp === 'rej')))] }; }, a);
     ok(JSON.stringify(r.tool) === JSON.stringify(r.dash), 'thống kê trợ lý khớp Bảng thống kê: ' + JSON.stringify(a), JSON.stringify(r));
   }
+  S('panel-match'); const pm = await p.evaluate(async () => { const Z = V.dz; Z.per = 'month'; Z.anchor = TODAY; Z.wh = ''; Z.seg = ''; const [f, t] = dzRange(Z);
+    const D = await rpc('dash_data', { p_from: f, p_to: t }); const rows = (D.b || []).map(x => ({ d: x[1], w: x[2], cid: x[3], s: x[4], t: +x[5] || 0, late: !!x[7], g: (D.c[x[3]] || [])[2] })); rows.forEach(r => r.grp = dzGrp(r));
+    Z.D = { rows, pfrom: f }; const { list } = dzScope(Z, f, t); const bs = await rpc('booking_stats', { p_from: f, p_to: t }); const R = csCompute(bs, { seg: 'all', wh: 'all', from: f, to: t });
+    return { panel: [t2(R.total.t), R.total.n, t2(R.ok.t), t2(R.draft.t)], dash: [t2(dzSum(list.filter(isBook))), list.filter(isBook).length, t2(dzSum(list.filter(r => r.grp === 'ok'))), t2(dzSum(list.filter(r => r.grp === 'draft')))] }; });
+  ok(JSON.stringify(pm.panel) === JSON.stringify(pm.dash), 'khung thống kê bên lịch khớp Bảng thống kê (không tính lưu tạm, có đơn đã giao)', JSON.stringify(pm));
   S('stats-link'); const lk = await p.evaluate(async () => (await TOOLS.stats.run({ period: 'month', wh: 'JM2' })).link_bang_thong_ke);
   await p.evaluate(k => { go('calendar'); chatGo(k.slice(1)); }, lk); await p.waitForTimeout(1200);
   ok(await p.evaluate(() => V.view === 'dash' && V.dz.per === 'custom' && V.dz.wh === 'JM2'), 'link mở Bảng thống kê đúng kỳ + kho');

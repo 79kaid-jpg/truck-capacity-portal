@@ -323,13 +323,14 @@ function csData(from,to){const key=from+'|'+to+'|'+S.ver;if(V.cs&&V.cs.key===key
  return V.cs&&V.cs.data&&V.cs.key.split('|').slice(0,2).join('|')===from+'|'+to?V.cs.data:null;}
 // Gom số liệu: o = {seg:'all'|'DD'|'DA', wh:'all'|mã kho, from, to}
 function csCompute(d,o){const C={};(d.customers||[]).forEach(c=>C[c.id]=c);
- const rows=(d.rows||[]).map(r=>({c:r[0],wh:r[1],date:r[2],st:r[3],rc:r[4],t:+r[5],n:+r[6]})).filter(r=>C[r.c]&&(o.seg==='all'||C[r.c].segment===o.seg)&&(o.wh==='all'||r.wh===o.wh)&&r.date>=o.from&&r.date<=o.to);
- const act=rows.filter(r=>r.st!=='rejected'),rej=rows.filter(r=>r.st==='rejected');
+ const rows=(d.rows||[]).map(r=>({c:r[0],wh:r[1],date:r[2],st:['loaded','transit','delivered','failed'].includes(r[3])?'ok':r[3],dv:r[3]==='delivered',rc:r[4],t:+r[5],n:+r[6]})).filter(r=>C[r.c]&&(o.seg==='all'||C[r.c].segment===o.seg)&&(o.wh==='all'||r.wh===o.wh)&&r.date>=o.from&&r.date<=o.to);
+ // v3.22: Tổng đã đặt không tính Lưu tạm (nháp chưa gửi, chưa giữ chỗ) – giống Bảng thống kê
+ const act=rows.filter(r=>r.st!=='rejected'&&r.st!=='draft'),rej=rows.filter(r=>r.st==='rejected'),drf=rows.filter(r=>r.st==='draft');
  const sum=(l,f)=>l.filter(f||(()=>true)).reduce((a,r)=>({t:a.t+r.t,n:a.n+r.n}),{t:0,n:0});
- const by=(l,k)=>{const m={};l.forEach(r=>{const x=k(r);(m[x]=m[x]||{t:0,n:0,ok:0,hold:0,resched:0,draft:0,rej:0});m[x].t+=r.st==='rejected'?0:r.t;m[x].n+=r.st==='rejected'?0:r.n;m[x][r.st==='rejected'?'rej':r.st]+=r.t;});return m;};
+ const by=(l,k)=>{const m={};l.forEach(r=>{const x=k(r);(m[x]=m[x]||{t:0,n:0,ok:0,hold:0,resched:0,draft:0,rej:0});m[x].t+=r.st==='rejected'||r.st==='draft'?0:r.t;m[x].n+=r.st==='rejected'||r.st==='draft'?0:r.n;m[x][r.st==='rejected'?'rej':r.st]+=r.t;});return m;};
  const yest=addDays(TODAY,-1);const custs=Object.values(C).filter(c=>o.seg==='all'||c.segment===o.seg);
  const byC=by(rows,r=>r.c);const ranked=Object.entries(byC).filter(([,v])=>v.t>0).sort((a,b)=>b[1].t-a[1].t);
- return{C,rows,total:sum(act),ok:sum(act,r=>r.st==='ok'),hold:sum(act,r=>r.st==='hold'),resched:sum(act,r=>r.st==='resched'),draft:sum(act,r=>r.st==='draft'),
+ return{C,rows,total:sum(act),ok:sum(act,r=>r.st==='ok'),hold:sum(act,r=>r.st==='hold'),resched:sum(act,r=>r.st==='resched'),draft:sum(drf),delivered:sum(act,r=>r.dv),
   okPast:sum(act,r=>r.st==='ok'&&r.date<=yest),ahead:sum(act,r=>r.date>=TODAY),rej:sum(rej),
   h1:sum(act,r=>+r.date.slice(8)<=15),h2:sum(act,r=>+r.date.slice(8)>15),
   bySeg:by(rows,r=>C[r.c].segment),bySales:by(rows,r=>C[r.c].salesId||'-'),byC,ranked,
@@ -355,7 +356,7 @@ function custStatsPanel(y,m,head){
  const top3=R.ranked.slice(0,3),low3=R.ranked.length>3?R.ranked.slice(-3).reverse().filter(x=>!top3.includes(x)):[];
  return `<aside class="stats sst">${top}
   <div class="bignum num clk" ${dk('all','Tổng đã đặt · tháng '+pad(m))}><small>TỔNG ĐÃ ĐẶT THÁNG ${pad(m)}</small>${t2(R.total.t)}<small style="display:inline;margin-left:4px">MT</small></div>
-  <div class="sst-box">${row('<span class="st st-ok">Đã xếp xe</span>',R.ok,true,'ok')}${row('<span class="st st-hold">Chờ xếp xe</span>',R.hold,true,'hold')}${R.resched.n?row('<span class="st st-resched">Đề nghị đổi ngày</span>',R.resched,true,'resched'):''}${row('<span class="st st-draft">Đang lưu tạm</span>',R.draft,true,'draft')}</div>
+  <div class="sst-box">${row('<span class="st st-ok">Đã có xe</span>',R.ok,true,'ok')}${R.delivered.n?`<div class="small muted" style="margin:-2px 0 2px 8px">trong đó đã giao: <b class="num">${t2(R.delivered.t)} MT</b> · ${R.delivered.n} đơn</div>`:''}${row('<span class="st st-hold">Chờ xếp xe</span>',R.hold,true,'hold')}${R.resched.n?row('<span class="st st-resched">Đề nghị đổi ngày</span>',R.resched,true,'resched'):''}</div>${R.draft.n?`<div class="small muted">✎ Đang lưu tạm (chưa gửi, không tính vào tổng): <b class="num">${t2(R.draft.t)} MT</b> · ${R.draft.n} đơn</div>`:''}
   <div><div class="lbl">Đã xếp xe đến hôm qua</div>${toD<ms?`<div class="muted small">Tháng chưa bắt đầu</div>`:`<div class="sst-big num clk" ${dk('okPast','Đã xếp xe đến hôm qua')}>${t2(R.okPast.t)} MT</div><div class="muted small">${dm(ms)} – ${dm(toD)} · ${R.okPast.n} đơn</div>`}</div>
   <div><div class="lbl">Theo nửa tháng</div><div class="sst-box">${row('Ngày 1 – 15',R.h1,true,'h1')}${row(`Ngày 16 – ${dim(y,m)}`,R.h2,true,'h2')}</div></div>
   ${R.rej.n?`<div><div class="lbl">Bị từ chối (nhu cầu bị mất)</div><div class="sst-box">${row('<span class="st st-rejected">Từ chối</span>',R.rej,true,'rej')}</div></div>`:''}
@@ -687,7 +688,7 @@ function dashCust(){
  if(!d)return bar+'<div class="empty">Đang tải…</div>';if(d.err)return bar+`<div class="err">${esc(d.err)}</div>`;
  const R=csCompute(d,{seg,wh:V.ssAll!==false?'all':V.wh,from:ms,to:me_});const yest=addDays(TODAY,-1);const toD=yest<me_?yest:me_;
  const tile=(l,v,sub,cls='')=>`<div class="tile ${cls}"><span class="lbl">${l}</span><span class="val num">${t2(v.t)} MT</span><span class="sub">${sub}</span></div>`;
- const kpi=`<div class="kpis">${tile('Tổng đã đặt',R.total,`${R.total.n} đơn · xếp xe + chờ + đổi ngày + lưu tạm`)}${tile('Đã xác nhận đến hôm qua',R.okPast,toD<ms?'Tháng chưa bắt đầu':`${dm(ms)} – ${dm(toD)} · ${R.okPast.n} đơn`)}${tile('Sắp tới (từ hôm nay)',R.ahead,`${R.ahead.n} đơn chưa bốc`)}${tile('Bị từ chối',R.rej,`${R.rej.n} đơn · nhu cầu bị mất`,R.rej.n?'crit':'')}</div>`;
+ const kpi=`<div class="kpis">${tile('Tổng đã đặt',R.total,`${R.total.n} đơn · có xe + chờ + đổi ngày (không gồm lưu tạm)`)}${tile('Đã xác nhận đến hôm qua',R.okPast,toD<ms?'Tháng chưa bắt đầu':`${dm(ms)} – ${dm(toD)} · ${R.okPast.n} đơn`)}${tile('Sắp tới (từ hôm nay)',R.ahead,`${R.ahead.n} đơn chưa bốc`)}${tile('Bị từ chối',R.rej,`${R.rej.n} đơn · nhu cầu bị mất`,R.rej.n?'crit':'')}</div>`;
  const cols=['ok','hold','resched','draft'];const CL={ok:'Đã xếp xe',hold:'Chờ xếp xe',resched:'Đổi ngày',draft:'Lưu tạm'};
  const segRows=['DD','DA','EX'].filter(k=>seg==='all'||k===seg).map(k=>({k,v:R.bySeg[k]||{t:0,n:0,ok:0,hold:0,resched:0,draft:0,rej:0}}));
  const segT=`<div class="dcard"><h3>THEO SEGMENT</h3><p class="cap">Tấn theo trạng thái</p><div class="tbl-wrap"><table><thead><tr><th>Segment</th>${cols.map(c=>`<th class="r">${CL[c]}</th>`).join('')}<th class="r">Tổng đặt</th><th class="r">Từ chối</th></tr></thead><tbody>

@@ -348,6 +348,10 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 ## v3.21 — Trợ lý: số liệu khớp Bảng thống kê
 - Công cụ `stats` dùng `dash_data` và đúng định nghĩa của Bảng thống kê (kỳ ngày / tuần / tháng / quý / năm / tùy chọn; lọc kho, segment, Sales, khách); trả sẵn mọi con số + link mở Bảng thống kê đúng kỳ và bộ lọc. `find_bookings` trả tổng theo trạng thái, tìm cả ghi chú / người liên hệ / yêu cầu. Lời dặn cấm AI tự cộng. Test đối chiếu trong `test/e2e/v46.mjs`. Không cần SQL.
 
+## v3.22 — Tổng đã đặt không tính Lưu tạm
+**Chạy `supabase/setup_all.sql` trước khi gộp** (`booking_stats` trả cả Đã load / Đang giao / Đã giao / Giao lỗi; mục tiêu năm không tính nháp).
+- "Tổng đã đặt" = Đã có xe + Chờ xếp xe + Đổi ngày ở khung thống kê bên lịch, Bảng thống kê và trợ lý; Lưu tạm hiện riêng ("chưa tính"). Khung bên lịch: "Đã có xe" gồm cả đơn đã bốc / đang giao / đã giao, thêm dòng "trong đó đã giao". Test đối chiếu khung lịch ↔ Bảng thống kê ↔ trợ lý.
+
 
 
 ## Lưu ý gói miễn phí
