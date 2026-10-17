@@ -259,11 +259,11 @@ function vCalendar(){
 }
 // Ô lịch của khách: hiện cả đơn bị đề nghị đổi ngày / bị từ chối để không "mất" số tấn
 function custExtra(mine){const rs=mine.filter(b=>b.status==='resched'),rj=mine.filter(b=>b.status==='rejected');
- return (rs.length?`<div class="small" style="color:var(--warn,#9A5B00);font-weight:600">Đề nghị đổi ngày: ${t2(rs.reduce((s,b)=>s+bkTotal(b),0))} t${rs[0].proposedDate?' → '+dm(rs[0].proposedDate):''}</div>`:'')
-  +(rj.length?`<div class="small" style="color:var(--bad);font-weight:600">Bị từ chối: ${t2(rj.reduce((s,b)=>s+bkTotal(b),0))} t</div>`:'');}
+ return (rs.length?`<div class="small" style="color:var(--warn,#9A5B00);font-weight:600">Đề nghị đổi ngày: ${t2(rs.reduce((s,b)=>s+bkTotal(b),0))} MT${rs[0].proposedDate?' → '+dm(rs[0].proposedDate):''}</div>`:'')
+  +(rj.length?`<div class="small" style="color:var(--bad);font-weight:600">Bị từ chối: ${t2(rj.reduce((s,b)=>s+bkTotal(b),0))} MT</div>`:'');}
 // Nháp của chính người đang xem trong một ngày (nháp không trừ sức chứa nên trước đây không hiện ở đâu trên lịch)
 const myDrafts=(wh,date)=>S.bookings.filter(b=>b.wh===wh&&b.date===date&&b.status==='draft'&&b.csId===V.me);
-function draftLine(wh,date){const d=myDrafts(wh,date);return d.length?`<div class="draftbox num" title="Nháp chưa giữ chỗ, chưa trừ sức chứa">✎ ${d.length} nháp của bạn (${t2(d.reduce((s,b)=>s+bkTotal(b),0))} t)</div>`:'';}
+function draftLine(wh,date){const d=myDrafts(wh,date);return d.length?`<div class="draftbox num" title="Nháp chưa giữ chỗ, chưa trừ sức chứa">✎ ${d.length} nháp của bạn (${t2(d.reduce((s,b)=>s+bkTotal(b),0))} MT)</div>`:'';}
 function dayCell(date){
  const m=dayM(V.wh,date);const d=parts(date)[2];const past=date<TODAY;const isC=role()==='customer';const today=date===TODAY;
  const head=`<div class="ctop"><span class="dnum ${m.declared?'':'lite'}">${d}</span><span class="wdmobile small muted">${WDS[dow(date)]} · ${dm(date)}</span>${m.declared?pill(m.status):''}</div>${m.holiday&&m.declared?`<div class="holwarn">⚠ ${dow(date)===0?'CN':'Lễ'} · giao ngày nghỉ</div>`:''}`;
@@ -273,12 +273,12 @@ function dayCell(date){
   if(isC){const mine=S.bookings.filter(b=>b.wh===V.wh&&b.date===date&&b.customerId===me().customerId&&['ok','hold','resched','rejected'].includes(b.status));
    const ok=mine.filter(b=>b.status==='ok'),pend=mine.filter(b=>b.status==='hold');
    return `<div class="cell ${ok.length?'mine':pend.length?'mine-pend':''} ${past?'past':''} ${today?'today':''}">${head}<div class="kv">${lbl}</div>
-    ${ok.length?`<div class="minebox num">Bạn đã đặt: ${t2(ok.reduce((s,b)=>s+bkTotal(b),0))} t</div>`:''}
-    ${pend.length?`<div class="small" style="color:var(--blue);font-weight:600">Đang chờ xác nhận: ${t2(pend.reduce((s,b)=>s+bkTotal(b),0))} t</div>`:''}${custExtra(mine)}
+    ${ok.length?`<div class="minebox num">Bạn đã đặt: ${t2(ok.reduce((s,b)=>s+bkTotal(b),0))} MT</div>`:''}
+    ${pend.length?`<div class="small" style="color:var(--blue);font-weight:600">Đang chờ xác nhận: ${t2(pend.reduce((s,b)=>s+bkTotal(b),0))} MT</div>`:''}${custExtra(mine)}
     ${mine.length?`<div class="cacts"><button class="btn sm" data-a="custDay" data-d="${date}">Chi tiết</button></div>`:''}</div>`;}
   const act=S.bookings.filter(b=>b.wh===V.wh&&b.date===date&&['ok','hold','resched'].includes(b.status)&&ownsCust(b.customerId));const nd=myDrafts(V.wh,date).length;
   return `<div class="cell ${past?'past':''} ${today?'today':''}">${head}<div class="kv">${lbl}</div>
-   ${act.length?`<div class="err small" style="margin-top:4px">⚠ ${act.length} booking (${t2(act.reduce((s,b)=>s+bkTotal(b),0))} t) trong ngày này: cần đổi ngày</div>`:''}${draftLine(V.wh,date)}
+   ${act.length?`<div class="err small" style="margin-top:4px">⚠ ${act.length} booking (${t2(act.reduce((s,b)=>s+bkTotal(b),0))} MT) trong ngày này: cần đổi ngày</div>`:''}${draftLine(V.wh,date)}
    <div class="cacts">${(act.length||nd)&&can('day.view')?`<button class="btn sm" data-a="openDay" data-d="${date}">Chi tiết</button>`:''}${!m.off&&can('fleet.manage')&&!past?`<button class="btn ghost sm" data-a="go" data-v="fleet">Khai báo xe</button>`:''}</div></div>`;
  }
  if(isC){
@@ -286,17 +286,17 @@ function dayCell(date){
   const ok=mine.filter(b=>DONE_ST.includes(b.status));const pend=mine.filter(b=>b.status==='hold');
   const cls=ok.length?'mine':pend.length?'mine-pend':'';const extra=custExtra(mine);
   return `<div class="cell ${cls} ${past?'past':''} ${today?'today':''}">${head}
-   <div class="bigavail num">${t2(m.avail)} t<small>Có thể đặt</small></div>
-   ${ok.length?`<div class="minebox num">Bạn đã đặt: ${t2(ok.reduce((s,b)=>s+bkTotal(b),0))} t</div>`:''}
-   ${pend.length?`<div class="small" style="color:var(--blue);font-weight:600">Đang chờ xác nhận: ${t2(pend.reduce((s,b)=>s+bkTotal(b),0))} t</div>`:''}${extra}
+   <div class="bigavail num">${t2(m.avail)} MT<small>Có thể đặt</small></div>
+   ${ok.length?`<div class="minebox num">Bạn đã đặt: ${t2(ok.reduce((s,b)=>s+bkTotal(b),0))} MT</div>`:''}
+   ${pend.length?`<div class="small" style="color:var(--blue);font-weight:600">Đang chờ xác nhận: ${t2(pend.reduce((s,b)=>s+bkTotal(b),0))} MT</div>`:''}${extra}
    ${mine.filter(b=>b.status!=='draft').length?`<div class="cacts"><button class="btn sm" data-a="custDay" data-d="${date}">Chi tiết</button></div>`:''}</div>`;
  }
  const holds=m.holds.filter(b=>ownsCust(b.customerId));const ht=holds.reduce((s,b)=>s+bkTotal(b)-allocSum(b.id),0);
  return `<div class="cell ${past?'past':''} ${today?'today':''}" ${m.reason?`title="${esc(m.reason)}"`:''}>${head}
-  <div class="kv num">Đã đặt: <b>${t2(m.loaded)} t</b></div>
-  <div class="kv num">Có thể đặt: <b>${t2(m.avail)} t</b></div>
+  <div class="kv num">Đã đặt: <b>${t2(m.loaded)} MT</b></div>
+  <div class="kv num">Có thể đặt: <b>${t2(m.avail)} MT</b></div>
   <div class="tk num"><span>${DK_SVG()}${m.uDK}/${m.nDK}</span><span>${CN_SVG()}${m.uCN}/${m.nCN}</span></div>
-  ${holds.length?`<div class="pendbox num">${holds.length} booking giữ chỗ (~${t2(ht)} t)</div>`:''}${typeof cellExtra29==='function'?cellExtra29(V.wh,date):''}${draftLine(V.wh,date)}
+  ${holds.length?`<div class="pendbox num">${holds.length} booking giữ chỗ (~${t2(ht)} MT)</div>`:''}${typeof cellExtra29==='function'?cellExtra29(V.wh,date):''}${draftLine(V.wh,date)}
   <div class="cacts">${can('day.view')?`<button class="btn sm" data-a="openDay" data-d="${date}">Chi tiết</button>`:''}${can('booking.create')&&!past?`<button class="btn ghost sm" data-a="newBk" data-d="${date}">+ Đặt hàng</button>`:''}</div></div>`;
 }
 /* ---------- Thống kê đặt hàng theo khách (cột "Khách" trên lịch, DB-05) ---------- */
@@ -333,18 +333,19 @@ function custStatsPanel(y,m,head){
  if(d.err)return `<aside class="stats sst">${top}<div class="err small">${esc(d.err)}</div></aside>`;
  const R=csCompute(d,{seg,wh:all?'all':V.wh,from:ms,to:me_});
  const yest=addDays(TODAY,-1);const toD=yest<me_?yest:me_;
- const row=(l,v,n)=>`<div class="sst-row"><span>${l}</span><span class="num"><b>${t2(v.t)} t</b>${n!==false?` <span class="muted small">· ${v.n} đơn</span>`:''}</span></div>`;
- const cl=([id,v])=>`<div class="sst-row"><span class="sst-name" title="${esc(R.C[id].name)}">${esc(R.C[id].name)}</span><span class="num"><b>${t2(v.t)} t</b></span></div>`;
+ const dk=(k,t)=>can('dash.sales')||canAny('dash.')?`data-a="calDrill" data-k="${k}" data-t="${esc(t)}" data-w="${all?'all':V.wh}" data-g="${seg}"`:'';
+ const row=(l,v,n,k)=>`<div class="sst-row ${k?'clk':''}" ${k?dk(k,l.replace(/<[^>]+>/g,'')+' · tháng '+pad(m)):''}><span>${l}</span><span class="num"><b>${t2(v.t)} MT</b>${n!==false?` <span class="muted small">· ${v.n} đơn</span>`:''}</span></div>`;
+ const cl=([id,v])=>`<div class="sst-row clk" ${dk('c:'+id,R.C[id].name+' · tháng '+pad(m))}><span class="sst-name" title="${esc(R.C[id].name)}">${esc(R.C[id].name)}</span><span class="num"><b>${t2(v.t)} MT</b></span></div>`;
  const top3=R.ranked.slice(0,3),low3=R.ranked.length>3?R.ranked.slice(-3).reverse().filter(x=>!top3.includes(x)):[];
  return `<aside class="stats sst">${top}
-  <div class="bignum num"><small>TỔNG ĐÃ ĐẶT THÁNG ${pad(m)}</small>${t2(R.total.t)}</div>
-  <div class="sst-box">${row('<span class="st st-ok">Đã xếp xe</span>',R.ok)}${row('<span class="st st-hold">Chờ xếp xe</span>',R.hold)}${R.resched.n?row('<span class="st st-resched">Đề nghị đổi ngày</span>',R.resched):''}${row('<span class="st st-draft">Đang lưu tạm</span>',R.draft)}</div>
-  <div><div class="lbl">Đã xếp xe đến hôm qua</div>${toD<ms?`<div class="muted small">Tháng chưa bắt đầu</div>`:`<div class="sst-big num">${t2(R.okPast.t)} t</div><div class="muted small">${dm(ms)} – ${dm(toD)} · ${R.okPast.n} đơn</div>`}</div>
-  <div><div class="lbl">Theo nửa tháng</div><div class="sst-box">${row('Ngày 1 – 15',R.h1)}${row(`Ngày 16 – ${dim(y,m)}`,R.h2)}</div></div>
-  ${R.rej.n?`<div><div class="lbl">Bị từ chối (nhu cầu bị mất)</div><div class="sst-box">${row('<span class="st st-rejected">Từ chối</span>',R.rej)}</div></div>`:''}
+  <div class="bignum num clk" ${dk('all','Tổng đã đặt · tháng '+pad(m))}><small>TỔNG ĐÃ ĐẶT THÁNG ${pad(m)}</small>${t2(R.total.t)}<small style="display:inline;margin-left:4px">MT</small></div>
+  <div class="sst-box">${row('<span class="st st-ok">Đã xếp xe</span>',R.ok,true,'ok')}${row('<span class="st st-hold">Chờ xếp xe</span>',R.hold,true,'hold')}${R.resched.n?row('<span class="st st-resched">Đề nghị đổi ngày</span>',R.resched,true,'resched'):''}${row('<span class="st st-draft">Đang lưu tạm</span>',R.draft,true,'draft')}</div>
+  <div><div class="lbl">Đã xếp xe đến hôm qua</div>${toD<ms?`<div class="muted small">Tháng chưa bắt đầu</div>`:`<div class="sst-big num clk" ${dk('okPast','Đã xếp xe đến hôm qua')}>${t2(R.okPast.t)} MT</div><div class="muted small">${dm(ms)} – ${dm(toD)} · ${R.okPast.n} đơn</div>`}</div>
+  <div><div class="lbl">Theo nửa tháng</div><div class="sst-box">${row('Ngày 1 – 15',R.h1,true,'h1')}${row(`Ngày 16 – ${dim(y,m)}`,R.h2,true,'h2')}</div></div>
+  ${R.rej.n?`<div><div class="lbl">Bị từ chối (nhu cầu bị mất)</div><div class="sst-box">${row('<span class="st st-rejected">Từ chối</span>',R.rej,true,'rej')}</div></div>`:''}
   <div><div class="lbl">Khách đặt nhiều nhất</div>${top3.length?`<div class="sst-box">${top3.map(cl).join('')}</div>`:'<div class="muted small">Chưa có đơn trong tháng</div>'}</div>
   ${low3.length?`<div><div class="lbl">Khách đặt ít nhất</div><div class="sst-box">${low3.map(cl).join('')}</div></div>`:''}
-  ${R.noBk.length?`<div class="small"><span class="lbl">Chưa đặt tháng này:</span> <span title="${esc(R.noBk.map(c=>c.name).join(', '))}">${R.noBk.length}/${R.custCount} khách</span> <span class="muted">(${esc(R.noBk.slice(0,3).map(c=>c.name).join(', '))}${R.noBk.length>3?'…':''})</span></div>`:''}
+  ${R.noBk.length?`<div class="small"><span class="lbl">Chưa đặt tháng này:</span> <button class="linkbtn small" data-a="calNoBk" title="Xem danh sách khách chưa đặt và Sales phụ trách">${R.noBk.length}/${R.custCount} khách</button> <span class="muted">(${esc(R.noBk.slice(0,3).map(c=>c.name).join(', '))}${R.noBk.length>3?'…':''})</span></div>`:''}
   ${can('dash.sales')?`<button class="linkbtn small" data-a="goDb5">Xem chi tiết ở Bảng thống kê →</button>`:''}
   <div class="muted small">Tính theo ngày bốc; không gồm đơn đã hủy.</div></aside>`;}
 const statModeHead=()=>`<div class="seg sst-seg sst-mode" role="group" aria-label="Loại thống kê"><button class="${V.statMode==='cust'?'':'on'}" data-a="statMode" data-v="truck">Xe</button><button class="${V.statMode==='cust'?'on':''}" data-a="statMode" data-v="cust">Khách</button></div>`;
@@ -359,8 +360,8 @@ function statsPanel(){
   const rows=[['ok','Đã xếp xe'],['hold','Chờ xếp xe'],['resched','Đề nghị đổi ngày'],['rejected','Bị từ chối']].map(([k,l])=>({k,l,...sum(k)})).filter(r=>r.n||r.k==='ok'||r.k==='hold');
   const sp=user(cust(me().customerId).salesId);
   return `<aside class="stats"><h3>THỐNG KÊ CỦA BẠN</h3><div class="bignum num"><small>TỔNG SỐ TẤN ĐÃ ĐẶT</small>${t2(all)}</div>
-  <div class="cstat">${rows.map(r=>`<div class="cstat-row"><span class="st st-${r.k}">${r.l}</span><span class="num"><b>${t2(r.t)} t</b> <span class="muted small">· ${r.n} đơn</span></span></div>`).join('')}</div>
-  ${mine.length?`<div><div class="lbl">Đơn trong tháng</div><div class="cbklist">${mine.map(b=>`<button type="button" class="cbk" data-a="custDay" data-d="${b.date}" title="Xem đơn ngày ${dmy(b.date)}"><span class="num">${dm(b.date)}</span><span class="num">${t2(bkTotal(b))} t</span><span class="st st-${stKey(b)}">${ST_CUST[stKey(b)]}</span></button>`).join('')}</div><div class="small muted" style="margin-top:4px">Không tính đơn đã hủy.</div></div>`:''}
+  <div class="cstat">${rows.map(r=>`<div class="cstat-row"><span class="st st-${r.k}">${r.l}</span><span class="num"><b>${t2(r.t)} MT</b> <span class="muted small">· ${r.n} đơn</span></span></div>`).join('')}</div>
+  ${mine.length?`<div><div class="lbl">Đơn trong tháng</div><div class="cbklist">${mine.map(b=>`<button type="button" class="cbk" data-a="custDay" data-d="${b.date}" title="Xem đơn ngày ${dmy(b.date)}"><span class="num">${dm(b.date)}</span><span class="num">${t2(bkTotal(b))} MT</span><span class="st st-${stKey(b)}">${ST_CUST[stKey(b)]}</span></button>`).join('')}</div><div class="small muted" style="margin-top:4px">Không tính đơn đã hủy.</div></div>`:''}
   <div><div class="lbl">Sales phụ trách</div><div>${esc(sp.name)}</div><div class="muted small">${esc(sp.phone||'')} · ${esc(sp.email)}</div></div></aside>`;}
  if(role()==='sales')return custStatsPanel(y,m);
  if(V.statMode==='cust')return custStatsPanel(y,m,statModeHead());
@@ -378,7 +379,7 @@ function draftList(date){const d=myDrafts(V.wh,date);if(!d.length)return '';
  <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Mã</th><th>Khách hàng</th><th class="r">Số tấn</th><th></th></tr></thead><tbody>${d.map(b=>`<tr class="click" data-a="openBk" data-id="${b.id}"><td><b>${b.id}</b><div class="small muted">${esc(b.ref||'')}</div></td><td>${esc(cust(b.customerId).name)}</td><td class="r num">${t2(bkTotal(b))}</td><td class="r"><button class="btn ghost sm" data-a="openBk" data-id="${b.id}">Mở nháp</button></td></tr>`).join('')}</tbody></table></div></div>`;}
 function offDayList(date,m){const list=S.bookings.filter(b=>b.wh===V.wh&&b.date===date&&['hold','ok','resched'].includes(b.status)&&ownsCust(b.customerId)&&visibleBk(b));
  if(!list.length)return '';const tot=list.reduce((s,b)=>s+bkTotal(b),0);
- return `<div class="warnlist" style="margin-top:12px"><b>${list.length} booking (${t2(tot)} t) đang nằm trong ngày ${m.off?'nghỉ':'chưa khai báo xe'} ${dmy(date)}</b> nên không bốc hàng được. Cách xử lý:
+ return `<div class="warnlist" style="margin-top:12px"><b>${list.length} booking (${t2(tot)} MT) đang nằm trong ngày ${m.off?'nghỉ':'chưa khai báo xe'} ${dmy(date)}</b> nên không bốc hàng được. Cách xử lý:
   <ul style="margin:6px 0 0 18px"><li>Booking <b>Chờ xếp xe</b>: Logistics mở booking → <b>Đề nghị đổi ngày</b> hoặc <b>Từ chối</b>; CS có thể <b>Sửa booking</b> sang ngày khác.</li>
   <li>Booking <b>Đã xếp xe</b>: CS <b>Sửa booking</b> sang ngày khác (booking quay về Chờ xếp xe để Logistics xếp lại).</li>
   ${m.off?`<li>Nếu ngày nghỉ được đánh dấu nhầm: ${can('config.general')?'<button class="linkbtn" data-a="go" data-v="config">vào Configuration → Ngày nghỉ</button>':'nhờ Logistics vào Configuration → Ngày nghỉ'} để bỏ ngày ${dm(date)}.</li>`:''}</ul></div>
@@ -409,21 +410,21 @@ function vDay(){
  </div>
  <aside class="panel" style="padding:12px 14px;background:var(--surface)">
   <div class="tabs" role="tablist"><button class="${V.dayTab==='pending'?'on':''}" data-a="dayTab" data-t="pending">BOOKING CHỜ XẾP XE <span class="cnt">${holdsVis.length}</span></button><button class="${V.dayTab==='merge'?'on':''}" data-a="dayTab" data-t="merge">GỢI Ý GỘP XE ${groups.length?`<span class="cnt" style="background:var(--ok)">${groups.length}</span>`:''}</button></div>
-  ${V.dayTab==='pending'?(Object.keys(byReg).length?Object.entries(byReg).map(([rid,list])=>`<div class="rgrp"><h4><span>${esc(regName(rid))}</span><span class="num">${list.length} booking · ${t2(list.reduce((s,b)=>s+bkTotal(b),0))} t</span></h4>${list.map(b=>pendItem(b,past)).join('')}</div>`).join(''):'<div class="empty small">Không có booking chờ xếp xe.</div>')
+  ${V.dayTab==='pending'?(Object.keys(byReg).length?Object.entries(byReg).map(([rid,list])=>`<div class="rgrp"><h4><span>${esc(regName(rid))}</span><span class="num">${list.length} booking · ${t2(list.reduce((s,b)=>s+bkTotal(b),0))} MT</span></h4>${list.map(b=>pendItem(b,past)).join('')}</div>`).join(''):'<div class="empty small">Không có booking chờ xếp xe.</div>')
    :(groups.length?groups.map(g=>suggCard(g,past)).join(''):'<div class="empty small">Chưa có nhóm gộp đạt điều kiện (cùng khu vực, ≥ 2 booking, lấp đầy ≥ '+S.cfg.fillMin+'%, tối đa '+S.cfg.maxStops+' điểm giao).</div>')}
  </aside></div>
- <div class="foot num"><span>TỔNG SỐ: ${m.trucks.length} XE</span><span>ĐẦY: ${full}</span><span>ĐANG XẾP: ${part}</span><span>TRỐNG: ${m.trucks.length-full-part}</span><span>· Đã xếp: ${t2(m.loaded)} t</span><span>Đang giữ chỗ: ${t2(m.held)} t</span><span>Có thể đặt: ${t2(m.avail)} t</span><span class="grow"></span>${can('booking.create')&&!past?`<button class="btn" data-a="newBk" data-d="${date}">Đặt hàng mới</button>`:''}</div>`}
+ <div class="foot num"><span>TỔNG SỐ: ${m.trucks.length} XE</span><span>ĐẦY: ${full}</span><span>ĐANG XẾP: ${part}</span><span>TRỐNG: ${m.trucks.length-full-part}</span><span>· Đã xếp: ${t2(m.loaded)} MT</span><span>Đang giữ chỗ: ${t2(m.held)} MT</span><span>Có thể đặt: ${t2(m.avail)} MT</span><span class="grow"></span>${can('booking.create')&&!past?`<button class="btn" data-a="newBk" data-d="${date}">Đặt hàng mới</button>`:''}</div>`}
  </div>`;
 }
 function truckCard(t,past){
  const al=liveAllocsOnTruck(t.code);const l=r2(al.reduce((s,a)=>s+a.tons,0));const s=truckState(t,l);const regs=truckRegions(t.code);
- const segs=al.map(a=>{const b=bkById(a.bk);const own=ownsCust(b.customerId);return `<span style="width:${Math.min(100,a.tons/t.cap*100)}%;background:${own?custColor(b.customerId):'var(--mask)'}" title="${own?esc(cust(b.customerId).name):'Khách khác'} ${t2(a.tons)} t"></span>`;}).join('');
- const lines=al.slice(0,2).map(a=>{const b=bkById(a.bk);return `<div>${ownsCust(b.customerId)?esc(cust(b.customerId).name):'Khách khác'} · ${t2(a.tons)} t · ${esc(b.addrText.split(',').pop().trim())}</div>`;}).join('')+(al.length>2?`<div class="muted">+${al.length-2} phần hàng khác</div>`:'');
+ const segs=al.map(a=>{const b=bkById(a.bk);const own=ownsCust(b.customerId);return `<span style="width:${Math.min(100,a.tons/t.cap*100)}%;background:${own?custColor(b.customerId):'var(--mask)'}" title="${own?esc(cust(b.customerId).name):'Khách khác'} ${t2(a.tons)} MT"></span>`;}).join('');
+ const lines=al.slice(0,2).map(a=>{const b=bkById(a.bk);return `<div>${ownsCust(b.customerId)?esc(cust(b.customerId).name):'Khách khác'} · ${t2(a.tons)} MT · ${esc(b.addrText.split(',').pop().trim())}</div>`;}).join('')+(al.length>2?`<div class="muted">+${al.length-2} phần hàng khác</div>`:'');
  const badRegion=regs.length>1&&regs.some((r,i)=>regs.some((q,j)=>j>i&&relation(r,q)==='other'));
  const hl=V.hl&&V.hl.includes(t.code)?'hl':'';const dim=V.dayFilter.region!=='all'&&regs.length&&!regs.includes(V.dayFilter.region)?'dim':'';
  return `<div class="tcard ${hl} ${dim}" style="--tc:${TCOL[tLoadState(l,t.cap,t.closed)]}" data-a="truck" data-c="${t.code}" tabindex="0" role="button" aria-label="Xe ${t.short}">
-  <div class="tc-top">${TICON(t.type,l,t.cap,t.closed)}<span class="grow"></span>${tsPill(s)}</div><div style="min-width:0"><div class="tc-code">${t.short}</div><div class="tc-full muted">${t.code}</div>${t.cap!==t.defCap?`<div class="capchip" title="${esc(t.info&&t.info.reason||'')}">Tải trọng hôm nay ${t2(t.cap)} t · chuẩn ${t.defCap} t</div>`:''}${t.info&&t.info.plate?`<div class="small muted">${esc(t.info.plate)}${t.info.driver?' · '+esc(t.info.driver):''}</div>`:''}</div>
-  <div class="small num">${pct(l/t.cap)} (${t2(l)}/${t.cap} t)</div><div class="bar">${segs}</div>
+  <div class="tc-top">${TICON(t.type,l,t.cap,t.closed)}<span class="grow"></span>${tsPill(s)}</div><div style="min-width:0"><div class="tc-code">${t.short}</div><div class="tc-full muted">${t.code}</div>${t.cap!==t.defCap?`<div class="capchip" title="${esc(t.info&&t.info.reason||'')}">Tải trọng hôm nay ${t2(t.cap)} MT · chuẩn ${t.defCap} MT</div>`:''}${t.info&&t.info.plate?`<div class="small muted">${esc(t.info.plate)}${t.info.driver?' · '+esc(t.info.driver):''}</div>`:''}</div>
+  <div class="small num">${pct(l/t.cap)} (${t2(l)}/${t.cap} MT)</div><div class="bar">${segs}</div>
   ${regs.length?`<div class="row" style="gap:4px">${regs.map(r=>`<span class="rtag ${badRegion?'warn':''}">${esc(regName(r))}</span>`).join('')}${badRegion?'<span class="small" title="Khác khu vực" style="color:var(--bad)">⚠</span>':''}</div>`:''}
   ${al.length?`<div class="tc-lines">${lines}</div>`:''}
   <div class="tc-acts"><button class="btn ghost sm" data-a="truck" data-c="${t.code}">Chi tiết</button>${can('alloc.assign')&&!past&&l<t.cap-0.001?`<button class="btn sm" data-a="place" data-c="${t.code}">Xếp đơn</button>`:''}</div></div>`;
@@ -431,15 +432,15 @@ function truckCard(t,past){
 function pendItem(b,past){const need=r2(bkTotal(b)-allocSum(b.id));const wait=S.clock-b.heldAt;const pref=bkTotal(b)>S.cfg.split?'DK':'XT';
  return `<div class="pitem"><div class="row"><b class="grow">${esc(cust(b.customerId).name)}</b><span class="chip">${pref}</span></div>
  <div class="small muted">${b.id} · ${esc(b.ref)}</div>
- <div class="small">${b.lines.map(l=>esc(l.p)).join(', ')} · <b class="num">${t2(bkTotal(b))} t</b>${need<bkTotal(b)?` <span class="muted num">(còn ${t2(need)} t chưa gán)</span>`:''}</div>
+ <div class="small">${b.lines.map(l=>esc(l.p)).join(', ')} · <b class="num">${t2(bkTotal(b))} MT</b>${need<bkTotal(b)?` <span class="muted num">(còn ${t2(need)} MT chưa gán)</span>`:''}</div>
  <div class="small muted">${esc(b.addrText)} · chờ <span style="color:${wait>S.cfg.sla?'var(--bad)':wait>45?'var(--warn)':'inherit'};font-weight:700">${wait} phút</span></div>
  <div class="row"><button class="btn sm" data-a="openBk" data-id="${b.id}">${can('alloc.assign')&&!past?'Xếp xe':'Xem'}</button></div></div>`;}
 function suggCard(g,past){
- const tlabel=g.truck?`ghép vào ${truckByCode(g.truck).short} (đang có ${t2(g.base)} t)`:'1 xe thùng mới';
+ const tlabel=g.truck?`ghép vào ${truckByCode(g.truck).short} (đang có ${t2(g.base)} MT)`:'1 xe thùng mới';
  return `<div class="sugg ${g.nb?'nb':''}" data-a="hlGroup" data-k="${esc(g.key)}">
  <div class="row"><b class="grow">${g.regions.map(regName).map(esc).join(' + ')}</b><span class="chip">${g.nb?'Lân cận':'Cùng khu vực'}</span></div>
- <div class="small">${g.items.map(x=>`${esc(cust(x.b.customerId).name)} <b class="num">${t2(x.need)} t</b>`).join(' + ')}</div>
- <div class="small num">→ ${tlabel}: <b>${t2(g.tons)}/${g.cap} t (${pct(g.fill)})</b>${g.saving>0?` · tiết kiệm ${g.saving} xe`:''}</div>
+ <div class="small">${g.items.map(x=>`${esc(cust(x.b.customerId).name)} <b class="num">${t2(x.need)} MT</b>`).join(' + ')}</div>
+ <div class="small num">→ ${tlabel}: <b>${t2(g.tons)}/${g.cap} MT (${pct(g.fill)})</b>${g.saving>0?` · tiết kiệm ${g.saving} xe`:''}</div>
  ${g.nb?'<div class="small" style="color:var(--warn)">Khác tỉnh nhưng lân cận: Logistics tự quyết định.</div>':''}
  ${can('merge.apply')&&!past?`<div class="row"><button class="btn sm" data-a="applyGroup" data-k="${esc(g.key)}">Áp dụng</button><button class="btn ghost sm" data-a="skipGroup" data-k="${esc(g.key)}">Bỏ qua</button></div>`:''}</div>`;
 }
@@ -503,8 +504,8 @@ function initAsg(id){const rows={};allocsOf(id).forEach(a=>rows[a.truck]=a.tons)
 function asgCheck(b){
  const rows=V.asg.rows;const trucks=trucksOf(b.wh,b.date);const sum=r2(Object.values(rows).reduce((s,v)=>s+(num(v)||0),0));const warns=[];const pref=bkTotal(b)>S.cfg.split?'DK':'XT';
  for(const t of trucks){const v=num(rows[t.code])||0;if(v<=0)continue;const ex=loadOf(t.code,b.id);
-  if(ex+v>t.cap+0.001)warns.push(`${t.short} vượt tải trọng: ${t2(ex+v)}/${t.cap} t`);
-  if(t.type!==pref)warns.push(`${t.short} khác loại xe gợi ý (đơn ${t2(bkTotal(b))} t → ${pref})`);
+  if(ex+v>t.cap+0.001)warns.push(`${t.short} vượt tải trọng: ${t2(ex+v)}/${t.cap} MT`);
+  if(t.type!==pref)warns.push(`${t.short} khác loại xe gợi ý (đơn ${t2(bkTotal(b))} MT → ${pref})`);
   const rs=truckRegions(t.code,b.id);if(rs.length&&b.region!=='NONE'&&rs.every(r=>relation(r,b.region)==='other'))warns.push(`${t.short} đang chở hàng khu vực khác (${rs.map(regName).join(', ')})`);
   if(!stopsOk(t.code,b))warns.push(`${t.short} vượt ${S.cfg.maxStops} điểm giao`);}
  return{sum,warns,total:bkTotal(b)};
@@ -527,9 +528,9 @@ function vBooking(){
   <dl class="dl"><dt>Kho</dt><dd>${WHALL.find(w=>w.id===b.wh).full}</dd><dt>Ngày bốc</dt><dd class="num">${dmy(b.date)}${b.origDate&&b.origDate!==b.date?` <span class="small muted">· gốc ${dmy(b.origDate)}, đổi ${b.changes} lần</span>`:''}${b.urgent?' <span class="urg">KHẨN</span>':''}${b.holiday?' <span class="urg">⚠ NGÀY NGHỈ</span>':''}</dd><dt>Ngày giao YC</dt><dd>${b.delivery?dmy(b.delivery):'–'}</dd>
   <dt>Khách hàng</dt><dd>${ownsCust(b.customerId)?`${esc(c.name)}<div class="small muted">${SEG_LABEL[c.segment]} · Sales: ${esc(user(c.salesId).name)}</div>`:'–'}</dd><dt>Ref</dt><dd>${esc(b.ref)}</dd><dt>Địa chỉ giao</dt><dd>${esc(b.addrText)}<div class="small muted">${esc(b.province)}</div></dd>
   <dt>Khu vực</dt><dd>${can('booking.region')&&ownsCust(b.customerId)&&!past&&['hold','ok'].includes(b.status)?`<select class="inp" id="bk-region" data-a="bkRegion"><option value="NONE" ${b.region==='NONE'?'selected':''}>Chưa phân khu vực</option>${regionsOf(b.wh).map(r=>`<option value="${r.id}" ${b.region===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}</select>`:esc(regName(b.region))}</dd>
-  <dt>Tổng tấn</dt><dd class="num"><b>${t2(bkTotal(b))} t</b> · gợi ý ${pref}</dd><dt>CS phụ trách</dt><dd>${esc(user(b.csId).name)}${awayTag(user(b.csId))}${c&&c.csId&&c.csId!==b.csId?'<div class="small muted">CS phụ trách khách: '+esc(user(c.csId).name)+awayTag(user(c.csId))+'</div>':''}${b.status!=='draft'?` · giữ chỗ ${clockStr(b.heldAt)}`:''}</dd>
+  <dt>Tổng tấn</dt><dd class="num"><b>${t2(bkTotal(b))} MT</b> · gợi ý ${pref}</dd><dt>CS phụ trách</dt><dd>${esc(user(b.csId).name)}${awayTag(user(b.csId))}${c&&c.csId&&c.csId!==b.csId?'<div class="small muted">CS phụ trách khách: '+esc(user(c.csId).name)+awayTag(user(c.csId))+'</div>':''}${b.status!=='draft'?` · giữ chỗ ${clockStr(b.heldAt)}`:''}</dd>
   ${b.note?`<dt>Ghi chú</dt><dd>${esc(b.note)}</dd>`:''}${b.rejectReason?`<dt>Lý do</dt><dd>${esc(b.rejectReason)}</dd>`:''}${b.proposedDate?`<dt>Ngày đề xuất</dt><dd>${dmy(b.proposedDate)}</dd>`:''}</dl>
-  <ul class="lines">${b.lines.map(l=>`<li>${[l.p,l.c].filter(Boolean).map(esc).join(' · ')}${l.th||l.w?' · '+l.th+'×'+l.w:''}${l.p||l.c||l.th||l.w?' · ':''}<b class="num">${t2(l.t)} t</b></li>`).join('')}</ul>
+  <ul class="lines">${b.lines.map(l=>`<li>${[l.p,l.c].filter(Boolean).map(esc).join(' · ')}${l.th||l.w?' · '+l.th+'×'+l.w:''}${l.p||l.c||l.th||l.w?' · ':''}<b class="num">${t2(l.t)} MT</b></li>`).join('')}</ul>
   ${typeof bkInfo29==='function'?bkInfo29(b):''}
   ${hist.length?`<h4 style="margin:12px 0 4px;font-size:12px">LỊCH SỬ</h4><ul class="hist">${hist.map(h=>`<li>${clockStr(h.at)} · ${esc(h.who)}: ${esc(h.text)}</li>`).join('')}</ul>`:''}
  </div>
@@ -546,14 +547,14 @@ function vBooking(){
 }
 function asgLive(b,chk,editable){
  const ok=Math.abs(chk.sum-chk.total)<0.005;
- return `<div class="sumbar num ${ok?'good':'badd'}">Đã gán ${t2(chk.sum)} / ${t2(chk.total)} tấn ${ok?'· khớp':chk.sum>chk.total?'· thừa '+t2(chk.sum-chk.total)+' t':'· còn thiếu '+t2(chk.total-chk.sum)+' t'}</div>
+ return `<div class="sumbar num ${ok?'good':'badd'}">Đã gán ${t2(chk.sum)} / ${t2(chk.total)} tấn ${ok?'· khớp':chk.sum>chk.total?'· thừa '+t2(chk.sum-chk.total)+' MT':'· còn thiếu '+t2(chk.total-chk.sum)+' MT'}</div>
  ${chk.warns.length?`<div class="warnlist"><b>Cần lý do override (BR-04, BR-06, BR-22):</b><ul style="margin:4px 0 0;padding-left:18px">${chk.warns.map(w=>`<li>${esc(w)}</li>`).join('')}</ul></div>`:''}
  ${editable&&chk.warns.length?`<div class="field" style="margin-bottom:8px"><label for="asg-reason">Lý do override <span class="req">*</span></label><input id="asg-reason" class="inp" data-f="asgReason" value="${esc(V.asg.reason)}" placeholder="Ví dụ: hết xe thùng, khách đồng ý đi ghép"></div>`:''}`;
 }
 function asgActions(b){const A=V.asg;
  return `${A.err?`<div class="err" style="margin:6px 0">${esc(A.err)}</div>`:''}
  ${A.panel==='rej'?`<div class="panel" style="margin:8px 0"><div class="field"><label for="rej">Lý do từ chối <span class="req">*</span></label><input id="rej" class="inp" data-f="rej" value="${esc(A.rej)}"></div><div class="mfoot"><button class="btn ghost sm" data-a="asgPanel" data-p="">Thôi</button><button class="btn danger sm" data-a="asgReject">Xác nhận từ chối</button></div></div>`:''}
- ${A.panel==='res'?`<div class="panel" style="margin:8px 0"><div class="fgrid"><div class="field"><label for="res-d">Ngày đề xuất <span class="req">*</span></label><select id="res-d" class="inp" data-f="resDate"><option value="">Chọn ngày</option>${[...Array(14)].map((_,i)=>addDays(b.date<TODAY?addDays(TODAY,-1):b.date,i+1)).filter(d=>S.fleet[b.wh][d]&&!isHoliday(b.wh,d)).map(d=>`<option value="${d}" ${A.newDate===d?'selected':''}>${WDS[dow(d)]} ${dmy(d)} · có thể đặt ${t2(dayM(b.wh,d).avail)} t</option>`).join('')}</select></div><div class="field"><label for="res-r">Lý do <span class="req">*</span></label><input id="res-r" class="inp" data-f="resReason" value="${esc(A.resReason)}"></div></div><div class="mfoot"><button class="btn ghost sm" data-a="asgPanel" data-p="">Thôi</button><button class="btn sm" data-a="asgResched">Gửi đề nghị đổi ngày</button></div></div>`:''}
+ ${A.panel==='res'?`<div class="panel" style="margin:8px 0"><div class="fgrid"><div class="field"><label for="res-d">Ngày đề xuất <span class="req">*</span></label><select id="res-d" class="inp" data-f="resDate"><option value="">Chọn ngày</option>${[...Array(14)].map((_,i)=>addDays(b.date<TODAY?addDays(TODAY,-1):b.date,i+1)).filter(d=>S.fleet[b.wh][d]&&!isHoliday(b.wh,d)).map(d=>`<option value="${d}" ${A.newDate===d?'selected':''}>${WDS[dow(d)]} ${dmy(d)} · có thể đặt ${t2(dayM(b.wh,d).avail)} MT</option>`).join('')}</select></div><div class="field"><label for="res-r">Lý do <span class="req">*</span></label><input id="res-r" class="inp" data-f="resReason" value="${esc(A.resReason)}"></div></div><div class="mfoot"><button class="btn ghost sm" data-a="asgPanel" data-p="">Thôi</button><button class="btn sm" data-a="asgResched">Gửi đề nghị đổi ngày</button></div></div>`:''}
  <div class="mfoot">${b.status==='hold'&&can('booking.reject')?`<button class="btn ghost" data-a="asgPanel" data-p="rej">Từ chối</button><button class="btn ghost" data-a="asgPanel" data-p="res">Đề nghị đổi ngày</button>`:''}${A.edit?`<button class="btn ghost" data-a="asgSave">Lưu xếp tạm</button><button class="btn" data-a="asgConfirm">Xác nhận</button>`:''}</div>`;}
 
 /* ---------- SCR-12 fleet ---------- */
@@ -668,7 +669,7 @@ function dashCust(){
  const bar=`<div class="row db5bar" style="gap:10px;flex-wrap:wrap;margin-bottom:12px"><div class="monthnav sm"><button class="navbtn" data-a="dbMonth" data-d="-1" aria-label="Tháng trước">‹</button><b>THÁNG ${pad(m)}/${y}</b><button class="navbtn" data-a="dbMonth" data-d="1" aria-label="Tháng sau">›</button></div>${csSegChips(scope,seg,'csSeg')}${whSel}<span class="muted small">${SCOPE_LABEL[scope]} · theo ngày bốc · không gồm đơn đã hủy</span></div>`;
  if(!d)return bar+'<div class="empty">Đang tải…</div>';if(d.err)return bar+`<div class="err">${esc(d.err)}</div>`;
  const R=csCompute(d,{seg,wh:V.ssAll!==false?'all':V.wh,from:ms,to:me_});const yest=addDays(TODAY,-1);const toD=yest<me_?yest:me_;
- const tile=(l,v,sub,cls='')=>`<div class="tile ${cls}"><span class="lbl">${l}</span><span class="val num">${t2(v.t)} t</span><span class="sub">${sub}</span></div>`;
+ const tile=(l,v,sub,cls='')=>`<div class="tile ${cls}"><span class="lbl">${l}</span><span class="val num">${t2(v.t)} MT</span><span class="sub">${sub}</span></div>`;
  const kpi=`<div class="kpis">${tile('Tổng đã đặt',R.total,`${R.total.n} đơn · xếp xe + chờ + đổi ngày + lưu tạm`)}${tile('Đã xác nhận đến hôm qua',R.okPast,toD<ms?'Tháng chưa bắt đầu':`${dm(ms)} – ${dm(toD)} · ${R.okPast.n} đơn`)}${tile('Sắp tới (từ hôm nay)',R.ahead,`${R.ahead.n} đơn chưa bốc`)}${tile('Bị từ chối',R.rej,`${R.rej.n} đơn · nhu cầu bị mất`,R.rej.n?'crit':'')}</div>`;
  const cols=['ok','hold','resched','draft'];const CL={ok:'Đã xếp xe',hold:'Chờ xếp xe',resched:'Đổi ngày',draft:'Lưu tạm'};
  const segRows=['DD','DA','EX'].filter(k=>seg==='all'||k===seg).map(k=>({k,v:R.bySeg[k]||{t:0,n:0,ok:0,hold:0,resched:0,draft:0,rej:0}}));
@@ -677,7 +678,7 @@ function dashCust(){
   ${segRows.length>1?`<tr class="tot"><td><b>Tổng</b></td>${cols.map(c=>`<td class="r num"><b>${t2(segRows.reduce((s,x)=>s+x.v[c],0))}</b></td>`).join('')}<td class="r num"><b>${t2(R.total.t)}</b></td><td class="r num"><b>${t2(R.rej.t)}</b></td></tr>`:''}</tbody></table></div></div>`;
  const wk=[0,1,2,3,4].filter(i=>i*7+1<=dim(y,m)).map(i=>({i,l:`${pad(i*7+1)}–${pad(Math.min(dim(y,m),i===4?dim(y,m):i*7+7))}/${pad(m)}`,v:R.byWeek[i]||{t:0,ok:0,hold:0,resched:0,draft:0}}));const wmax=Math.max(1,...wk.map(w=>w.v.t));
  const COL={ok:'var(--ok)',hold:'var(--warn)',resched:'var(--s2)',draft:'var(--muted)'};
- const wkT=`<div class="dcard"><h3>THEO TUẦN TRONG THÁNG</h3><p class="cap">Tổng đã đặt theo ngày bốc, chia theo trạng thái</p>${wk.map(w=>`<div class="hbar" data-tip="Ngày ${w.l}\n${cols.map(c=>`${CL[c]}: ${t2(w.v[c])} t`).join('\n')}"><span class="num">${w.l}</span><div class="trk" style="display:flex">${cols.map(c=>w.v[c]?`<div class="fil" style="width:${w.v[c]/wmax*100}%;background:${COL[c]};border-radius:0"></div>`:'').join('')}</div><b class="num">${t2(w.v.t)}</b></div>`).join('')}
+ const wkT=`<div class="dcard"><h3>THEO TUẦN TRONG THÁNG</h3><p class="cap">Tổng đã đặt theo ngày bốc, chia theo trạng thái</p>${wk.map(w=>`<div class="hbar" data-tip="Ngày ${w.l}\n${cols.map(c=>`${CL[c]}: ${t2(w.v[c])} MT`).join('\n')}"><span class="num">${w.l}</span><div class="trk" style="display:flex">${cols.map(c=>w.v[c]?`<div class="fil" style="width:${w.v[c]/wmax*100}%;background:${COL[c]};border-radius:0"></div>`:'').join('')}</div><b class="num">${t2(w.v.t)}</b></div>`).join('')}
   <div class="lgd">${cols.map(c=>`<span><i style="background:${COL[c]}"></i>${CL[c]}</span>`).join('')}</div></div>`;
  const sales=Object.entries(R.bySales).filter(([,v])=>v.t>0||v.rej>0).sort((a,b)=>b[1].t-a[1].t);
  const nCustOf=sid=>Object.values(R.C).filter(c=>(c.salesId||'-')===sid&&(seg==='all'||c.segment===seg)).length;
@@ -701,18 +702,18 @@ function dashToday(){
  const groups=groupSuggest(V.wh,TODAY);const save=groups.reduce((s,g)=>s+Math.max(0,g.saving),0);
  const ov=S.allocs.filter(a=>a.override&&a.truck.includes('-'+ddmmyy(TODAY)+'-')&&a.truck.startsWith(V.wh)).length;
  const heat=`<div class="tbl-wrap" style="border:0"><table class="heat"><thead><tr><th class="rh">Kho</th>${days.map(d=>`<th>${WDS[dow(d)]}<br>${dm(d)}</th>`).join('')}</tr></thead><tbody>${WH.map(w=>`<tr><th class="rh">${w.name}</th>${days.map(d=>{const m=dayM(w.id,d);if(m.off||!m.declared)return `<td class="h-${m.off?'off':'none'}" data-tip="${w.full} ${dmy(d)}\n${m.off?'Không bốc hàng':'Chưa khai báo xe'}">${m.off?'Nghỉ':'Chưa mở'}</td>`;
-  return `<td class="h-${m.status}" data-a="dashDay" data-w="${w.id}" data-d="${d}" data-tip="${w.full} ${dmy(d)} · ${PILL[m.status]}\nSử dụng ${pct(m.usage)} (đã xếp + giữ chỗ)\nCó thể đặt ${t2(m.avail)} t / capacity ${m.cap} t"><b class="num">${pct(m.usage)}</b><span class="num">còn ${Math.round(m.avail)} t</span><br><span class="small">${PILL[m.status]}</span></td>`;}).join('')}</tr>`).join('')}</tbody></table></div>`;
+  return `<td class="h-${m.status}" data-a="dashDay" data-w="${w.id}" data-d="${d}" data-tip="${w.full} ${dmy(d)} · ${PILL[m.status]}\nSử dụng ${pct(m.usage)} (đã xếp + giữ chỗ)\nCó thể đặt ${t2(m.avail)} MT / capacity ${m.cap} MT"><b class="num">${pct(m.usage)}</b><span class="num">còn ${Math.round(m.avail)} MT</span><br><span class="small">${PILL[m.status]}</span></td>`;}).join('')}</tr>`).join('')}</tbody></table></div>`;
  const mx=Math.max(1,...bk);const bars=[['Dưới 30 phút','var(--ok)'],['30–60 phút','var(--warn)'],['Quá 60 phút','var(--bad)']].map(([l,c],i)=>`<div class="hbar" data-tip="${l}: ${bk[i]} booking"><span>${l}</span><div class="trk"><div class="fil" style="width:${bk[i]/mx*100}%;background:${c}"></div></div><b class="num">${bk[i]}</b></div>`).join('');
  const over=holds.filter(b=>S.clock-b.heldAt>S.cfg.sla).sort((a,b)=>a.heldAt-b.heldAt);
  const m=dayStats(V.wh,TODAY);const st=type=>{const ts=m.trucks.filter(t=>t.type===type);const c={empty:0,part:0,full:0};ts.forEach(t=>{const s=truckState(t,loadOf(t.code));c[s==='over'?'full':s]++;});return{c,n:ts.length};};
  const stackRow=(type,label)=>{const{c,n}=st(type);if(!n)return `<div class="small muted">${label}: chưa khai báo</div>`;return `<div style="margin-bottom:10px"><div class="row" style="justify-content:space-between"><b>${label}</b><span class="num small muted">${n} xe</span></div><div class="stack">${[['full','var(--bad)','Đầy'],['part','var(--warn)','Đang xếp'],['empty','var(--ok)','Trống']].filter(x=>c[x[0]]).map(([k,col,l])=>`<span style="width:${c[k]/n*100}%;background:${col}" data-tip="${label} · ${l}: ${c[k]} xe"></span>`).join('')}</div><div class="lgd"><span><i style="background:var(--bad)"></i>Đầy ${c.full}</span><span><i style="background:var(--warn)"></i>Đang xếp ${c.part}</span><span><i style="background:var(--ok)"></i>Trống ${c.empty}</span></div></div>`;};
- return `<div class="kpis"><div class="tile"><span class="lbl">Booking chờ xếp xe</span><span class="val num">${holds.length}</span><span class="sub">${t2(holds.reduce((s,b)=>s+bkTotal(b)-allocSum(b.id),0))} t chưa gán xe</span></div>
+ return `<div class="kpis"><div class="tile"><span class="lbl">Booking chờ xếp xe</span><span class="val num">${holds.length}</span><span class="sub">${t2(holds.reduce((s,b)=>s+bkTotal(b)-allocSum(b.id),0))} MT chưa gán xe</span></div>
  <div class="tile ${bk[2]?'crit':''}"><span class="lbl">Quá hạn ${S.cfg.sla} phút</span><span class="val num">${bk[2]?'⚠ ':''}${bk[2]}</span><span class="sub">${bk[2]?'Cần xử lý ngay':'Không có booking quá hạn'}</span></div>
  <div class="tile"><span class="lbl">Nhóm gộp đang chờ (hôm nay)</span><span class="val num">${groups.length}</span><span class="sub">Tiết kiệm ${save} xe nếu áp dụng</span></div>
  <div class="tile"><span class="lbl">Override hôm nay</span><span class="val num">${ov}</span><span class="sub">Vượt tải, sai loại xe, khác khu vực</span></div></div>
  <div class="dgrid"><div class="dcard span2"><h3>SỨC CHỨA 7 NGÀY TỚI</h3><p class="cap">% sử dụng = (đã xếp + đang giữ chỗ) ÷ capacity. Bấm ô để mở chi tiết ngày.</p>${heat}</div>
  <div class="dcard"><h3>HÀNG CHỜ THEO THỜI GIAN CHỜ</h3><p class="cap">${WHALL.find(w=>w.id===V.wh).full} · thời hạn phản hồi ${S.cfg.sla} phút</p>${bars}
- ${over.length?`<div style="margin-top:10px">${over.slice(0,5).map(b=>`<div class="row small" style="padding:6px 0;border-top:1px solid var(--line)"><span class="grow"><b>${esc(cust(b.customerId).name)}</b> · ${b.id} · <span class="num">${t2(bkTotal(b))} t</span> · ${dm(b.date)}</span><span class="num" style="color:var(--bad);font-weight:700">⚠ ${S.clock-b.heldAt} phút</span><button class="btn sm" data-a="openBk" data-id="${b.id}">Xử lý</button></div>`).join('')}</div>`:''}</div>
+ ${over.length?`<div style="margin-top:10px">${over.slice(0,5).map(b=>`<div class="row small" style="padding:6px 0;border-top:1px solid var(--line)"><span class="grow"><b>${esc(cust(b.customerId).name)}</b> · ${b.id} · <span class="num">${t2(bkTotal(b))} MT</span> · ${dm(b.date)}</span><span class="num" style="color:var(--bad);font-weight:700">⚠ ${S.clock-b.heldAt} phút</span><button class="btn sm" data-a="openBk" data-id="${b.id}">Xử lý</button></div>`).join('')}</div>`:''}</div>
  <div class="dcard"><h3>XE HÔM NAY · ${dm(TODAY)}</h3><p class="cap">${WHALL.find(w=>w.id===V.wh).full} · tỷ lệ lấp đầy xe đang chạy ${pct(m.fill)}</p>${stackRow('DK','Đầu kéo (DK)')}${stackRow('XT','Xe thùng (XT)')}
  <button class="btn ghost sm" data-a="dashDay" data-w="${V.wh}" data-d="${TODAY}">Mở chi tiết ngày</button></div></div>`;}
 function lineChart(rows){
@@ -727,7 +728,7 @@ function lineChart(rows){
  <path d="${path('fill')}" fill="none" stroke="var(--s2)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
  <circle cx="${X(n-1)}" cy="${ly1}" r="4.5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/><circle cx="${X(li)}" cy="${ly2}" r="4.5" fill="var(--s2)" stroke="var(--surface)" stroke-width="2"/>
  <text x="${X(n-1)+10}" y="${ly1+4+sep}" font-size="12" font-weight="700" fill="var(--ink)">${pct(last.util)} sử dụng</text><text x="${X(n-1)+10}" y="${ly2+4-sep}" font-size="12" font-weight="700" fill="var(--ink)">${pct(lf)} lấp đầy</text>
- ${rows.map((r,i)=>{const w=(W-L-R)/(n-1);return `<rect class="hit" x="${X(i)-w/2}" y="${T}" width="${w}" height="${H-T-B}" fill="transparent" data-tip="${WDS[dow(r.d)]} ${dmy(r.d)}\nSử dụng capacity ${pct(r.util)}\nLấp đầy xe ${r.fill===null?'– (không có xe chạy)':pct(r.fill)}\nĐã xếp ${t2(r.loaded)} / ${r.cap} t"/>`;}).join('')}</svg>`;}
+ ${rows.map((r,i)=>{const w=(W-L-R)/(n-1);return `<rect class="hit" x="${X(i)-w/2}" y="${T}" width="${w}" height="${H-T-B}" fill="transparent" data-tip="${WDS[dow(r.d)]} ${dmy(r.d)}\nSử dụng capacity ${pct(r.util)}\nLấp đầy xe ${r.fill===null?'– (không có xe chạy)':pct(r.fill)}\nĐã xếp ${t2(r.loaded)} / ${r.cap} MT"/>`;}).join('')}</svg>`;}
 function dashUtil(){
  const[y,mo]=V.ym;const rows=[];for(let d=1;d<=dim(y,mo);d++){const ds=iso(y,mo,d);if(ds>TODAY)break;const m=dayStats(V.wh,ds);if(m.off||!m.declared)continue;rows.push({d:ds,util:m.util,fill:m.usedCap?m.fill:null,loaded:m.loaded,cap:m.cap,usedCap:m.usedCap});}
  const sum=k=>rows.reduce((s,r)=>s+r[k],0);const U=sum('cap')?sum('loaded')/sum('cap'):0,F=sum('usedCap')?sum('loaded')/sum('usedCap'):0;
@@ -744,7 +745,7 @@ function dashUtil(){
  <div class="lgd" style="margin-bottom:6px"><span><i class="ln" style="background:var(--s1)"></i>Sử dụng capacity = đã xếp ÷ mọi xe khai báo</span><span><i class="ln" style="background:var(--s2)"></i>Lấp đầy xe = đã xếp ÷ xe có chở hàng</span></div>
  ${lineChart(rows)}<button class="linkbtn small" data-a="dashTable">${V.dashTable?'Ẩn bảng số liệu':'Xem dạng bảng'}</button>${tbl}</div>
  <div class="dcard"><h3>ĐÃ ĐẶT SO VỚI CAPACITY · 14 NGÀY TỚI</h3><p class="cap">Thanh xám = capacity ngày; phần màu = đã xếp + đang giữ chỗ</p>
- ${fut.map(({d,m})=>`<div class="hbar" data-tip="${dmy(d)} · ${PILL[m.status]}\nĐã đặt ${t2(m.loaded+m.held)} / ${m.cap} t\nCó thể đặt ${t2(m.avail)} t"><span class="num">${WDS[dow(d)]} ${dm(d)}</span><div class="trk" style="width:${m.cap/maxCap*100}%"><div class="fil" style="width:${Math.min(100,m.usage*100)}%;background:var(--s1)"></div></div><b class="num">${pct(m.usage)}</b></div>`).join('')||'<div class="muted small">Chưa khai báo xe cho 14 ngày tới.</div>'}</div>
+ ${fut.map(({d,m})=>`<div class="hbar" data-tip="${dmy(d)} · ${PILL[m.status]}\nĐã đặt ${t2(m.loaded+m.held)} / ${m.cap} t\nCó thể đặt ${t2(m.avail)} MT"><span class="num">${WDS[dow(d)]} ${dm(d)}</span><div class="trk" style="width:${m.cap/maxCap*100}%"><div class="fil" style="width:${Math.min(100,m.usage*100)}%;background:var(--s1)"></div></div><b class="num">${pct(m.usage)}</b></div>`).join('')||'<div class="muted small">Chưa khai báo xe cho 14 ngày tới.</div>'}</div>
  <div class="dcard"><h3>NGÀY GIẢM XE VÀ LÝ DO</h3><p class="cap">Từ khai báo xe của Logistics (SCR-12)</p>
  <div class="tbl-wrap"><table><thead><tr><th>Ngày</th><th class="r">DK</th><th class="r">XT</th><th>Lý do</th></tr></thead><tbody>${cuts.map(([d,f])=>`<tr><td class="num">${dmy(d)}</td><td class="r num">${f.dk}</td><td class="r num">${f.cn}</td><td>${esc(f.reason)}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">Không có ngày giảm xe.</td></tr>'}</tbody></table></div></div></div>`;}
 function meter(label,used,limit,unit,note){const r=used/limit;const col=r>=.9?'var(--bad)':r>=.7?'var(--warn)':'var(--ok)';const st=r>=.9?'Sắp vượt':r>=.7?'Cần theo dõi':'An toàn';
@@ -849,35 +850,35 @@ function mTruck(){const t=truckByCode(V.modal.code);const al=liveAllocsOnTruck(t
  return `<div class="mhead"><span class="meta">${WHALL.find(w=>w.id===t.wh).full.toUpperCase()}</span><span class="meta">Ngày: ${dmy(t.date)}</span></div>
  <div class="truckbig">${TICON(t.type,l,t.cap,t.closed)}<div><div class="row"><span class="code">${t.short}</span>${tsPill(s)}${t.closed?`<span class="pill p-full"><i></i>🔒 Đã đóng</span>`:''}</div><div class="small muted">${t.code}${t.closed&&t.info.closedReason?' · Đóng xe: '+esc(t.info.closedReason):''}</div>
  <div style="font-family:var(--f-display);font-weight:800;font-size:24px;margin-top:6px" class="num">${pct(l/t.cap)} (${t2(l)} tấn)</div>
- <div class="small">Loại: ${t.type==='DK'?'Đầu kéo':'Xe thùng'} · Tải trọng: ${t2(t.cap)} t${t.cap!==t.defCap?` (chuẩn ${t.defCap} t)`:''} · Còn trống: ${t2(Math.max(0,t.cap-l))} t${truckRegions(t.code).length?' · Khu vực: '+truckRegions(t.code).map(regName).map(esc).join(', '):''} · Điểm giao: ${truckStops(t.code).size}/${S.cfg.maxStops}</div></div></div>
+ <div class="small">Loại: ${t.type==='DK'?'Đầu kéo':'Xe thùng'} · Tải trọng: ${t2(t.cap)} MT${t.cap!==t.defCap?` (chuẩn ${t.defCap} MT)`:''} · Còn trống: ${t2(Math.max(0,t.cap-l))} MT${truckRegions(t.code).length?' · Khu vực: '+truckRegions(t.code).map(regName).map(esc).join(', '):''} · Điểm giao: ${truckStops(t.code).size}/${S.cfg.maxStops}</div></div></div>
  ${truckInfoBlock(t,l,past)}
  <h3 style="margin-top:16px;font-size:15px">CHI TIẾT XẾP HÀNG – XE ${t.short}</h3>
- <div class="floor">${segs.map(g=>{const b=bkById(g.bk);const own=ownsCust(b.customerId);return `<div style="width:${g.tons/Math.max(t.cap,l)*100}%;background:${own?custColor(b.customerId):'var(--mask)'}">${isLog&&!past?`<button class="ed" data-a="editAl" data-id="${g.ids[0]}">Sửa</button>`:''}<span>${own?esc(cust(b.customerId).name):'Khách khác'} – ${t2(g.tons)} t</span><span class="num">(${pct(g.tons/t.cap)})</span></div>`;}).join('')}${l<t.cap?`<div class="free" style="width:${(t.cap-l)/t.cap*100}%"><span>Còn trống – ${t2(t.cap-l)} t</span><span class="num">(${pct((t.cap-l)/t.cap)})</span></div>`:''}</div>
- <div class="orders">${segs.map((g,i)=>{const b=bkById(g.bk);const own=ownsCust(b.customerId);return own?`<div><h4 style="color:${custColor(b.customerId)}">ĐƠN HÀNG ${i+1}: ${esc(cust(b.customerId).name)}</h4><div>${b.id} · ${esc(b.ref)} · <span class="st st-${stKey(b)}">${ST_LABEL[stKey(b)]}</span></div><div class="num">Trên xe này: <b>${t2(g.tons)} t</b> / tổng ${t2(bkTotal(b))} t</div><div>${b.lines.map(x=>`${esc(x.p)} · ${esc(x.c)} · ${x.th}×${x.w} · ${t2(x.t)} t`).join('<br>')}</div><div>Điểm giao: ${esc(b.addrText)}</div><div>Khu vực: ${esc(regName(b.region))}</div><div class="row" style="margin-top:6px;gap:6px"><button class="btn ghost sm" data-a="openBk" data-id="${b.id}">Mở booking</button>${can('booking.edit')&&(b.status==='hold'||b.status==='ok'&&!past)?`<button class="btn ghost sm" data-a="editBk" data-id="${b.id}">Sửa booking</button>`:''}</div></div>`:`<div><h4>ĐƠN HÀNG ${i+1}: Khách khác</h4><div class="num">${t2(g.tons)} t</div><div class="muted small">Không thuộc khách bạn phụ trách.</div></div>`;}).join('')||'<div class="muted">Xe chưa có hàng.</div>'}</div>
+ <div class="floor">${segs.map(g=>{const b=bkById(g.bk);const own=ownsCust(b.customerId);return `<div style="width:${g.tons/Math.max(t.cap,l)*100}%;background:${own?custColor(b.customerId):'var(--mask)'}">${isLog&&!past?`<button class="ed" data-a="editAl" data-id="${g.ids[0]}">Sửa</button>`:''}<span>${own?esc(cust(b.customerId).name):'Khách khác'} – ${t2(g.tons)} MT</span><span class="num">(${pct(g.tons/t.cap)})</span></div>`;}).join('')}${l<t.cap?`<div class="free" style="width:${(t.cap-l)/t.cap*100}%"><span>Còn trống – ${t2(t.cap-l)} MT</span><span class="num">(${pct((t.cap-l)/t.cap)})</span></div>`:''}</div>
+ <div class="orders">${segs.map((g,i)=>{const b=bkById(g.bk);const own=ownsCust(b.customerId);return own?`<div><h4 style="color:${custColor(b.customerId)}">ĐƠN HÀNG ${i+1}: ${esc(cust(b.customerId).name)}</h4><div>${b.id} · ${esc(b.ref)} · <span class="st st-${stKey(b)}">${ST_LABEL[stKey(b)]}</span></div><div class="num">Trên xe này: <b>${t2(g.tons)} MT</b> / tổng ${t2(bkTotal(b))} MT</div><div>${b.lines.map(x=>`${esc(x.p)} · ${esc(x.c)} · ${x.th}×${x.w} · ${t2(x.t)} MT`).join('<br>')}</div><div>Điểm giao: ${esc(b.addrText)}</div><div>Khu vực: ${esc(regName(b.region))}</div><div class="row" style="margin-top:6px;gap:6px"><button class="btn ghost sm" data-a="openBk" data-id="${b.id}">Mở booking</button>${can('booking.edit')&&(b.status==='hold'||b.status==='ok'&&!past)?`<button class="btn ghost sm" data-a="editBk" data-id="${b.id}">Sửa booking</button>`:''}</div></div>`:`<div><h4>ĐƠN HÀNG ${i+1}: Khách khác</h4><div class="num">${t2(g.tons)} MT</div><div class="muted small">Không thuộc khách bạn phụ trách.</div></div>`;}).join('')||'<div class="muted">Xe chưa có hàng.</div>'}</div>
  <div class="small" style="margin-top:12px;font-weight:700">TÌNH TRẠNG: ${TS_LABEL[s].toUpperCase()} – ${pct(l/t.cap)} (${t2(l)}/${t.cap} tấn)</div>
  ${typeof truckClose29==='function'?truckClose29(t,l,past):''}<div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button>${isLog&&!past&&!t.closed&&l<t.cap-0.001?`<button class="btn" data-a="place" data-c="${t.code}">Xếp đơn</button>`:''}</div>`;}
 
 function truckInfoBlock(t,l,past){const M=V.modal;const inf=t.info||{};const canEdit=(can('fleet.manage')||can('alloc.assign'))&&!past;
- if(!canEdit){return inf.plate||inf.driver||inf.phone||t.cap!==t.defCap?`<div class="panel tinfo"><b>Thông tin xe hôm nay</b><div class="small">${inf.plate?'Biển số: <b>'+esc(inf.plate)+'</b> · ':''}${inf.driver?'Tài xế: '+esc(inf.driver)+' · ':''}${inf.phone?'SĐT: '+esc(inf.phone)+' · ':''}Tải trọng: ${t2(t.cap)} t${t.cap!==t.defCap?' (chuẩn '+t.defCap+' t'+(inf.reason?'; '+esc(inf.reason):'')+')':''}</div></div>`:'';}
+ if(!canEdit){return inf.plate||inf.driver||inf.phone||t.cap!==t.defCap?`<div class="panel tinfo"><b>Thông tin xe hôm nay</b><div class="small">${inf.plate?'Biển số: <b>'+esc(inf.plate)+'</b> · ':''}${inf.driver?'Tài xế: '+esc(inf.driver)+' · ':''}${inf.phone?'SĐT: '+esc(inf.phone)+' · ':''}Tải trọng: ${t2(t.cap)} MT${t.cap!==t.defCap?' (chuẩn '+t.defCap+' MT'+(inf.reason?'; '+esc(inf.reason):'')+')':''}</div></div>`:'';}
  if(!M.ti||M.ti.code!==t.code)M.ti={code:t.code,cap:t.cap!==t.defCap?String(t.cap).replace('.',','):'',plate:inf.plate||'',driver:inf.driver||'',phone:inf.phone||'',reason:inf.reason||'',err:''};
  const T=M.ti;const lim=t.type==='DK'?[S.cfg.capDKMin,S.cfg.capDKMax]:[S.cfg.capCNMin,S.cfg.capCNMax];const newCap=T.cap===''?t.defCap:num(T.cap);const changed=Math.abs((Number.isFinite(newCap)?newCap:t.defCap)-t.cap)>0.005;const over=Number.isFinite(newCap)?r2(l-newCap):0;
  return `<div class="panel tinfo"><div class="row"><b class="grow">Thông tin xe hôm nay</b><span class="small muted">Xe thuê ngoài: điền khi xe đến bốc${inf.at?' · cập nhật '+esc(inf.by)+' '+esc(inf.at):''}</span></div>
  <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-top:8px">
-  <div class="field"><label for="ti-c">Tải trọng hôm nay (tấn)</label><input id="ti-c" class="inp num" inputmode="decimal" data-f="ti" data-k="cap" value="${esc(T.cap)}" placeholder="${t.defCap} (chuẩn)"><span class="small muted">Để trống = chuẩn ${t.defCap} t · cho phép ${lim[0]}–${lim[1]} t</span></div>
+  <div class="field"><label for="ti-c">Tải trọng hôm nay (tấn)</label><input id="ti-c" class="inp num" inputmode="decimal" data-f="ti" data-k="cap" value="${esc(T.cap)}" placeholder="${t.defCap} (chuẩn)"><span class="small muted">Để trống = chuẩn ${t.defCap} MT · cho phép ${lim[0]}–${lim[1]} MT</span></div>
   <div class="field"><label for="ti-p">Biển số</label><input id="ti-p" class="inp" data-f="ti" data-k="plate" value="${esc(T.plate)}" placeholder="51C-123.45"></div>
   <div class="field"><label for="ti-d">Tài xế</label><input id="ti-d" class="inp" data-f="ti" data-k="driver" value="${esc(T.driver)}"></div>
   <div class="field"><label for="ti-ph">SĐT tài xế</label><input id="ti-ph" class="inp" inputmode="tel" data-f="ti" data-k="phone" value="${esc(T.phone)}"></div>
-  ${changed&&T.cap.trim()!==''&&Math.abs(newCap-t.defCap)>0.005?`<div class="field" style="grid-column:1/-1"><label for="ti-r">Lý do đổi tải trọng <span class="req">*</span></label><input id="ti-r" class="inp" data-f="ti" data-k="reason" value="${esc(T.reason)}" placeholder="Ví dụ: xe nhà cung cấp chỉ chở được 25 t, cấm tải tuyến…"></div>`:''}</div>
- ${changed&&over>0.001?`<div class="warnlist">Sau khi lưu, xe sẽ <b>quá tải ${t2(over)} t</b> (đang xếp ${t2(l)} t). Chuyển bớt phần hàng sang xe khác bằng nút <b>Sửa</b> trên phần hàng → Chuyển sang xe khác.</div>`:''}
- ${changed&&over<=0.001?`<div class="small muted">Số tấn có thể đặt của ngày sẽ ${newCap>t.cap?'tăng':'giảm'} ${t2(Math.abs(newCap-t.cap))} t; CS và Sales được thông báo.</div>`:''}
+  ${changed&&T.cap.trim()!==''&&Math.abs(newCap-t.defCap)>0.005?`<div class="field" style="grid-column:1/-1"><label for="ti-r">Lý do đổi tải trọng <span class="req">*</span></label><input id="ti-r" class="inp" data-f="ti" data-k="reason" value="${esc(T.reason)}" placeholder="Ví dụ: xe nhà cung cấp chỉ chở được 25 MT, cấm tải tuyến…"></div>`:''}</div>
+ ${changed&&over>0.001?`<div class="warnlist">Sau khi lưu, xe sẽ <b>quá tải ${t2(over)} MT</b> (đang xếp ${t2(l)} MT). Chuyển bớt phần hàng sang xe khác bằng nút <b>Sửa</b> trên phần hàng → Chuyển sang xe khác.</div>`:''}
+ ${changed&&over<=0.001?`<div class="small muted">Số tấn có thể đặt của ngày sẽ ${newCap>t.cap?'tăng':'giảm'} ${t2(Math.abs(newCap-t.cap))} MT; CS và Sales được thông báo.</div>`:''}
  ${T.err?`<div class="err">${esc(T.err)}</div>`:''}<div class="mfoot" style="margin-top:6px"><button class="btn sm" data-a="tiSave">Lưu thông tin xe</button></div></div>`;}
 function mEditAl(){const M=V.modal;const a=S.allocs.find(x=>x.id===M.id);const b=bkById(a.bk);const t=truckByCode(a.truck);const tot=r2(allocsOf(b.id).filter(x=>x.truck===a.truck).reduce((s,x)=>s+x.tons,0));
  const others=trucksOf(t.wh,t.date).filter(x=>x.code!==t.code);
  return `<div class="mhead"><h2>SỬA PHẦN HÀNG – ${t.short}</h2><span class="meta">${dmy(t.date)}</span></div>
- <p><b>${esc(cust(b.customerId).name)}</b> · ${b.id} · đang trên xe: <b class="num">${t2(tot)} t</b> / tổng booking ${t2(bkTotal(b))} t · xe còn trống ${t2(t.cap-loadOf(t.code))} t</p>
+ <p><b>${esc(cust(b.customerId).name)}</b> · ${b.id} · đang trên xe: <b class="num">${t2(tot)} MT</b> / tổng booking ${t2(bkTotal(b))} MT · xe còn trống ${t2(t.cap-loadOf(t.code))} MT</p>
  <div style="display:grid;gap:8px">
  <label class="radio"><input type="radio" name="ea" value="adjust" data-f="ea" data-k="mode" ${M.mode==='adjust'?'checked':''}><span><b>Điều chỉnh số tấn trên xe này</b>${M.mode==='adjust'?`<br><input class="inp num" style="width:120px;margin-top:6px" data-f="ea" data-k="tons" value="${esc(M.tons)}" aria-label="Số tấn mới">`:''}</span></label>
- <label class="radio"><input type="radio" name="ea" value="move" data-f="ea" data-k="mode" ${M.mode==='move'?'checked':''}><span><b>Chuyển sang xe khác cùng ngày</b>${M.mode==='move'?`<br><span class="row" style="margin-top:6px"><select class="inp" style="width:auto" data-f="ea" data-k="target" aria-label="Xe đích"><option value="">Chọn xe</option>${others.map(x=>`<option value="${x.code}" ${M.target===x.code?'selected':''}>${x.short} · còn ${t2(x.cap-loadOf(x.code))} t ${truckRegions(x.code).length?'· '+truckRegions(x.code).map(regName).join(', '):''}</option>`).join('')}</select><input class="inp num" style="width:110px" data-f="ea" data-k="mtons" value="${esc(M.mtons)}" aria-label="Số tấn chuyển"></span>`:''}</span></label>
+ <label class="radio"><input type="radio" name="ea" value="move" data-f="ea" data-k="mode" ${M.mode==='move'?'checked':''}><span><b>Chuyển sang xe khác cùng ngày</b>${M.mode==='move'?`<br><span class="row" style="margin-top:6px"><select class="inp" style="width:auto" data-f="ea" data-k="target" aria-label="Xe đích"><option value="">Chọn xe</option>${others.map(x=>`<option value="${x.code}" ${M.target===x.code?'selected':''}>${x.short} · còn ${t2(x.cap-loadOf(x.code))} MT ${truckRegions(x.code).length?'· '+truckRegions(x.code).map(regName).join(', '):''}</option>`).join('')}</select><input class="inp num" style="width:110px" data-f="ea" data-k="mtons" value="${esc(M.mtons)}" aria-label="Số tấn chuyển"></span>`:''}</span></label>
  <label class="radio"><input type="radio" name="ea" value="remove" data-f="ea" data-k="mode" ${M.mode==='remove'?'checked':''}><span><b>Gỡ khỏi xe</b><br><span class="small muted">Phần hàng trở về chưa xếp; booking quay về Chờ xếp xe.</span></span></label></div>
  <div class="field" style="margin-top:10px"><label for="ea-r">Lý do sửa <span class="req">*</span></label><input id="ea-r" class="inp" data-f="ea" data-k="reason" value="${esc(M.reason)}"></div>
  ${M.err?`<div class="err" style="margin-top:6px">${esc(M.err)}</div>`:''}
@@ -886,16 +887,16 @@ function mPlace(){const M=V.modal;const t=truckByCode(M.code);const free=r2(t.ca
  const holds=S.bookings.filter(b=>b.wh===t.wh&&b.date===t.date&&b.status==='hold').map(b=>({b,rem:r2(bkTotal(b)-allocSum(b.id))})).filter(x=>x.rem>0.001)
   .map(x=>({...x,rel:!regs.length?'':regs.includes(x.b.region)?'same':regs.some(r=>relation(r,x.b.region)==='nb')?'nb':'other'}))
   .sort((a,b)=>({same:0,nb:1,'':2,other:3})[a.rel]-({same:0,nb:1,'':2,other:3})[b.rel]||((bkTotal(a.b)>S.cfg.split?'DK':'XT')===t.type?-1:1));
- return `<div class="mhead"><h2>XẾP ĐƠN LÊN XE ${t.short}</h2><span class="meta num">Còn trống ${t2(free)} t</span></div>
- ${holds.length?`<div style="display:grid;gap:8px">${holds.map(x=>`<label class="radio"><input type="radio" name="pl" value="${x.b.id}" data-f="pl" ${M.bk===x.b.id?'checked':''}><span class="grow"><b>${esc(cust(x.b.customerId).name)}</b> · ${x.b.id} · gợi ý ${bkTotal(x.b)>S.cfg.split?'DK':'XT'}<br><span class="small">${esc(regName(x.b.region))} ${x.rel?`<span class="rel rel-${x.rel}">${x.rel==='same'?'Cùng khu vực':x.rel==='nb'?'Lân cận':'Khác khu vực'}</span>`:''} · chưa gán <b class="num">${t2(x.rem)} t</b></span></span></label>`).join('')}</div>
+ return `<div class="mhead"><h2>XẾP ĐƠN LÊN XE ${t.short}</h2><span class="meta num">Còn trống ${t2(free)} MT</span></div>
+ ${holds.length?`<div style="display:grid;gap:8px">${holds.map(x=>`<label class="radio"><input type="radio" name="pl" value="${x.b.id}" data-f="pl" ${M.bk===x.b.id?'checked':''}><span class="grow"><b>${esc(cust(x.b.customerId).name)}</b> · ${x.b.id} · gợi ý ${bkTotal(x.b)>S.cfg.split?'DK':'XT'}<br><span class="small">${esc(regName(x.b.region))} ${x.rel?`<span class="rel rel-${x.rel}">${x.rel==='same'?'Cùng khu vực':x.rel==='nb'?'Lân cận':'Khác khu vực'}</span>`:''} · chưa gán <b class="num">${t2(x.rem)} MT</b></span></span></label>`).join('')}</div>
  <div class="field" style="margin-top:10px;max-width:200px"><label for="pl-t">Số tấn xếp lên xe này</label><input id="pl-t" class="inp num" data-f="plt" value="${esc(M.tons||'')}"></div>`:'<div class="empty">Không còn booking chờ xếp xe trong ngày.</div>'}
  ${M.err?`<div class="err">${esc(M.err)}</div>`:''}
  <div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button>${holds.length?'<button class="btn" data-a="placeSave">Xếp lên xe</button>':''}</div>`;}
 function mCustDay(){const date=V.modal.date;const list=S.bookings.filter(b=>b.wh===V.wh&&b.date===date&&b.customerId===me().customerId&&b.status!=='draft');const c=cust(me().customerId);const s=user(c.salesId);
  return `<div class="mhead"><h2>ĐƠN HÀNG CỦA TÔI</h2><span class="meta">${WHALL.find(w=>w.id===V.wh).full} · ${dmy(date)}</span></div>
  <div class="tbl-wrap"><table><thead><tr><th>Mã booking</th><th>Ref</th><th>Sản phẩm · Màu · Độ dày × Khổ</th><th class="r">Số tấn</th><th>Nơi giao</th><th>Ngày giao YC</th><th>Trạng thái</th></tr></thead><tbody>
- ${list.map(b=>`<tr><td>${b.id}</td><td>${esc(b.ref)}</td><td class="small">${b.lines.map(l=>`${esc(l.p)} · ${esc(l.c)} · ${l.th} × ${l.w} · ${t2(l.t)} t`).join('<br>')}</td><td class="r num"><b>${t2(bkTotal(b))}</b></td><td class="small">${esc(b.addrText)}</td><td>${b.delivery?dmy(b.delivery):'–'}</td><td><span class="st st-${stKey(b)}">${ST_CUST[stKey(b)]}</span>${b.status==='rejected'||b.status==='resched'?`<div class="small">${esc(b.rejectReason)}${b.proposedDate?' · đề xuất '+dmy(b.proposedDate):''}</div>`:''}</td></tr>`).join('')}</tbody></table></div>
- <p class="small" style="margin-top:12px">Tổng đã xác nhận: <b class="num">${t2(list.filter(b=>b.status==='ok').reduce((s,b)=>s+bkTotal(b),0))} t</b>. Muốn đặt thêm hoặc đổi lịch, liên hệ Sales phụ trách: <b>${esc(s.name)}</b> · ${esc(s.phone||'')} · ${esc(s.email)}</p>
+ ${list.map(b=>`<tr><td>${b.id}</td><td>${esc(b.ref)}</td><td class="small">${b.lines.map(l=>`${esc(l.p)} · ${esc(l.c)} · ${l.th} × ${l.w} · ${t2(l.t)} MT`).join('<br>')}</td><td class="r num"><b>${t2(bkTotal(b))}</b></td><td class="small">${esc(b.addrText)}</td><td>${b.delivery?dmy(b.delivery):'–'}</td><td><span class="st st-${stKey(b)}">${ST_CUST[stKey(b)]}</span>${b.status==='rejected'||b.status==='resched'?`<div class="small">${esc(b.rejectReason)}${b.proposedDate?' · đề xuất '+dmy(b.proposedDate):''}</div>`:''}</td></tr>`).join('')}</tbody></table></div>
+ <p class="small" style="margin-top:12px">Tổng đã xác nhận: <b class="num">${t2(list.filter(b=>b.status==='ok').reduce((s,b)=>s+bkTotal(b),0))} MT</b>. Muốn đặt thêm hoặc đổi lịch, liên hệ Sales phụ trách: <b>${esc(s.name)}</b> · ${esc(s.phone||'')} · ${esc(s.email)}</p>
  <div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button></div>`;}
 function mGroup(){const ids=V.modal.ids;
  return `<div class="mhead"><h2>NHÓM GỘP ĐÃ ĐIỀN SẴN</h2></div><p class="small">Phần hàng đã được xếp tạm lên xe. Kiểm tra rồi xác nhận cả nhóm, hoặc mở từng booking để chỉnh.</p>
@@ -945,10 +946,10 @@ function bfCapHtml(){const M=V.modal;const f=M.f;const c=bfComputed();
  if(!f.date)return '';
  if(!c.m.declared)return `<div class="capblock over">${c.m.holiday?'Ngày nghỉ chưa khai báo xe: chỉ được Lưu tạm.':'Ngày này chưa khai báo xe: chỉ được Lưu tạm.'}</div>`;
  return `${c.m.holiday?`<div class="holbanner">⚠ ${dow(f.date)===0?'Chủ nhật':'Ngày lễ'} ${dm(f.date)}: giao ngày nghỉ (Logistics đã khai báo xe). Logistics nhận email “GIAO NGÀY NGHỈ”.</div>`:''}<div class="capblock num ${c.over?'over':''}">SỨC CHỨA CÒN LẠI NGÀY ${dm(f.date)}: ${t2(c.avail)} TẤN → sau booking này: ${t2(c.avail-c.tot)} TẤN</div>
- ${c.over?`<div class="small" style="margin-top:6px">Ngày gợi ý: ${c.sugg.length?c.sugg.map(d=>`<button class="btn ghost sm" data-a="bfDate" data-d="${d}">${dm(d)} (${t2(dayM(f.wh,d).avail)} t)</button>`).join(' '):'không tìm thấy ngày đủ chỗ trong ±7 ngày'}</div>`:''}`;}
+ ${c.over?`<div class="small" style="margin-top:6px">Ngày gợi ý: ${c.sugg.length?c.sugg.map(d=>`<button class="btn ghost sm" data-a="bfDate" data-d="${d}">${dm(d)} (${t2(dayM(f.wh,d).avail)} MT)</button>`).join(' '):'không tìm thấy ngày đủ chỗ trong ±7 ngày'}</div>`:''}`;}
 function bfHintHtml(){const M=V.modal;const f=M.f;if(!f.region||f.region==='NONE'||!f.date)return '';const c=bfComputed();
  if(!c.same.length)return `<div class="hint">Chưa có booking nào khu vực <b>${esc(regName(f.region))}</b> ngày ${dm(f.date)}.</div>`;
- return `<div class="hint">Ngày ${dm(f.date)} đã có <b>${c.same.length} booking</b> khu vực ${esc(regName(f.region))} (<span class="num">${t2(c.same.reduce((s,b)=>s+bkTotal(b),0))}</span> t)${c.sameTrucks.length?' – '+c.sameTrucks.map(t=>`${t.short} còn trống ${t2(t.cap-loadOf(t.code))} t`).join(', '):''}. Đơn này có khả năng được ghép xe.</div>`;}
+ return `<div class="hint">Ngày ${dm(f.date)} đã có <b>${c.same.length} booking</b> khu vực ${esc(regName(f.region))} (<span class="num">${t2(c.same.reduce((s,b)=>s+bkTotal(b),0))}</span> t)${c.sameTrucks.length?' – '+c.sameTrucks.map(t=>`${t.short} còn trống ${t2(t.cap-loadOf(t.code))} MT`).join(', '):''}. Đơn này có khả năng được ghép xe.</div>`;}
 function mBF(){const M=V.modal;const f=M.f;const c=cust(f.customerId);const det=f.customerId?detectRegion({...f}):{};const editing=M.mode==='edit';const b=M.id?bkById(M.id):null;
  const regOpts=regionsOf(f.wh);const pref=bfTotal(f)>S.cfg.split?'DK':'XT';
  return `<div class="mhead"><span class="meta">${WHALL.find(w=>w.id===f.wh).full.toUpperCase()}</span><span class="meta">Ngày: ${f.date?dmy(f.date):'–'}</span></div>
@@ -1074,9 +1075,9 @@ const A={
  placeSave:()=>{const M=V.modal;const t=truckByCode(M.code);const b=bkById(M.bk);if(!b){M.err='Chọn một booking.';return render();}
   const rem=r2(bkTotal(b)-allocSum(b.id));let tons=num(M.tons);if(!(tons>0))tons=r2(Math.min(rem,t.cap-loadOf(t.code)));
   if(!(tons>0)){M.err='Nhập số tấn lớn hơn 0.';return render();}if(tons>rem+0.001){M.err='Vượt phần chưa gán của booking ('+t2(rem)+' t).';return render();}
-  mutate('place_on_truck',{p_id:b.id,p_truck:t.code,p_tons:r2(tons)},{err:m=>M.err=m,ok:full=>{if(full){openBooking(b.id);toast('Booking đã xếp đủ tấn. Kiểm tra rồi bấm Xác nhận.');}else{V.modal=null;toast(`Đã xếp ${t2(tons)} t lên ${t.short}`);}}});},
+  mutate('place_on_truck',{p_id:b.id,p_truck:t.code,p_tons:r2(tons)},{err:m=>M.err=m,ok:full=>{if(full){openBooking(b.id);toast('Booking đã xếp đủ tấn. Kiểm tra rồi bấm Xác nhận.');}else{V.modal=null;toast(`Đã xếp ${t2(tons)} MT lên ${t.short}`);}}});},
  tiSave:()=>{const M=V.modal;const T=M.ti;T.err='';const c=T.cap.trim()===''?null:num(T.cap);if(T.cap.trim()!==''&&!(c>0)){T.err='Tải trọng phải là số lớn hơn 0.';return render();}
-  mutate('set_truck_info',{p_code:T.code,p_cap:c,p_plate:T.plate,p_driver:T.driver,p_phone:T.phone,p_reason:T.reason},{err:m=>T.err=m,ok:r=>{M.ti=null;render();toast(r.over>0?`Đã lưu. Xe quá tải ${t2(r.over)} t: chuyển bớt phần hàng sang xe khác`:'Đã lưu thông tin xe');}});},
+  mutate('set_truck_info',{p_code:T.code,p_cap:c,p_plate:T.plate,p_driver:T.driver,p_phone:T.phone,p_reason:T.reason},{err:m=>T.err=m,ok:r=>{M.ti=null;render();toast(r.over>0?`Đã lưu. Xe quá tải ${t2(r.over)} MT: chuyển bớt phần hàng sang xe khác`:'Đã lưu thông tin xe');}});},
  editAl:d=>{const a=S.allocs.find(x=>x.id===d.id);const tot=r2(allocsOf(a.bk).filter(x=>x.truck===a.truck).reduce((s,x)=>s+x.tons,0));V.modal={type:'editAl',id:d.id,mode:'adjust',tons:tot,target:'',mtons:tot,reason:'',err:''};render();},
  eaSave:()=>{const M=V.modal;const a=S.allocs.find(x=>x.id===M.id);if(!a){V.modal=null;return render();}const t=truckByCode(a.truck);
   if(!M.reason.trim()){M.err='Nhập lý do sửa.';return render();}
@@ -1104,7 +1105,7 @@ const A={
  openBkAny:d=>{if(bkById(d.id))return openBooking(d.id);gsOpenBooking({id:d.id,wh:d.w,date:d.d});},
  back:()=>{V.view=V.prev&&V.prev!=='booking'?V.prev:'calendar';V.asg=null;render();},
  bkRegion:(d,el)=>mutate('set_region',{p_id:V.bk,p_region:el.value},{ok:()=>toast('Đã đổi khu vực')}),
- asgSuggest:()=>{const b=bkById(V.bk);const s=suggestFor(b);V.asg.rows={};s.rows.forEach(r=>V.asg.rows[r.code]=r.tons);V.asg.err=s.left>0?`Không đủ xe để gợi ý hết, còn thiếu ${t2(s.left)} t.`:'';render();},
+ asgSuggest:()=>{const b=bkById(V.bk);const s=suggestFor(b);V.asg.rows={};s.rows.forEach(r=>V.asg.rows[r.code]=r.tons);V.asg.err=s.left>0?`Không đủ xe để gợi ý hết, còn thiếu ${t2(s.left)} MT.`:'';render();},
  asgEdit:()=>{V.asg.edit=true;render();},
  asgPanel:d=>{V.asg.panel=d.p;V.asg.err='';render();},
  asgSave:()=>saveAsg(false),
@@ -1235,13 +1236,13 @@ function saveBF(kind){const M=V.modal;const f=M.f;M.err='';const tot=bfTotal(f);
   if(!S.fleet[f.wh][f.date]){M.err='Ngày này chưa khai báo xe'+(isHoliday(f.wh,f.date)?' (ngày nghỉ)':'')+'; chỉ được Lưu tạm.';return render();}
   for(const[i,l]of f.lines.entries()){if(!(num(l.t)>0)){M.err=`Dòng sản phẩm ${i+1}: nhập số tấn > 0.`;return render();}}
   if(typeof bfChangeNeeded29==='function'&&bfChangeNeeded29(M)&&(!f.chgReason||!f.chgBy)){M.err='Đổi ngày bốc: chọn lý do và bên yêu cầu đổi.';return render();}
-  const{avail}=bfAvail(M);if(tot>avail+0.001){M.err=`Tổng ${t2(tot)} t vượt sức chứa còn lại ${t2(avail)} t của ngày ${dm(f.date)} (BR-09). Chọn ngày gợi ý hoặc Lưu tạm.`;return render();}
+  const{avail}=bfAvail(M);if(tot>avail+0.001){M.err=`Tổng ${t2(tot)} MT vượt sức chứa còn lại ${t2(avail)} MT của ngày ${dm(f.date)} (BR-09). Chọn ngày gợi ý hoặc Lưu tạm.`;return render();}
  }
  const p={id:M.id||null,mode:kind,wh:f.wh,day:f.date,delivery:f.delivery||'',customer_id:f.customerId,ref:f.ref,address_id:isNew?'new':f.addrId,
   province:f.province,ward:f.ward,street:f.addrText,save_addr:!!f.saveAddr,region:f.region||'NONE',note:f.note||'',
   change_reason:f.chgReason||'',change_by:f.chgBy||'',change_note:f.chgNote||'',
   lines:f.lines.map(l=>({p:l.p,c:l.c,th:String(l.th??'').replace(',','.'),w:String(l.w??''),t:String(l.t??'').replace(',','.')}))};
- mutate('save_booking',{p},{err:m=>M.err=m,ok:id=>{V.modal=null;V.asg=null;toast(kind==='draft'?`Đã lưu nháp ${id} (chưa giữ chỗ). Xem ở ô lịch ngày ${dm(f.date)} hoặc Danh sách booking → Cần xử lý / Nháp`:M.rebook?`Đã đặt lại ${id} ngày ${dm(f.date)}, chờ Logistics xếp xe`:M.id?`Đã lưu ${id}`:`Đã giữ chỗ ${id}, trừ tạm ${t2(tot)} t`);}});}
+ mutate('save_booking',{p},{err:m=>M.err=m,ok:id=>{V.modal=null;V.asg=null;toast(kind==='draft'?`Đã lưu nháp ${id} (chưa giữ chỗ). Xem ở ô lịch ngày ${dm(f.date)} hoặc Danh sách booking → Cần xử lý / Nháp`:M.rebook?`Đã đặt lại ${id} ngày ${dm(f.date)}, chờ Logistics xếp xe`:M.id?`Đã lưu ${id}`:`Đã giữ chỗ ${id}, trừ tạm ${t2(tot)} MT`);}});}
 
 /* ===================== Global Search ===================== */
 const GS={open:false,q:'',items:[],sel:0,seq:0,t:null,loading:false,res:null};
@@ -1304,17 +1305,17 @@ function gsBuild(P,R){const items=[];const f=fold(GS.q).trim();const words=f.spl
   const quick=role()==='customer'?['Lịch đặt xe','Thông báo']:role()==='logistics'?['Approval request','Khai báo xe theo ngày','Lịch đặt xe']:role()==='cs'?['Đặt hàng mới','Cần xử lý (CS)','Danh sách booking']:role()==='sales'?['Danh sách booking','Lịch đặt xe']:['Người dùng','Dashboard · Sức khỏe hệ thống (DB-06)','Phân quyền vai trò'];
   gsCmds().filter(c=>quick.includes(c.l)).forEach(c=>items.push({g:'Lệnh hay dùng',l:c.l,run:c.run,acts:[],rk:'cmd:'+c.l,ref:{kind:'cmd'}}));return items;}
  const exact=[];
- (R&&R.bookings||[]).forEach(b=>{const open=['hold','ok','resched','draft'].includes(b.status);const it={g:'Booking',l:b.id+(b.ref?' · '+b.ref:''),sub:`${b.customer?b.customer+' · ':''}${dmy(b.date)} · ${b.wh} · ${t2(b.tons)} t · ${internal()?ST_LABEL[stKey(b)]:(ST_CUST[stKey(b)]||ST_LABEL[stKey(b)])}${b.trucks?' · xe '+b.trucks:''}${b.date<TODAY?' · đã qua':''}`,
+ (R&&R.bookings||[]).forEach(b=>{const open=['hold','ok','resched','draft'].includes(b.status);const it={g:'Booking',l:b.id+(b.ref?' · '+b.ref:''),sub:`${b.customer?b.customer+' · ':''}${dmy(b.date)} · ${b.wh} · ${t2(b.tons)} MT · ${internal()?ST_LABEL[stKey(b)]:(ST_CUST[stKey(b)]||ST_LABEL[stKey(b)])}${b.trucks?' · xe '+b.trucks:''}${b.date<TODAY?' · đã qua':''}`,
   rk:'bk:'+b.id,ref:{kind:'bk',id:b.id,date:b.date,wh:b.wh},run:()=>gsOpenBooking(b),acts:[]};
   if(can('alloc.assign')&&b.status==='hold'&&b.date>=TODAY)it.acts.push({l:'Xếp xe',run:()=>gsOpenBooking(b)});
   if(can('booking.edit')&&open&&b.status!=='draft'&&(b.date>=TODAY||b.status!=='ok'))it.acts.push({l:'Sửa',run:()=>gsOpenBooking(b,()=>{if(bkById(b.id))A.editBk({id:b.id});})});
   if(fold(b.id)===f||fold(b.ref)===f)exact.push(it);else items.push(it);});
  if(P.truck&&can('day.view')){const d=P.day||TODAY;items.push({g:'Xe',l:`Xe ${P.truck} · ${WDS[dow(d)]} ${dmy(d)} · ${(WHALL.find(w=>w.id===V.wh)||{}).full||V.wh}`,sub:'Mở thẻ xe: phần hàng, tải trọng, biển số',rk:`truck:${V.wh}:${d}:${P.truck}`,ref:{kind:'day',wh:V.wh,date:d,truck:P.truck},run:()=>gsOpenDay(V.wh,d,P.truck),acts:[]});}
- (R&&R.trucks||[]).forEach(t=>{const[wh,dd,ty,n]=t.code.split('-');items.push({g:'Xe',l:`${t.plate||'(chưa có biển số)'} · ${ty}-${n} · ${dmy(t.date)} · ${wh}`,sub:`${t.driver?'Tài xế '+t.driver+(t.phone?' '+t.phone:'')+' · ':''}${t2(t.load)}${t.cap?'/'+t2(t.cap):''} t · ${t.bookings} booking`,rk:'truck:'+t.code,ref:{kind:'day',wh,date:t.date,truck:ty+'-'+n},run:()=>gsOpenDay(wh,t.date,ty+'-'+n),acts:[]});});
- (R&&R.days||[]).forEach(d=>{const it={g:P.tons&&!P.day?`Ngày gần nhất còn đủ ${t2(P.tons)} t`:'Ngày',l:`${WDS[dow(d.date)]} ${dmy(d.date)} · ${d.whName}`,sub:`${d.status==='off'?'Ngày nghỉ':d.status==='none'?'Chưa mở lịch xe':'Có thể đặt '+t2(d.avail)+' t · '+PILL[d.status]}${P.tons&&d.status!=='off'&&d.status!=='none'?(d.fits?' · đủ '+t2(P.tons)+' t':' · không đủ '+t2(P.tons)+' t'):''}`,
+ (R&&R.trucks||[]).forEach(t=>{const[wh,dd,ty,n]=t.code.split('-');items.push({g:'Xe',l:`${t.plate||'(chưa có biển số)'} · ${ty}-${n} · ${dmy(t.date)} · ${wh}`,sub:`${t.driver?'Tài xế '+t.driver+(t.phone?' '+t.phone:'')+' · ':''}${t2(t.load)}${t.cap?'/'+t2(t.cap):''} MT · ${t.bookings} booking`,rk:'truck:'+t.code,ref:{kind:'day',wh,date:t.date,truck:ty+'-'+n},run:()=>gsOpenDay(wh,t.date,ty+'-'+n),acts:[]});});
+ (R&&R.days||[]).forEach(d=>{const it={g:P.tons&&!P.day?`Ngày gần nhất còn đủ ${t2(P.tons)} MT`:'Ngày',l:`${WDS[dow(d.date)]} ${dmy(d.date)} · ${d.whName}`,sub:`${d.status==='off'?'Ngày nghỉ':d.status==='none'?'Chưa mở lịch xe':'Có thể đặt '+t2(d.avail)+' t · '+PILL[d.status]}${P.tons&&d.status!=='off'&&d.status!=='none'?(d.fits?' · đủ '+t2(P.tons)+' MT':' · không đủ '+t2(P.tons)+' MT'):''}`,
   rk:`day:${d.wh}:${d.date}`,ref:{kind:'day',wh:d.wh,date:d.date},run:()=>gsOpenDay(d.wh,d.date),acts:[],warn:P.tons&&!d.fits};
   if(can('booking.create')&&d.fits&&d.date>=TODAY&&!['off','none'].includes(d.status))it.acts.push({l:'Đặt hàng ngày này',run:()=>gsBookFor(null,d.date,d.wh)});items.push(it);});
- if(P.tons&&P.day&&R&&R.days&&R.days.length&&!R.days.some(d=>d.fits)&&!P.text)items.push({g:'Ngày',l:`Tìm ngày gần nhất còn đủ ${t2(P.tons)} t`,sub:'Bấm để xem các ngày còn chỗ',run:()=>{const inp=document.getElementById('gs-q');inp.value=String(P.tons).replace('.',',')+'t';GS.q=inp.value;gsRun();},keep:true,acts:[]});
+ if(P.tons&&P.day&&R&&R.days&&R.days.length&&!R.days.some(d=>d.fits)&&!P.text)items.push({g:'Ngày',l:`Tìm ngày gần nhất còn đủ ${t2(P.tons)} MT`,sub:'Bấm để xem các ngày còn chỗ',run:()=>{const inp=document.getElementById('gs-q');inp.value=String(P.tons).replace('.',',')+'t';GS.q=inp.value;gsRun();},keep:true,acts:[]});
  (R&&R.customers||[]).forEach(c=>{const it={g:'Khách hàng',l:`${c.name} · ${c.code}`,sub:`${c.active?'':'Ngừng dùng · '}${c.address||''}${c.sales?' · Sales '+c.sales:''}${c.cs?' · CS '+c.cs:''} · ${c.open} booking đang mở`,rk:'cust:'+c.id,ref:{kind:'cust',id:c.id,name:c.name},
   run:()=>{V.blF={wh:'all',region:'all',q:'',cust:c.id,per:'d90'};V.blTab='all';go('bookings');},acts:[]};
   if(can('booking.create')&&c.active)it.acts.push({l:'Đặt hàng cho khách',run:()=>gsBookFor(c.id,P.day&&P.day>=TODAY?P.day:TODAY)});
@@ -1323,10 +1324,10 @@ function gsBuild(P,R){const items=[];const f=fold(GS.q).trim();const words=f.spl
   if(can('users.impersonate')&&u.active&&u.id!==V.me)it.acts.push({l:'Login as',run:()=>A.loginAs({id:u.id})});items.push(it);});
  if(words.length&&!P.truck){
   if(role()==='customer'&&/sales|lien he|ho tro|goi/.test(f)){const c=cust(me().customerId);const s=c&&user(c.salesId);if(s)items.push({g:'Liên hệ',l:`Sales phụ trách: ${s.name}`,sub:`${s.phone||''}${s.phone?' · ':''}${s.email}`,run:()=>{},acts:[]});}
-  if(internal()&&can('day.view')&&/qua tai/.test(f)){for(let i=0;i<14;i++){const d=addDays(TODAY,i);WH.forEach(w=>trucksOf(w.id,d).forEach(t=>{const l=loadOf(t.code);if(l>t.cap+0.001)items.push({g:'Xe quá tải',l:`${t.short} · ${dmy(d)} · ${w.name}`,sub:`${t2(l)}/${t2(t.cap)} t · thừa ${t2(l-t.cap)} t`,rk:'truck:'+t.code,ref:{kind:'day',wh:w.id,date:d,truck:t.short},run:()=>gsOpenDay(w.id,d,t.short),acts:[]});}));}}
+  if(internal()&&can('day.view')&&/qua tai/.test(f)){for(let i=0;i<14;i++){const d=addDays(TODAY,i);WH.forEach(w=>trucksOf(w.id,d).forEach(t=>{const l=loadOf(t.code);if(l>t.cap+0.001)items.push({g:'Xe quá tải',l:`${t.short} · ${dmy(d)} · ${w.name}`,sub:`${t2(l)}/${t2(t.cap)} MT · thừa ${t2(l-t.cap)} MT`,rk:'truck:'+t.code,ref:{kind:'day',wh:w.id,date:d,truck:t.short},run:()=>gsOpenDay(w.id,d,t.short),acts:[]});}));}}
   gsStatus().filter(x=>x.k.some(k=>f===k||f.startsWith(k+' ')||(k.length>3&&f.includes(k)))).forEach(x=>items.push({g:'Trạng thái',l:x.l,sub:x.sub,run:x.run,acts:[]}));
   gsCmds().filter(c=>words.every(w=>fold(c.l+' '+c.k).includes(w))).slice(0,5).forEach(c=>items.push({g:'Lệnh',l:c.l,run:c.run,acts:[],rk:'cmd:'+c.l,ref:{kind:'cmd'}}));}
- const order=['Booking','Xe','Xe quá tải',`Ngày gần nhất còn đủ ${t2(P.tons||0)} t`,'Ngày','Khách hàng','Người dùng','Liên hệ','Trạng thái','Lệnh'];
+ const order=['Booking','Xe','Xe quá tải',`Ngày gần nhất còn đủ ${t2(P.tons||0)} MT`,'Ngày','Khách hàng','Người dùng','Liên hệ','Trạng thái','Lệnh'];
  items.sort((a,b)=>(order.indexOf(a.g)+99)%99-(order.indexOf(b.g)+99)%99);
  return exact.map(x=>({...x,g:'Khớp chính xác'})).concat(items);}
 function gsRenderList(){const box=document.getElementById('gs-res');if(!box)return;const its=GS.items;

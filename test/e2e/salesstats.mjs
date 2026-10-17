@@ -17,14 +17,14 @@ async function open(email) {
   else if (await p.locator('#mfc-code').count()) { await p.fill('#mfc-code', '123456'); await p.click('#mfc button'); await p.waitForTimeout(800); }
   await p.waitForTimeout(600); return p;
 }
-const big = async p => (await p.locator('aside.sst .bignum').innerText()).split('\n').pop().trim();
+const big = async p => (await p.locator('aside.sst .bignum').innerText()).split('\n').pop().replace(/\s*MT$/,'').trim();
 
 // 1. Sales mặc định: khách mình phụ trách, có cả nháp CS lưu cho khách
 let p = await open('s1@demo.vn');
 let txt = await p.locator('aside.sst').innerText();
 check('Sales own: title + scope label', /THỐNG KÊ KHÁCH CỦA BẠN/i.test(txt) && /Khách bạn phụ trách/.test(txt));
 check('Sales own: total = SQL', (await big(p)) === OWN, `${await big(p)} vs ${OWN}`);
-check('Sales own: draft counted', /Đang lưu tạm\s*12,00 t · 1 đơn/.test(txt));
+check('Sales own: draft counted', /Đang lưu tạm\s*12,00 MT · 1 đơn/.test(txt));
 check('Sales own: no segment chips', (await p.locator('[data-a="csSeg"]').count()) === 0);
 await p.screenshot({ path: '/tmp/e2e-shots/ss-1-sales.png', fullPage: true });
 await p.context().close();

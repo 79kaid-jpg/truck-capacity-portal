@@ -33,7 +33,7 @@ const SCOL={ok:'#2e8b57',hold:'#e0a31a',resched:'#7a8ca8',draft:'#b8c0cc',rej:'#
 const SNAME={ok:'Đã có xe',hold:'Chờ xếp xe',resched:'Đổi ngày',draft:'Lưu tạm',rej:'Bị từ chối',late:'Hủy cận ngày',canc:'Hủy trước mốc'};
 const SEGS=['DD','DA','EX'],PIPE=['ok','hold','resched','draft'];
 const dzT=n=>(Math.round(n*10)/10).toLocaleString('vi-VN',{maximumFractionDigits:1});
-const dzTT=n=>dzT(n)+' t';
+const dzTT=n=>dzT(n)+' MT';
 const dzSum=l=>l.reduce((s,r)=>s+r.t,0);
 const dzGrp=r=>DZ_OK.includes(r.s)?'ok':r.s==='cancelled'?(r.late?'late':'canc'):r.s==='rejected'?'rej':r.s;
 const isBook=r=>DZ_BOOK.includes(r.s);
@@ -181,7 +181,7 @@ function tabCal(Z,S_,from,to){const{list}=S_;const[y,m]=parts(from);const first=
  for(let d=from;d<=to;d=addDays(d,1)){const l=list.filter(r=>r.d===d&&isBook(r));const t=dzSum(l),ok=dzSum(l.filter(r=>r.grp==='ok'));const c=capRows(Z,d,d);const cap=c.filter(x=>!x[5]&&x[6]).reduce((s,x)=>s+x[2],0);const free=Math.max(0,cap-c.reduce((s,x)=>s+x[3]+x[4],0));const off=c.length&&c.every(x=>x[5]);
   const col=cap>0?(t/cap>=1?'var(--bad)':t/cap>=(S.cfg.near/100)?'#e0861a':'var(--ok)'):'var(--muted)';
   cells.push(`<div class="d ${off?'off':''}" ${pa(pick(()=>({title:'Ngày bốc '+WDS[dow(d)]+' '+dmy(d),list:list.filter(r=>r.d===d)})),0)} style="border-left:4px solid ${col}"><div class="row"><b>${+d.slice(8)}</b><span class="grow"></span><span class="muted">${WDS[dow(d)]}</span></div>
-  <div>Đặt: <b>${dzT(t)}</b> t · ${l.length} đơn</div><div class="muted">Có xe ${dzT(ok)} t</div>${cap?`<div class="muted">Còn nhận ${dzT(free)} t</div>`:off?'<div class="muted">Nghỉ</div>':'<div class="muted">Chưa khai báo xe</div>'}</div>`);}
+  <div>Đặt: <b>${dzT(t)}</b> t · ${l.length} đơn</div><div class="muted">Có xe ${dzT(ok)} MT</div>${cap?`<div class="muted">Còn nhận ${dzT(free)} MT</div>`:off?'<div class="muted">Nghỉ</div>':'<div class="muted">Chưa khai báo xe</div>'}</div>`);}
  return `<div class="dz-tiles">${dzTile('Tổng đã đặt',list.filter(isBook))}${dzTile('Đã có xe',list.filter(r=>r.grp==='ok'),{color:SCOL.ok})}${dzTile('Đang chờ / đổi ngày / lưu tạm',list.filter(r=>['hold','resched','draft'].includes(r.grp)),{color:SCOL.hold})}${dzTile('Nhu cầu bị mất (bị từ chối)',list.filter(r=>r.grp==='rej'))}${dzTile('Hủy cận ngày giao',list.filter(r=>r.grp==='late'))}</div>
  ${dzPanel('Lịch đơn theo ngày bốc · tháng '+m+'/'+y,'Viền màu theo mức đặt so với năng lực giao · bấm ngày để xem đơn',`<div class="dz-cal">${['T2','T3','T4','T5','T6','T7','CN'].map(x=>`<div class="h">${x}</div>`).join('')}${cells.join('')}</div>`)}`;}
 const workDays=(a,b)=>{let n=0;for(let d=a;d<=b;d=addDays(d,1))if(dow(d)!==0)n++;return n;};
@@ -203,7 +203,7 @@ function tabTgt(Z,S_,from,to){const D=Z.D;const{list}=S_;const ym=from.slice(0,7
  const Y={lb:'Năm '+yy,t:M.reduce((s,x)=>s+x.t,0),b:M.reduce((s,x)=>s+x.b,0),o:M.reduce((s,x)=>s+x.o,0)};
  const tr=(r,cls,mm)=>`<tr class="${cls||''} ${mm?'c':''}" ${mm?`data-a="dzMonth" data-m="${mm}"`:''}><td>${r.lb}</td><td class="r num">${r.t?dzTT(r.t):'–'}</td><td class="r num">${dzTT(r.b)}</td><td class="r num">${dzTT(r.o)}</td><td class="r">${r.t?`<span class="${r.b>=r.t?'dz-up':''}">${pct(r.b/r.t)}</span>`:'–'}</td></tr>`;
  const roll=`<div class="tbl-wrap"><table class="dz-tbl"><thead><tr><th></th><th class="r">Mục tiêu</th><th class="r">Đã đặt</th><th class="r">Đã có xe</th><th class="r">% đạt</th></tr></thead><tbody>${M.map(r=>tr(r,r.mm===ym?'total':'',r.mm)).join('')}${Q.map(r=>tr(r,'total')).join('')}${tr(Y,'total')}</tbody></table></div>`;
- return `<div class="dz-tiles">${dzPlain('Mục tiêu tháng '+ym.slice(5)+'/'+ym.slice(0,4),T?dzTT(T):'–',segs.map(g=>SEG_LABEL[g]).join(' + ')+(D.canTgt?` · <button class="linkbtn small dz-noprint" data-a="dzTgtEdit">Nhập mục tiêu</button>`:''))}${dzTile('Đã đặt trong tháng',L)}${dzPlain('Tiến độ cần đạt',pct(exp),wdNow+' / '+wdAll+' ngày làm việc (trừ Chủ nhật)')}${dzPlain('Còn thiếu',T>A?dzTT(T-A):'0 t',T>0?'để đạt mục tiêu':'')}</div>
+ return `<div class="dz-tiles">${dzPlain('Mục tiêu tháng '+ym.slice(5)+'/'+ym.slice(0,4),T?dzTT(T):'–',segs.map(g=>SEG_LABEL[g]).join(' + ')+(D.canTgt?` · <button class="linkbtn small dz-noprint" data-a="dzTgtEdit">Nhập mục tiêu</button>`:''))}${dzTile('Đã đặt trong tháng',L)}${dzPlain('Tiến độ cần đạt',pct(exp),wdNow+' / '+wdAll+' ngày làm việc (trừ Chủ nhật)')}${dzPlain('Còn thiếu',T>A?dzTT(T-A):'0 MT',T>0?'để đạt mục tiêu':'')}</div>
  <div class="dz-grid">${dzPanel('Performance tháng '+ym.slice(5)+'/'+ym.slice(0,4),lb,`<div style="text-align:center">${dzGauge(p,lb,col)}</div>`)}
  ${dzPanel('Tiến độ cộng dồn','Đường liền = đã đặt cộng dồn theo ngày bốc (cả đơn của các ngày tới) · đường gạch = mục tiêu theo ngày làm việc · bấm ngày để xem đơn',dzLeg([['Đã đặt',GCOL.DD],['Mục tiêu','#1f2630']])+`<svg class="dz-svg" viewBox="0 0 ${W} ${H}">${s}</svg>`)}
  ${dzPanel('Roll-up năm '+yy,'12 tháng + quý + năm · bấm tháng để xem',roll)}</div>${areaPanels(list)}`;}

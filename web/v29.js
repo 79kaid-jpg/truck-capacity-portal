@@ -85,25 +85,25 @@ function bkInfo29(b){const rows=[];const root=b.parent||b.id;
  const kids=S.bookings.filter(x=>x.parent===root&&x.id!==b.id);
  if(b.urgent)rows.push(['Đơn khẩn',`<span class="urg">KHẨN</span> ${b.urgentSet!=null?'Admin đặt'+(b.urgentNote?': '+esc(b.urgentNote):''):'đặt / đổi sau mốc chốt xe '+esc(S.cfg.cutoff||'16:00')+' hôm trước'}`]);
  if(b.lateCancel)rows.push(['Hủy','<span class="urg">HỦY QUÁ CẬN NGÀY GIAO</span>']);
- if(b.requested&&Math.abs(+b.requested-bkTotal(b))>0.005)rows.push(['Tấn khách yêu cầu',`<span class="num">${t2(+b.requested)} t</span>`]);
+ if(b.requested&&Math.abs(+b.requested-bkTotal(b))>0.005)rows.push(['Tấn khách yêu cầu',`<span class="num">${t2(+b.requested)} MT</span>`]);
  if(b.parent)rows.push(['Đơn gốc',`<button class="linkbtn" data-a="openBk" data-id="${b.parent}">${b.parent}</button>`]);
- if(kids.length)rows.push([b.parent?'Đơn tách khác':'Đơn tách',kids.map(k=>`<button class="linkbtn" data-a="openBk" data-id="${k.id}">${k.id}</button> <span class="st st-${stKey(k)}">${ST_LABEL[stKey(k)]}</span> <span class="num">${t2(bkTotal(k))} t</span>`).join('<br>')]);
- if(b.coils)rows.push(['Danh sách cuộn',`<span class="num">${b.coils} cuộn · ${t2(+b.coilTons||0)} t</span> · có lúc ${hm29(b.deliveryAt)} <button class="linkbtn" data-a="v9Coils" data-id="${b.id}">Xem</button>`]);
+ if(kids.length)rows.push([b.parent?'Đơn tách khác':'Đơn tách',kids.map(k=>`<button class="linkbtn" data-a="openBk" data-id="${k.id}">${k.id}</button> <span class="st st-${stKey(k)}">${ST_LABEL[stKey(k)]}</span> <span class="num">${t2(bkTotal(k))} MT</span>`).join('<br>')]);
+ if(b.coils)rows.push(['Danh sách cuộn',`<span class="num">${b.coils} cuộn · ${t2(+b.coilTons||0)} MT</span> · có lúc ${hm29(b.deliveryAt)} <button class="linkbtn" data-a="v9Coils" data-id="${b.id}">Xem</button>`]);
  else if(['hold','ok'].includes(b.status))rows.push(['Danh sách cuộn','<span class="muted">Chưa có – CS bấm <b>Xác nhận giao hàng</b> khi có file cuộn</span>']);
  if(b.loadedAt)rows.push(['Bốc xong',`${hm29(b.loadedAt)}${b.loadNote?' · '+esc(b.loadNote):''}`]);
- if((+b.shortTons||0)>0)rows.push(['Load thiếu',`<span class="err">${t2(+b.shortTons)} t – chờ CS tách đơn hoặc không giao</span>`]);
+ if((+b.shortTons||0)>0)rows.push(['Load thiếu',`<span class="err">${t2(+b.shortTons)} MT – chờ CS tách đơn hoặc không giao</span>`]);
  if(b.eta)rows.push(['Dự kiến tới',hm29(b.eta)]);
  if(b.deliveredAt)rows.push(['Tới nơi lúc',hm29(b.deliveredAt)]);
  if(b.status==='failed')rows.push(['Giao không thành công',`<span class="err">${esc(b.failNote)}</span>`]);
- if(+b.undelivered>0)rows.push(['Không giao',`<span class="num">${t2(+b.undelivered)} t</span> · ${esc(b.undeliveredNote)}`]);
+ if(+b.undelivered>0)rows.push(['Không giao',`<span class="num">${t2(+b.undelivered)} MT</span> · ${esc(b.undeliveredNote)}`]);
  if(!rows.length)return '';
  return `<div class="dlv"><h4>GIAO HÀNG</h4><dl class="dl">${rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>`;}
 
 /* ---------- Popup xe: đóng / mở xe (BR-47) ---------- */
 function truckClose29(t,l,past){if(past||!(can('fleet.manage')||can('alloc.assign')))return '';const M=V.modal;M.cl=M.cl&&M.cl.code===t.code?M.cl:{code:t.code,reason:'',note:'',cap:''};const C=M.cl;
- if(t.closed)return `<div class="panel tinfo"><div class="row"><b class="grow">Xe đã đóng ở ${t2(t.cap)} t</b><span class="small muted">Không xếp thêm, không gợi ý</span></div>
+ if(t.closed)return `<div class="panel tinfo"><div class="row"><b class="grow">Xe đã đóng ở ${t2(t.cap)} MT</b><span class="small muted">Không xếp thêm, không gợi ý</span></div>
   <div class="row" style="margin-top:8px;gap:8px;align-items:end"><div class="field"><label for="cl-cap">Tải trọng khi mở lại (tấn)</label><input id="cl-cap" class="inp num" style="width:110px" inputmode="decimal" data-f="v9c" data-k="cap" value="${esc(C.cap)}" placeholder="${t.defCap} (chuẩn)"></div><button class="btn sm" data-a="v9TruckOpen" data-c="${t.code}">🔓 Mở lại xe</button></div>${C.err?`<div class="err">${esc(C.err)}</div>`:''}</div>`;
- return `<div class="panel tinfo"><div class="row"><b class="grow">Đóng xe</b><span class="small muted">Tải trọng = số đã xếp (${t2(l)} t), sức chứa ngày giảm ${t2(Math.max(0,t.cap-l))} t</span></div>
+ return `<div class="panel tinfo"><div class="row"><b class="grow">Đóng xe</b><span class="small muted">Tải trọng = số đã xếp (${t2(l)} MT), sức chứa ngày giảm ${t2(Math.max(0,t.cap-l))} MT</span></div>
   <div class="row" style="margin-top:8px;gap:8px;align-items:end;flex-wrap:wrap"><div class="field"><label for="cl-r">Lý do <span class="req">*</span></label><select id="cl-r" class="inp" data-f="v9c" data-k="reason">${rOpts29('close',C.reason)}</select></div>
   <div class="field grow"><label for="cl-n">Ghi chú</label><input id="cl-n" class="inp" data-f="v9c" data-k="note" value="${esc(C.note)}"></div><button class="btn ghost sm" data-a="v9TruckClose" data-c="${t.code}">🔒 Đóng xe</button></div>${C.err?`<div class="err">${esc(C.err)}</div>`:''}</div>`;}
 
@@ -151,10 +151,10 @@ function bulkParse29(M){const raw=splitRows29(M.text);const whs=WH.map(w=>w.id);
  return{rows,groups:Object.values(groups).sort((a,b)=>a.day.localeCompare(b.day)||a.wh.localeCompare(b.wh))};}
 function bulkPreview29(){const M=V.modal;const P=bulkParse29(M);const bad=P.rows.filter(o=>o.err).length;
  if(!P.rows.length)return '<div class="muted small" style="margin-top:8px">Chưa có dòng nào.</div>';
- return `<div class="v9cap">${P.groups.map(g=>{const m=dayM(g.wh,g.day);const ok=S.fleet[g.wh]&&S.fleet[g.wh][g.day];return `<span class="${M.mode==='hold'&&(!ok||g.t>m.avail+0.001)?'over':''}"><b>${g.wh} · ${dm(g.day)}</b>${isHoliday(g.wh,g.day)?' ⚠':''}: ${ok?`còn ${t2(m.avail)} t`:'chưa khai báo xe'} · đang nhập ${t2(g.t)} t</span>`;}).join('')}</div>
+ return `<div class="v9cap">${P.groups.map(g=>{const m=dayM(g.wh,g.day);const ok=S.fleet[g.wh]&&S.fleet[g.wh][g.day];return `<span class="${M.mode==='hold'&&(!ok||g.t>m.avail+0.001)?'over':''}"><b>${g.wh} · ${dm(g.day)}</b>${isHoliday(g.wh,g.day)?' ⚠':''}: ${ok?`còn ${t2(m.avail)} MT`:'chưa khai báo xe'} · đang nhập ${t2(g.t)} MT</span>`;}).join('')}</div>
  <div class="small" style="margin:4px 0">${P.rows.length} dòng · <b class="num">${t2(P.rows.reduce((s,o)=>s+(o.t>0?o.t:0),0))}</b> t${bad?` · <span class="err">${bad} dòng sẽ không được nhận</span>`:''}</div>
  <div class="tbl-wrap" style="max-height:260px"><table class="v9tbl"><thead><tr><th>#</th><th>Kho</th><th>Ngày bốc</th><th>Mã KH</th><th>Khách hàng</th><th class="r">Tấn</th><th>Địa chỉ</th><th>Ref</th><th>Kiểm tra</th></tr></thead><tbody>
- ${P.rows.map((o,i)=>`<tr class="${o.err?'bad':''} ${o.hol?'hol':''}"><td>${i+1}</td><td>${esc(o.wh)}</td><td class="dcol num">${o.day&&!o.day.startsWith('x:')?dmy(o.day)+(o.hol?' ⚠ '+(dow(o.day)===0?'CN':'Lễ'):''):esc(o.day||'')}</td><td>${esc(o.code)}</td><td>${o.cust?esc(o.cust.name):''}</td><td class="r num">${esc(o.tons)}</td><td>${esc(o.address)||'<span class="muted small">mặc định</span>'}</td><td>${esc(o.ref)}</td><td>${o.err?`<span class="err">${o.err}</span>`:M.mode==='hold'?`<span class="small muted">còn ${t2(o.left)} t</span>`:'<span class="small muted">OK</span>'}</td></tr>`).join('')}
+ ${P.rows.map((o,i)=>`<tr class="${o.err?'bad':''} ${o.hol?'hol':''}"><td>${i+1}</td><td>${esc(o.wh)}</td><td class="dcol num">${o.day&&!o.day.startsWith('x:')?dmy(o.day)+(o.hol?' ⚠ '+(dow(o.day)===0?'CN':'Lễ'):''):esc(o.day||'')}</td><td>${esc(o.code)}</td><td>${o.cust?esc(o.cust.name):''}</td><td class="r num">${esc(o.tons)}</td><td>${esc(o.address)||'<span class="muted small">mặc định</span>'}</td><td>${esc(o.ref)}</td><td>${o.err?`<span class="err">${o.err}</span>`:M.mode==='hold'?`<span class="small muted">còn ${t2(o.left)} MT</span>`:'<span class="small muted">OK</span>'}</td></tr>`).join('')}
  </tbody></table></div>`;}
 function mBulk29(){const M=V.modal;
  if(M.step==='result')return bulkResult29();
@@ -174,7 +174,7 @@ function bulkResult29(){const M=V.modal;const R=M.res;const bad=R.rows.filter(r=
  return `<div class="mhead"><span class="meta">KẾT QUẢ NHẬP NHIỀU DÒNG</span><span class="meta">${M.mode==='hold'?'Đặt & gửi Logistics':'Lưu tạm'}</span></div>
  <div class="v9kpi"><div><span class="small muted">Đã nhận</span><b class="num" style="color:var(--ok)">${R.ok}</b></div><div><span class="small muted">Không nhận</span><b class="num" style="color:${R.failed?'var(--bad)':'inherit'}">${R.failed}</b></div><div><span class="small muted">Tấn đã nhận</span><b class="num">${t2(good.reduce((s,r)=>s+(+r.tons||0),0))}</b></div></div>
  ${bad.length?`<h3 style="font-size:15px;margin:8px 0">DÒNG KHÔNG NHẬN</h3><div class="tbl-wrap"><table class="v9tbl"><thead><tr><th>#</th><th>Kho</th><th>Ngày</th><th>Mã KH</th><th class="r">Tấn</th><th>Lý do</th><th>Ngày còn chỗ</th></tr></thead><tbody>
-  ${bad.map(r=>`<tr><td>${r.row}</td><td>${esc(r.wh||'')}</td><td class="num">${r.day?dmy(r.day):''}</td><td>${esc(r.code||'')}</td><td class="r num">${esc(r.tons||'')}</td><td class="err">${esc(r.error)}</td><td>${(r.suggest||[]).map(s=>`<button class="btn ghost sm" data-a="v9BulkMove" data-r="${r.row}" data-d="${s.day}">${dm(s.day)} (${t2(+s.avail)} t)</button>`).join(' ')||'<span class="muted small">–</span>'}</td></tr>`).join('')}
+  ${bad.map(r=>`<tr><td>${r.row}</td><td>${esc(r.wh||'')}</td><td class="num">${r.day?dmy(r.day):''}</td><td>${esc(r.code||'')}</td><td class="r num">${esc(r.tons||'')}</td><td class="err">${esc(r.error)}</td><td>${(r.suggest||[]).map(s=>`<button class="btn ghost sm" data-a="v9BulkMove" data-r="${r.row}" data-d="${s.day}">${dm(s.day)} (${t2(+s.avail)} MT)</button>`).join(' ')||'<span class="muted small">–</span>'}</td></tr>`).join('')}
  </tbody></table></div><div class="row" style="margin-top:8px;gap:8px"><button class="btn ghost sm" data-a="v9BulkErrCsv">Tải file dòng lỗi</button><button class="btn sm" data-a="v9BulkFix">Sửa các dòng lỗi trong form</button><span class="small muted">Bấm ngày còn chỗ để chuyển dòng đó sang ngày gợi ý rồi gửi lại.</span></div>`:''}
  ${good.length?`<h3 style="font-size:15px;margin:14px 0 8px">BOOKING ĐÃ TẠO</h3><div class="tbl-wrap" style="max-height:220px"><table class="v9tbl"><thead><tr><th>Mã booking</th><th>Ngày</th><th>Khách hàng</th><th class="r">Tấn</th><th></th></tr></thead><tbody>
   ${good.map(r=>`<tr><td><button class="linkbtn" data-a="openBk" data-id="${r.id}">${r.id}</button></td><td class="num">${dmy(r.day)}${r.holiday?' <span class="urg">⚠ NGÀY NGHỈ</span>':''}</td><td>${esc(r.name||r.code)}</td><td class="r num">${t2(+r.tons)}</td><td>${bkById(r.id)?.urgent?'<span class="urg">KHẨN</span>':''}</td></tr>`).join('')}</tbody></table></div>`:''}
@@ -195,15 +195,15 @@ function delivState29(){const M=V.modal;const b=bkById(M.id);const P=parseCoils2
  const dup=[...new Set(P.coils.map(c=>c.lot).filter((l,i,a)=>l&&a.indexOf(l)!==i))];const custs=[...new Set(P.coils.map(c=>c.customer).filter(Boolean))];
  const kind=!P.coils.length?'none':T-tot>tol?'short':tot-T>tol?'excess':'ok';return{b,P,tot,T,tol,dup,custs,kind};}
 function mDeliv29(){const M=V.modal;const D=delivState29();const b=D.b;const c=cust(b.customerId);const wh=WHALL.find(w=>w.id===b.wh);
- const msg=D.kind==='none'?'':D.kind==='ok'?`<div class="capblock num">Tổng cuộn ${t2(D.tot)} t · booking ${t2(D.T)} t · lệch ${t2(D.tot-D.T)} t – khớp (ngưỡng ±${t2(D.tol)} t)</div>`
-  :D.kind==='short'?`<div class="capblock over num">Tổng cuộn ${t2(D.tot)} t THIẾU ${t2(D.T-D.tot)} t so với booking ${t2(D.T)} t</div>`
-  :`<div class="capblock over num">Tổng cuộn ${t2(D.tot)} t DƯ ${t2(D.tot-D.T)} t so với booking ${t2(D.T)} t</div>`;
+ const msg=D.kind==='none'?'':D.kind==='ok'?`<div class="capblock num">Tổng cuộn ${t2(D.tot)} MT · booking ${t2(D.T)} MT · lệch ${t2(D.tot-D.T)} MT – khớp (ngưỡng ±${t2(D.tol)} MT)</div>`
+  :D.kind==='short'?`<div class="capblock over num">Tổng cuộn ${t2(D.tot)} MT THIẾU ${t2(D.T-D.tot)} MT so với booking ${t2(D.T)} MT</div>`
+  :`<div class="capblock over num">Tổng cuộn ${t2(D.tot)} MT DƯ ${t2(D.tot-D.T)} MT so với booking ${t2(D.T)} MT</div>`;
  const restDays=[...Array(14)].map((_,i)=>addDays(b.date<TODAY?TODAY:b.date,i)).filter(d=>d>=TODAY&&S.fleet[b.wh][d]);
- return `<div class="mhead"><span class="meta">${b.id} · ${esc(c.name)}</span><span class="meta">Ngày bốc ${dmy(b.date)} · ${t2(D.T)} t</span></div>
+ return `<div class="mhead"><span class="meta">${b.id} · ${esc(c.name)}</span><span class="meta">Ngày bốc ${dmy(b.date)} · ${t2(D.T)} MT</span></div>
  <h2 style="margin-bottom:10px">XÁC NHẬN GIAO HÀNG</h2>
  ${b.date<TODAY?`<div class="addrbox" style="margin-bottom:10px"><b>Ngày bốc ${dmy(b.date)} đã qua – nhập ngày giao thực tế <span class="req">*</span></b>
   <div class="row" style="gap:10px;margin-top:6px;flex-wrap:wrap"><input type="date" id="dv-ad" class="inp" style="max-width:190px" min="${TODAY}" value="${M.actualDay||''}" data-f="v9" data-k="actualDay" data-r="1">
-  ${M.actualDay&&S.fleet[b.wh]&&S.fleet[b.wh][M.actualDay]?`<span class="small muted">Còn đặt được ${t2(dayM(b.wh,M.actualDay).avail)} t${isHoliday(b.wh,M.actualDay)?' · ⚠ ngày nghỉ':''}</span>`:M.actualDay?'<span class="small muted">Ngày này chưa khai báo xe</span>':''}</div>
+  ${M.actualDay&&S.fleet[b.wh]&&S.fleet[b.wh][M.actualDay]?`<span class="small muted">Còn đặt được ${t2(dayM(b.wh,M.actualDay).avail)} MT${isHoliday(b.wh,M.actualDay)?' · ⚠ ngày nghỉ':''}</span>`:M.actualDay?'<span class="small muted">Ngày này chưa khai báo xe</span>':''}</div>
   <span class="small muted">Đơn chuyển sang ngày này, gỡ xe đã gán ngày ${dmy(b.date)}; trạng thái Đã xác nhận giao hàng · Chờ xếp xe, Logistics được báo xếp xe gấp.</span></div>`:''}
  <div class="addrbox"><b>Địa chỉ giao <span class="req">*</span></b>
   <select class="inp" data-f="v9" data-k="addrId" data-r="1">${c.addresses.map(a=>`<option value="${a.id}" ${M.addrId===a.id?'selected':''}>${esc(a.label)}, ${esc(a.ward)}, ${esc(a.province)}</option>`).join('')}<option value="new" ${M.addrId==='new'?'selected':''}>+ Địa chỉ khác</option></select>
@@ -211,11 +211,11 @@ function mDeliv29(){const M=V.modal;const D=delivState29();const b=D.b;const c=c
  <div class="field" style="margin-top:10px"><label for="dv-t">Danh sách cuộn (dán từ Excel, có dòng tiêu đề)</label><textarea id="dv-t" class="inp v9area" data-f="v9" data-k="text" placeholder="Whs&#9;Order no&#9;Ln&#9;Itmno&#9;Name&#9;Lot number&#9;Allocated qty&#9;Attr value&#9;Customer">${esc(M.text)}</textarea>
  <span class="small muted">Mã kho ERP của ${esc(wh.name)}: ${esc(wh.erp||'–')}${c.erp?' · Mã KH ERP: '+esc(c.erp):''} · tối đa 300 cuộn</span></div>
  <div id="v9-prev">${delivPrev29(D)}</div>
- ${D.kind==='short'?`<div class="panel" style="margin-top:8px"><b>Phần còn lại ${t2(D.T-D.tot)} t</b>
+ ${D.kind==='short'?`<div class="panel" style="margin-top:8px"><b>Phần còn lại ${t2(D.T-D.tot)} MT</b>
   <div class="row" style="gap:16px;margin:6px 0"><label class="row"><input type="radio" name="rm" data-f="v9" data-k="restMode" data-r="1" value="split" ${M.restMode==='split'?'checked':''}> Tách đơn (${b.parent||b.id}-N)</label><label class="row"><input type="radio" name="rm" data-f="v9" data-k="restMode" data-r="1" value="drop" ${M.restMode==='drop'?'checked':''}> Không giao phần còn lại</label></div>
-  ${M.restMode==='split'?`<div class="field"><label for="dv-rd">Ngày giao phần còn lại</label><select id="dv-rd" class="inp" data-f="v9" data-k="restDay"><option value="">Chưa hẹn (Lưu tạm, không trừ sức chứa)</option>${restDays.map(d=>`<option value="${d}" ${M.restDay===d?'selected':''}>${WDS[dow(d)]} ${dmy(d)} · còn ${t2(dayM(b.wh,d).avail)} t${isHoliday(b.wh,d)?' · ⚠ ngày nghỉ':''}</option>`).join('')}</select></div>`:''}
+  ${M.restMode==='split'?`<div class="field"><label for="dv-rd">Ngày giao phần còn lại</label><select id="dv-rd" class="inp" data-f="v9" data-k="restDay"><option value="">Chưa hẹn (Lưu tạm, không trừ sức chứa)</option>${restDays.map(d=>`<option value="${d}" ${M.restDay===d?'selected':''}>${WDS[dow(d)]} ${dmy(d)} · còn ${t2(dayM(b.wh,d).avail)} MT${isHoliday(b.wh,d)?' · ⚠ ngày nghỉ':''}</option>`).join('')}</select></div>`:''}
   ${M.restMode==='drop'?`<div class="fgrid"><div class="field"><label for="dv-rr">Lý do không giao <span class="req">*</span></label><select id="dv-rr" class="inp" data-f="v9" data-k="restReason">${rOpts29('nodeliver',M.restReason)}</select></div><div class="field"><label for="dv-rn">Ghi chú</label><input id="dv-rn" class="inp" data-f="v9" data-k="restNote" value="${esc(M.restNote)}"></div></div>`:''}</div>`:''}
- ${D.kind==='excess'?`<label class="row small" style="margin-top:8px"><input type="checkbox" data-f="v9" data-k="updTons" ${M.updTons?'checked':''}> Cập nhật số tấn booking theo cuộn (${t2(D.T)} → ${t2(D.tot)} t; kiểm tra sức chứa ngày)</label>`:''}
+ ${D.kind==='excess'?`<label class="row small" style="margin-top:8px"><input type="checkbox" data-f="v9" data-k="updTons" ${M.updTons?'checked':''}> Cập nhật số tấn booking theo cuộn (${t2(D.T)} → ${t2(D.tot)} MT; kiểm tra sức chứa ngày)</label>`:''}
  ${M.warn?`<div class="warnlist"><b>Cần kiểm tra:</b> ${esc(M.warn)}</div>`:''}
  ${M.err?`<div class="err" style="margin-top:8px">${esc(M.err)}</div>`:''}
  <div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button>${M.warn?'<button class="btn" data-a="v9DelivSave" data-force="1">Đã kiểm tra – vẫn lưu</button>':'<button class="btn" data-a="v9DelivSave">Lưu &amp; báo Logistics</button>'}</div>`;}
@@ -224,16 +224,16 @@ function delivPrev29(D){if(D.P.err)return `<div class="err">${esc(D.P.err)}</div
  <div class="tbl-wrap" style="max-height:200px"><table class="v9tbl"><thead><tr><th>Whs</th><th>Order no</th><th>Name</th><th>Lot number</th><th class="r">Qty (t)</th><th>Customer</th></tr></thead><tbody>
  ${D.P.coils.slice(0,8).map(c=>`<tr class="${D.dup.includes(c.lot)||!(num(c.qty)>0)?'bad':''}"><td>${esc(c.whs)}</td><td>${esc(c.order_no)}</td><td>${esc(c.name)}</td><td>${esc(c.lot)}</td><td class="r num">${esc(c.qty)}</td><td>${esc(c.customer)}</td></tr>`).join('')}
  ${D.P.coils.length>8?`<tr><td colspan="6" class="muted small">… và ${D.P.coils.length-8} cuộn khác</td></tr>`:''}</tbody></table></div>
- <div style="margin-top:6px">${D.kind==='ok'?`<div class="capblock num">Tổng cuộn ${t2(D.tot)} t · booking ${t2(D.T)} t – khớp (ngưỡng ±${t2(D.tol)} t)</div>`:D.kind==='short'?`<div class="capblock over num">Tổng cuộn ${t2(D.tot)} t – THIẾU ${t2(D.T-D.tot)} t so với booking ${t2(D.T)} t</div>`:`<div class="capblock over num">Tổng cuộn ${t2(D.tot)} t – DƯ ${t2(D.tot-D.T)} t so với booking ${t2(D.T)} t</div>`}</div>`;}
+ <div style="margin-top:6px">${D.kind==='ok'?`<div class="capblock num">Tổng cuộn ${t2(D.tot)} MT · booking ${t2(D.T)} MT – khớp (ngưỡng ±${t2(D.tol)} MT)</div>`:D.kind==='short'?`<div class="capblock over num">Tổng cuộn ${t2(D.tot)} MT – THIẾU ${t2(D.T-D.tot)} MT so với booking ${t2(D.T)} MT</div>`:`<div class="capblock over num">Tổng cuộn ${t2(D.tot)} MT – DƯ ${t2(D.tot-D.T)} MT so với booking ${t2(D.T)} MT</div>`}</div>`;}
 
 /* ---------- Logistics: load / đang giao / đã giao / giao lỗi ---------- */
 function mShip29(){const M=V.modal;const b=bkById(M.id);const c=cust(b.customerId);
  const head=`<div class="mhead"><span class="meta">${b.id} · ${esc(c.name)}</span><span class="meta">${ST_LABEL[stKey(b)]}</span></div>`;
  if(M.kind==='load'){const cs=M.coils;const off=cs?cs.filter(x=>M.off.includes(x.lot)):[];const sh=r2(off.reduce((s,x)=>s+(+x.qty),0));const T=bkTotal(b);
-  return `${head}<h2 style="margin-bottom:8px">ĐÃ BỐC HÀNG</h2><p class="small muted" style="margin:0 0 8px">Bỏ tick cuộn không lên xe. Thiếu quá ±${t2(tolOf29(T))} t thì CS nhận thông báo để tách đơn hoặc không giao phần còn lại.</p>
+  return `${head}<h2 style="margin-bottom:8px">ĐÃ BỐC HÀNG</h2><p class="small muted" style="margin:0 0 8px">Bỏ tick cuộn không lên xe. Thiếu quá ±${t2(tolOf29(T))} MT thì CS nhận thông báo để tách đơn hoặc không giao phần còn lại.</p>
   ${!cs?'<div class="muted">Đang tải danh sách cuộn…</div>':`<div class="tbl-wrap" style="max-height:300px"><table class="v9tbl"><thead><tr><th>Lên xe</th><th>Lot number</th><th>Name</th><th class="r">Qty (t)</th></tr></thead><tbody>
    ${cs.map(x=>`<tr class="${M.off.includes(x.lot)?'bad':''}"><td><input type="checkbox" data-f="v9off" value="${esc(x.lot)}" ${M.off.includes(x.lot)?'':'checked'} aria-label="Cuộn ${esc(x.lot)} lên xe"></td><td>${esc(x.lot)}</td><td>${esc(x.name)}</td><td class="r num">${t2(+x.qty)}</td></tr>`).join('')}</tbody></table></div>
-   <div class="capblock num ${sh>tolOf29(T)?'over':''}" style="margin-top:8px">Lên xe ${t2(r2(cs.reduce((s,x)=>s+(+x.qty),0))-sh)} t · không lên xe ${t2(sh)} t (${off.length} cuộn)</div>
+   <div class="capblock num ${sh>tolOf29(T)?'over':''}" style="margin-top:8px">Lên xe ${t2(r2(cs.reduce((s,x)=>s+(+x.qty),0))-sh)} MT · không lên xe ${t2(sh)} MT (${off.length} cuộn)</div>
    ${off.length?`<div class="field" style="margin-top:8px"><label for="ld-n">Ghi chú cuộn không lên xe <span class="req">*</span></label><input id="ld-n" class="inp" data-f="v9" data-k="note" value="${esc(M.note)}"></div>`:''}`}
   ${M.err?`<div class="err">${esc(M.err)}</div>`:''}<div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button><button class="btn" data-a="v9ShipSave" ${cs?'':'disabled'}>Xác nhận đã bốc hàng</button></div>`;}
  if(M.kind==='transit')return `${head}<h2 style="margin-bottom:8px">ĐANG GIAO</h2><div class="field"><label for="tr-e">Dự kiến tới</label><input id="tr-e" type="datetime-local" class="inp" data-f="v9" data-k="at" value="${esc(M.at)}"></div>${M.err?`<div class="err">${esc(M.err)}</div>`:''}<div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button><button class="btn" data-a="v9ShipSave">Xác nhận đang giao</button></div>`;
@@ -243,10 +243,10 @@ function mShip29(){const M=V.modal;const b=bkById(M.id);const c=cust(b.customerI
 
 /* ---------- CS: xử lý load thiếu ---------- */
 function mShort29(){const M=V.modal;const b=bkById(M.id);const days=[...Array(14)].map((_,i)=>addDays(TODAY,i)).filter(d=>S.fleet[b.wh][d]);
- return `<div class="mhead"><span class="meta">${b.id} · ${esc(cust(b.customerId).name)}</span><span class="meta">Load thiếu ${t2(+b.shortTons)} t</span></div><h2 style="margin-bottom:8px">XỬ LÝ LOAD THIẾU</h2>
+ return `<div class="mhead"><span class="meta">${b.id} · ${esc(cust(b.customerId).name)}</span><span class="meta">Load thiếu ${t2(+b.shortTons)} MT</span></div><h2 style="margin-bottom:8px">XỬ LÝ LOAD THIẾU</h2>
  ${b.loadNote?`<div class="hint" style="margin-bottom:8px">Ghi chú Logistics: ${esc(b.loadNote)}</div>`:''}
  <div class="row" style="gap:16px;margin:6px 0"><label class="row"><input type="radio" name="sm" data-f="v9" data-k="mode" data-r="1" value="split" ${M.mode==='split'?'checked':''}> Tách đơn phần còn lại</label><label class="row"><input type="radio" name="sm" data-f="v9" data-k="mode" data-r="1" value="drop" ${M.mode==='drop'?'checked':''}> Không giao phần còn lại</label></div>
- ${M.mode==='split'?`<div class="field"><label for="sh-d">Ngày giao phần còn lại</label><select id="sh-d" class="inp" data-f="v9" data-k="day"><option value="">Chưa hẹn (Lưu tạm)</option>${days.map(d=>`<option value="${d}" ${M.day===d?'selected':''}>${WDS[dow(d)]} ${dmy(d)} · còn ${t2(dayM(b.wh,d).avail)} t</option>`).join('')}</select></div>`:''}
+ ${M.mode==='split'?`<div class="field"><label for="sh-d">Ngày giao phần còn lại</label><select id="sh-d" class="inp" data-f="v9" data-k="day"><option value="">Chưa hẹn (Lưu tạm)</option>${days.map(d=>`<option value="${d}" ${M.day===d?'selected':''}>${WDS[dow(d)]} ${dmy(d)} · còn ${t2(dayM(b.wh,d).avail)} MT</option>`).join('')}</select></div>`:''}
  ${M.mode==='drop'?`<div class="fgrid"><div class="field"><label for="sh-r">Lý do <span class="req">*</span></label><select id="sh-r" class="inp" data-f="v9" data-k="reason">${rOpts29('nodeliver',M.reason)}</select></div><div class="field"><label for="sh-n">Ghi chú</label><input id="sh-n" class="inp" data-f="v9" data-k="note" value="${esc(M.note)}"></div></div>`:''}
  ${M.err?`<div class="err">${esc(M.err)}</div>`:''}<div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button><button class="btn" data-a="v9ShortSave">Lưu</button></div>`;}
 
@@ -257,7 +257,7 @@ function mUrgent29(){const M=V.modal;const b=bkById(M.id);
  ${M.err?`<div class="err">${esc(M.err)}</div>`:''}<div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button><button class="btn" data-a="v9UrgentSave">Lưu</button></div>`;}
 
 function mCoils29(){const M=V.modal;const b=bkById(M.id)||{id:M.id};const cs=M.coils;
- return `<div class="mhead"><span class="meta">${b.id}</span><span class="meta">${cs?cs.length+' cuộn · '+t2(r2(cs.reduce((s,x)=>s+(+x.qty),0)))+' t':''}</span></div><h2 style="margin-bottom:8px">DANH SÁCH CUỘN</h2>
+ return `<div class="mhead"><span class="meta">${b.id}</span><span class="meta">${cs?cs.length+' cuộn · '+t2(r2(cs.reduce((s,x)=>s+(+x.qty),0)))+' MT':''}</span></div><h2 style="margin-bottom:8px">DANH SÁCH CUỘN</h2>
  ${!cs?'<div class="muted">Đang tải…</div>':`<div class="tbl-wrap" style="max-height:420px"><table class="v9tbl"><thead><tr><th>#</th><th>Whs</th><th>Order no</th><th>Ln</th><th>Itmno</th><th>Name</th><th>Lot number</th><th class="r">Qty (t)</th><th>Attr</th><th>Customer</th><th>Lên xe</th></tr></thead><tbody>
  ${cs.map(x=>`<tr class="${x.loaded?'':'bad'}"><td>${x.seq}</td><td>${esc(x.whs)}</td><td>${esc(x.order_no)}</td><td>${esc(x.ln)}</td><td>${esc(x.itmno)}</td><td>${esc(x.name)}</td><td>${esc(x.lot)}</td><td class="r num">${t2(+x.qty)}</td><td>${esc(x.attr)}</td><td>${esc(x.customer)}</td><td>${b.loadedAt||['loaded','transit','delivered'].includes(b.status)?(x.loaded?'Có':'<b class="err">Không</b>'):'–'}</td></tr>`).join('')}</tbody></table></div>`}
  <div class="mfoot">${cs&&cs.length?'<button class="btn ghost" data-a="v9CoilsCsv">Tải CSV</button>':''}<button class="btn" data-a="close">Đóng</button></div>`;}
@@ -294,7 +294,7 @@ Object.assign(A,{
   if(D.kind==='short'){p.rest_mode=M.restMode;p.rest_day=M.restMode==='split'?M.restDay||'':'';p.rest_reason=M.restReason;p.rest_note=M.restNote;}
   if(V.busy)return;setBusy(true);
   try{const r=await rpcH29('confirm_delivery',{p});await reload();setBusy(false);V.modal=null;V.asg=null;
-   toast(`Đã lưu ${r.coils} cuộn (${t2(+r.tons)} t), Logistics đã được báo${r.child?'. Phần còn lại: '+r.child:''}`);render();}
+   toast(`Đã lưu ${r.coils} cuộn (${t2(+r.tons)} MT), Logistics đã được báo${r.child?'. Phần còn lại: '+r.child:''}`);render();}
   catch(e){setBusy(false);if(e.hint==='warn'){M.warn=e.message.replace(/^Cần kiểm tra:\s*/,'');M.forced=false;}else{M.err=e.message;}render();}},
  v9Coils:d=>{V.modal={type:'coils',wide:true,id:d.id,coils:null};render();rpc('get_coils',{p_id:d.id}).then(cs=>{if(V.modal&&V.modal.type==='coils'){V.modal.coils=cs;render();}}).catch(e=>toast(e.message));},
  v9CoilsCsv:()=>{const M=V.modal;downloadCsv29(M.id+'-cuon.csv',[['Whs','Order no','Ln','Itmno','Name','Lot number','Allocated qty','Attr value','Customer','Lên xe'],...M.coils.map(x=>[x.whs,x.order_no,x.ln,x.itmno,x.name,x.lot,x.qty,x.attr,x.customer,x.loaded?'Có':'Không'])]);},
@@ -302,7 +302,7 @@ Object.assign(A,{
   if(d.k==='load')rpc('get_coils',{p_id:d.id}).then(cs=>{if(V.modal&&V.modal.type==='ship'){V.modal.coils=cs;render();}}).catch(e=>{V.modal.err=e.message;render();});},
  v9ShipSave:()=>{const M=V.modal;M.err='';const done=t=>({err:m=>M.err=m,ok:r=>{V.modal=null;V.asg=null;toast(t(r));}});
   if(M.kind==='load'){if(M.off.length&&!String(M.note).trim()){M.err='Nhập ghi chú cho các cuộn không lên xe.';return render();}
-   return mutate('mark_loaded',{p_id:M.id,p_unloaded:M.off,p_note:M.note||''},done(r=>r&&r.needAction?`Đã bốc hàng. Bốc thiếu ${t2(+r.short)} t – CS đã được báo`:'Đã bốc hàng'));}
+   return mutate('mark_loaded',{p_id:M.id,p_unloaded:M.off,p_note:M.note||''},done(r=>r&&r.needAction?`Đã bốc hàng. Bốc thiếu ${t2(+r.short)} MT – CS đã được báo`:'Đã bốc hàng'));}
   if(M.kind==='transit')return mutate('mark_transit',{p_id:M.id,p_eta:dtToIso29(M.at)},done(()=>'Đã chuyển Đang giao'));
   if(M.kind==='delivered')return mutate('mark_delivered',{p_id:M.id,p_at:dtToIso29(M.at)},done(()=>'Đã giao'));
   if(!M.code||!String(M.note).trim()){M.err='Chọn lý do và nhập mô tả.';return render();}
