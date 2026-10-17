@@ -78,7 +78,10 @@ alter table app.profiles  add column if not exists away_from date;
 alter table app.profiles  add column if not exists away_to date;
 alter table app.profiles  add column if not exists delegate_id uuid references app.profiles(user_id);
 -- Phạm vi thống kê (chỉ ảnh hưởng số liệu tổng hợp, không mở quyền sửa): own = khách mình phụ trách, DD / DA = toàn segment, all = tất cả
-alter table app.profiles  add column if not exists stat_scope text check (stat_scope in ('own','DD','DA','EX','all'));
+alter table app.profiles  add column if not exists stat_scope text check (stat_scope in ('own','DD','DA','EX','all','team'));
+-- v3.15: RSM – Sales báo cáo cho ai; RSM có phạm vi 'team' thấy khách của mình + các Sales mình quản lý
+alter table app.profiles  add column if not exists manager_id uuid references app.profiles(user_id) on delete set null;
+alter table app.profiles  add column if not exists notify_team boolean not null default false;
 
 create table if not exists app.customer_addresses (
   id          uuid primary key default gen_random_uuid(),
@@ -218,6 +221,7 @@ create table if not exists app.bookings (
 );
 create index if not exists bookings_wh_day_status on app.bookings (warehouse_code, day, status);
 alter table app.bookings add column if not exists escalated_at timestamptz;
+alter table app.bookings add column if not exists ship_remind_on date; -- v3.15: lần nhắc Logistics xác nhận giao gần nhất
 create index if not exists bookings_customer on app.bookings (customer_id);
 
 -- v2.9 (mục 14 SRS): trạng thái giao hàng, ngày bốc gốc, đơn khẩn, hủy cận ngày, tách đơn, danh sách cuộn
@@ -520,10 +524,33 @@ begin
 end $$;
 
 -- Sales chỉ được thao tác trên khách mình phụ trách
+-- v3.15: Sales thấy khách mình phụ trách; RSM (phạm vi 'team') thấy thêm khách của Sales mình quản lý
+create or replace function app.in_team(p_mgr uuid, p_sales uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select p_sales is not null and (p_sales = p_mgr or exists (select 1 from app.profiles r where r.user_id = p_sales and r.manager_id = p_mgr))
+$$;
+create or replace function app.sees_sales(m app.profiles, p_sales uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select m.role <> 'sales' or p_sales = m.user_id
+      or (coalesce(m.stat_scope, 'own') = 'team' and app.in_team(m.user_id, p_sales))
+$$;
+-- RSM muốn nhận thông báo đơn của nhóm (từ chối / đổi ngày)
+create or replace function app.rsm_of(p_sales uuid) returns uuid[]
+language sql stable security definer set search_path = '' as $$
+  select coalesce(array_agg(m.user_id), '{}') from app.profiles s join app.profiles m on m.user_id = s.manager_id
+   where s.user_id = p_sales and m.active and m.notify_team and m.stat_scope = 'team'
+$$;
+create or replace function app.team_ids(m app.profiles) returns uuid[]
+language sql stable security definer set search_path = '' as $$
+  select case when coalesce(m.stat_scope, 'own') = 'team'
+    then array[m.user_id] || coalesce((select array_agg(user_id order by user_id) from app.profiles where manager_id = m.user_id), '{}')
+    else array[m.user_id] end
+$$;
+
 create or replace function app.check_scope(m app.profiles, p_customer uuid) returns void
 language plpgsql stable security definer set search_path = '' as $$
 begin
-  if m.role = 'sales' and not exists (select 1 from app.customers c where c.id = p_customer and c.sales_user_id = m.user_id) then
+  if m.role = 'sales' and not app.sees_sales(m, (select c.sales_user_id from app.customers c where c.id = p_customer)) then
     raise exception 'Booking này thuộc khách hàng bạn không phụ trách.' using errcode = '42501';
   end if;
 end $$;
@@ -786,7 +813,7 @@ begin
     me.role := 'customer'; me.customer_id := v_cv.customer_id; v_internal := false;
   else v_cv := null; end if;
   select jsonb_object_agg(key, value) into v_cfg from app.settings;
-  v_cat := me.user_id || ':' || me.role || ':' || (select last_value from app.cat_seq);
+  v_cat := me.user_id || ':' || me.role || ':' || md5(array_to_string(app.team_ids(me), ',')) || ':' || (select last_value from app.cat_seq);
 
   res := jsonb_build_object(
     'today', app.today(),
@@ -796,14 +823,17 @@ begin
                              'segment', me.segment, 'customerId', me.customer_id, 'wh', me.default_warehouse, 'whs', me.warehouses,
                              'awayFrom', me.away_from, 'awayTo', me.away_to, 'delegateId', me.delegate_id,
                              'mfa', app.has_mfa(me.user_id), 'mfaReq', app.role_has(me.role, 'auth.mfa'), 'statScope', app.stat_scope(me),
-                             'emailLevel', me.email_level, 'altEmail', me.alt_email, 'shortcuts', me.shortcuts),
+                             'emailLevel', me.email_level, 'altEmail', me.alt_email, 'shortcuts', me.shortcuts,
+                             'team', to_jsonb(app.team_ids(me)), 'managerId', me.manager_id, 'notifyTeam', me.notify_team),
     'cfg', v_cfg,
     'perms', to_jsonb(app.my_perms(me.role)),
     'imp', case when app.impersonating() then (select jsonb_build_object('by', a.full_name, 'expiresAt', extract(epoch from i.expires_at))
                 from app.impersonations i join app.profiles a on a.user_id = i.admin_id where i.admin_id = app.real_uid()) end,
     'warehouses', (select jsonb_agg(jsonb_build_object('id', code, 'name', name, 'full', full_name, 'erp', erp_code, 'active', active) order by code) from app.warehouses),
     'reqs', (select coalesce(jsonb_agg(app.req_json(r) order by r.day, r.id), '[]') from app.order_requests r
-              where r.day between p_from - 7 and p_to and (v_internal or r.customer_id = me.customer_id)
+              where r.day between p_from - 7 and p_to
+                and (case when not v_internal then r.customer_id = me.customer_id
+                          else r.created_by = me.user_id or app.sees_sales(me, (select c.sales_user_id from app.customers c where c.id = r.customer_id)) end)
                 and (r.status = 'new' or r.handled_at > now() - interval '14 days' or r.day >= app.today())),
     'custView', case when v_cv.admin_id is not null then jsonb_build_object('customerId', v_cv.customer_id, 'name', v_cvname, 'expiresAt', extract(epoch from v_cv.expires_at)) end,
     'notifs', case when v_cv.admin_id is not null then '[]'::jsonb else (select coalesce(jsonb_agg(jsonb_build_object('id', n.id, 'type', n.type, 'text', n.text, 'link', n.link,
@@ -854,7 +884,7 @@ begin
     'users', (select coalesce(jsonb_agg(jsonb_build_object('id', p.user_id, 'name', p.full_name, 'email', p.email, 'phone', p.phone, 'role', p.role,
                 'segment', p.segment, 'customerId', p.customer_id, 'wh', p.default_warehouse, 'whs', p.warehouses, 'active', p.active,
                 'awayFrom', p.away_from, 'awayTo', p.away_to, 'delegateId', p.delegate_id,
-                'mfa', app.has_mfa(p.user_id), 'mfaReq', app.role_has(p.role, 'auth.mfa'), 'statScope', p.stat_scope,
+                'mfa', app.has_mfa(p.user_id), 'mfaReq', app.role_has(p.role, 'auth.mfa'), 'statScope', p.stat_scope, 'managerId', p.manager_id, 'notifyTeam', p.notify_team,
                 'last', (select (u.last_sign_in_at at time zone 'Asia/Ho_Chi_Minh')::date from auth.users u where u.id = p.user_id)) order by p.full_name), '[]')
               from app.profiles p),
     'catKey', v_cat,
@@ -865,7 +895,7 @@ begin
                                     order by a.is_default desc, a.label), '[]')
                                   from app.customer_addresses a where a.customer_id = c.id)) order by c.name), '[]')
                   from app.customers c
-                 where me.role <> 'sales' or c.sales_user_id = me.user_id) end,
+                 where app.sees_sales(me, c.sales_user_id)) end,
     'truckInfo', (select coalesce(jsonb_agg(jsonb_build_object('code', td.truck_code, 'cap', td.cap, 'plate', td.plate, 'driver', td.driver, 'phone', td.phone,
                    'closed', td.closed, 'closedReason', td.closed_reason,
                    'reason', td.reason, 'by', coalesce((select p.full_name from app.profiles p where p.user_id = td.updated_by), ''),
@@ -876,7 +906,7 @@ begin
                 'at', to_char(f.updated_at at time zone 'Asia/Ho_Chi_Minh', 'DD/MM HH24:MI'))), '[]')
               from app.daily_fleet f where f.day between p_from and p_to),
     'bookings', (select coalesce(jsonb_agg(
-                   case when me.role = 'sales' and c.sales_user_id is distinct from me.user_id then
+                   case when not app.sees_sales(me, c.sales_user_id) then
                      -- Sales: hàng của khách không phụ trách chỉ còn số tấn để tính capacity
                      jsonb_build_object('id', b.id, 'wh', b.warehouse_code, 'date', b.day, 'customerId', '__other', 'ref', '', 'addrText', 'Khách khác',
                        'province', '', 'region', coalesce(b.region_id, 'NONE'), 'status', b.status, 'csId', null,
@@ -911,7 +941,7 @@ begin
                 'at', extract(epoch from l.at) / 60) order by l.at desc), '[]')
               from app.audit_log l
              where l.entity_id in (select b.id from app.bookings b join app.customers c on c.id = b.customer_id
-                                    where b.day between p_from and p_to and (me.role <> 'sales' or c.sales_user_id = me.user_id)))
+                                    where b.day between p_from and p_to and app.sees_sales(me, c.sales_user_id)))
   );
   return res;
 end $$;
@@ -1287,7 +1317,7 @@ begin
   update app.bookings set status = 'rejected', closed_at = now(), reason_code = p_reason_code, reason_note = p_reason, updated_at = now() where id = p_id;
   perform app.status_change(p_id, 'hold', 'rejected', p_reason_code, p_reason);
   perform app.audit(p_id, 'Từ chối: ' || p_reason);
-  perform app.notify_bk(c.id, b.cs_user_id, array[c.sales_user_id] || app.customer_users(c.id), 'Từ chối',
+  perform app.notify_bk(c.id, b.cs_user_id, array[c.sales_user_id] || app.customer_users(c.id) || app.rsm_of(c.sales_user_id), 'Từ chối',
     p_id || ' · ' || c.name || ' ngày ' || app.dm(b.day) || ' bị từ chối. Lý do: ' || p_reason, jsonb_build_object('bk', p_id, 'day', b.day));
 end $$;
 
@@ -1309,7 +1339,7 @@ begin
   update app.bookings set status = 'resched', proposed_day = p_day, reason_code = p_reason_code, reason_note = p_reason, updated_at = now() where id = p_id;
   perform app.status_change(p_id, 'hold', 'resched', p_reason_code, p_reason);
   perform app.audit(p_id, 'Đề nghị đổi sang ' || app.dm(p_day) || ': ' || p_reason);
-  perform app.notify_bk(c.id, b.cs_user_id, array[c.sales_user_id] || app.customer_users(c.id), 'Đổi ngày',
+  perform app.notify_bk(c.id, b.cs_user_id, array[c.sales_user_id] || app.customer_users(c.id) || app.rsm_of(c.sales_user_id), 'Đổi ngày',
     p_id || ' · ' || c.name || ': đề nghị đổi từ ' || app.dm(b.day) || ' sang ' || app.dm(p_day) || '. Lý do: ' || p_reason,
     jsonb_build_object('bk', p_id, 'day', b.day));
 end $$;
@@ -1372,7 +1402,7 @@ begin
   foreach v_id in array p_ids loop
     select * into b from app.bookings where id = v_id for update;
     if found and b.status = 'hold' and abs(app.alloc_sum(v_id) - app.bk_total(v_id)) < 0.005
-       and (me.role <> 'sales' or exists (select 1 from app.customers c where c.id = b.customer_id and c.sales_user_id = me.user_id)) then
+       and app.sees_sales(me, (select c.sales_user_id from app.customers c where c.id = b.customer_id)) then
       perform app.confirm_internal(v_id); n := n + 1;
     end if;
   end loop;
@@ -1479,10 +1509,18 @@ declare me app.profiles; k text; v_bad text;
 begin
   me := app.require_perm('config.general');
   for k in select jsonb_object_keys(p) loop
-    if k not in ('near','capDK','capCN','split','sla','maxStops','fillMin','suggestOn','sundayOff','holidays','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours') then
+    if k not in ('near','capDK','capCN','split','sla','maxStops','fillMin','suggestOn','sundayOff','holidays','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours',
+                 'shipRemindHours','shipAdminDays','requirePicking') then
       raise exception 'Cấu hình % không hợp lệ.', k;
     end if;
-    if k in ('near','capDK','capCN','split','sla','maxStops','fillMin','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours') and not ((p->>k)::numeric > 0) then
+    -- v3.15: bật/tắt bắt buộc picking list – chỉ Admin
+    if k = 'requirePicking' then
+      if me.role <> 'admin' then raise exception 'Chỉ Admin được bật/tắt bắt buộc nhập danh sách cuộn.' using errcode = '42501'; end if;
+      if jsonb_typeof(p->k) <> 'boolean' then raise exception 'Giá trị requirePicking phải là true/false.'; end if;
+      insert into app.audit_log (entity_id, detail, actor) values ('config', me.full_name || case when (p->>k)::boolean then ' BẬT' else ' TẮT' end
+        || ' bắt buộc CS nhập danh sách cuộn (picking list) trước khi load hàng', me.user_id);
+    end if;
+    if k in ('near','capDK','capCN','split','sla','maxStops','fillMin','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours','shipRemindHours','shipAdminDays') and not ((p->>k)::numeric > 0) then
       raise exception 'Giá trị % phải lớn hơn 0.', k;
     end if;
     -- Không đánh dấu nghỉ một ngày đang có booking (khách sẽ không thấy đơn của mình trên lịch)
@@ -1648,7 +1686,11 @@ begin
   if coalesce(trim(p->>'name'), '') = '' then raise exception 'Nhập họ tên.'; end if;
   if v_role = 'sales' and (v_seg is null or coalesce(trim(p->>'phone'), '') = '') then raise exception 'Sales cần segment và số điện thoại.'; end if;
   if v_role = 'customer' and v_cust is null then raise exception 'Chọn công ty khách hàng.'; end if;
-  if nullif(p->>'stat_scope', '') is not null and p->>'stat_scope' not in ('own','DD','DA','EX','all') then raise exception 'Phạm vi thống kê không hợp lệ.'; end if;
+  if nullif(p->>'stat_scope', '') is not null and p->>'stat_scope' not in ('own','DD','DA','EX','all','team') then raise exception 'Phạm vi thống kê không hợp lệ.'; end if;
+  if nullif(p->>'manager_id', '') is not null and (nullif(p->>'manager_id', '')::uuid = v_uid
+     or not exists (select 1 from app.profiles where user_id = (p->>'manager_id')::uuid and role = 'sales' and active)) then
+    raise exception 'Người quản lý trực tiếp phải là một tài khoản Sales đang hoạt động (không phải chính người này).';
+  end if;
   insert into app.profiles (user_id, full_name, email, phone, role, segment, customer_id, default_warehouse, warehouses, active, stat_scope)
   values (v_uid, trim(p->>'name'), lower(trim(p->>'email')), nullif(trim(p->>'phone'), ''), v_role,
           case when v_role = 'sales' then v_seg end, case when v_role = 'customer' then v_cust end,
@@ -1658,6 +1700,9 @@ begin
   on conflict (user_id) do update set full_name = excluded.full_name, phone = excluded.phone, role = excluded.role, segment = excluded.segment,
     customer_id = excluded.customer_id, default_warehouse = excluded.default_warehouse, warehouses = excluded.warehouses, active = true,
     stat_scope = excluded.stat_scope;
+  update app.profiles set manager_id = case when v_role = 'sales' then nullif(p->>'manager_id', '')::uuid end,
+         notify_team = coalesce((p->>'notify_team')::boolean, false) and v_role = 'sales'
+   where user_id = v_uid;
   return v_uid;
 end $$;
 
@@ -1778,6 +1823,20 @@ begin
     perform app.notify(array[r.cs_user_id], 'Hủy booking', r.id || ': nháp ngày ' || app.dm(r.day) || ' đã tự hủy vì quá ngày bốc 2 ngày.', jsonb_build_object('bk', r.id));
     n := n + 1;
   end loop;
+  -- v3.15: đơn Đã load / Đang giao chưa xác nhận giao → nhắc Logistics kho đó mỗi ngày một lần; quá N ngày báo thêm Admin
+  for r in select b.*, c.name as cname from app.bookings b join app.customers c on c.id = b.customer_id
+            where b.status in ('loaded','transit')
+              and (b.day < app.today() or (b.eta is not null and b.eta < now() - make_interval(secs => (coalesce(app.setn('shipRemindHours'), 6) * 3600)::int)))
+              and (b.ship_remind_on is null or b.ship_remind_on < app.today())
+              and extract(hour from now() at time zone 'Asia/Ho_Chi_Minh') between 7 and 20 loop
+    perform app.notify(app.logistics_of(r.warehouse_code)
+        || case when app.today() - r.day >= coalesce(app.setn('shipAdminDays'), 2)
+                then array(select user_id from app.profiles where role = 'admin' and active) else '{}'::uuid[] end,
+      'Nhắc việc', r.id || ' · ' || r.cname || ': ' || case when r.status = 'loaded' then 'đã load' else 'đang giao' end
+        || ' từ ' || app.dm(r.day) || ' nhưng chưa xác nhận Đã giao / Giao không thành công.', jsonb_build_object('bk', r.id));
+    update app.bookings set ship_remind_on = app.today() where id = r.id;
+    n := n + 1;
+  end loop;
   return n;
 end $$;
 
@@ -1803,7 +1862,7 @@ begin
                case when app.fold(b.id) = q or app.fold(b.ref) = q or regexp_replace(app.fold(b.ref), '[^a-z0-9]', '', 'g') = qd then 0 else 1 end rk, b.day
           from app.bookings b join app.customers c on c.id = b.customer_id
          where (v_int or (b.customer_id = me.customer_id and b.status <> 'draft'))
-           and (me.role <> 'sales' or c.sales_user_id = me.user_id)
+           and app.sees_sales(me, c.sales_user_id)
            and (b.status <> 'draft' or b.cs_user_id = me.user_id)
            and (app.fold(b.id) like '%' || q || '%' or app.fold(b.ref) like '%' || q || '%'
                 or (length(qd) >= 3 and regexp_replace(app.fold(b.ref), '[^a-z0-9]', '', 'g') like '%' || qd || '%')
@@ -1820,7 +1879,7 @@ begin
                  'open', (select count(*) from app.bookings b where b.customer_id = c.id and b.status in ('hold','ok','resched') and b.day >= app.today()))
                  order by c.active desc, c.name), '[]')
           from (select * from app.customers c
-                 where (me.role <> 'sales' or c.sales_user_id = me.user_id)
+                 where app.sees_sales(me, c.sales_user_id)
                    and (app.fold(c.name) like '%' || q || '%' or app.fold(c.code) like '%' || q || '%'
                         or exists (select 1 from app.customer_addresses a where a.customer_id = c.id
                                     and (app.fold(a.label) like '%' || q || '%' or app.fold(a.ward) like '%' || q || '%')))
@@ -2099,7 +2158,7 @@ begin
       from app.bookings b join app.customers c on c.id = b.customer_id
      where b.day between p_from and p_to
        and (b.status <> 'draft' or b.cs_user_id = me.user_id)
-       and (me.role <> 'sales' or c.sales_user_id = me.user_id)
+       and app.sees_sales(me, c.sales_user_id)
      order by b.day desc, b.id limit 2000) x);
 end $$;
 
@@ -2122,13 +2181,13 @@ begin
     'customers', (select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'code', c.code, 'name', c.name, 'segment', c.segment, 'active', c.active,
                     'salesId', c.sales_user_id, 'salesName', sp.full_name) order by c.name), '[]')
                   from app.customers c left join app.profiles sp on sp.user_id = c.sales_user_id
-                 where v_scope = 'all' or (v_scope in ('DD','DA','EX') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id)),
+                 where v_scope = 'all' or (v_scope in ('DD','DA','EX') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id) or (v_scope = 'team' and app.in_team(me.user_id, c.sales_user_id))),
     'rows', (select coalesce(jsonb_agg(jsonb_build_array(x.customer_id, x.warehouse_code, x.day, x.status, x.reason_code, x.tons, x.n)), '[]') from (
               select b.customer_id, b.warehouse_code, b.day, b.status, case when b.status = 'rejected' then coalesce(b.reason_code, 'OTHER') end as reason_code,
                      sum(app.bk_total(b.id)) as tons, count(*) as n
                 from app.bookings b join app.customers c on c.id = b.customer_id
                where b.day between p_from and p_to and b.status in ('ok','hold','resched','draft','rejected')
-                 and (v_scope = 'all' or (v_scope in ('DD','DA','EX') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id))
+                 and (v_scope = 'all' or (v_scope in ('DD','DA','EX') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id) or (v_scope = 'team' and app.in_team(me.user_id, c.sales_user_id)))
                group by 1, 2, 3, 4, 5) x));
 end $$;
 
@@ -2475,7 +2534,7 @@ begin
   select * into b from app.bookings where id = p_id;
   if not found then raise exception 'Không tìm thấy booking.'; end if;
   if me.role = 'customer' and b.customer_id is distinct from me.customer_id then raise exception 'Không có quyền xem.' using errcode = '42501'; end if;
-  if me.role = 'sales' and not exists (select 1 from app.customers c where c.id = b.customer_id and c.sales_user_id = me.user_id) then
+  if not app.sees_sales(me, (select c.sales_user_id from app.customers c where c.id = b.customer_id)) then
     raise exception 'Không có quyền xem.' using errcode = '42501';
   end if;
   return (select coalesce(jsonb_agg(jsonb_build_object('seq', seq, 'whs', whs, 'order_no', order_no, 'ln', ln, 'itmno', itmno, 'name', name,
@@ -2491,7 +2550,9 @@ begin
   me := app.require_perm('delivery.ship');
   select * into b from app.bookings where id = p_id for update;
   if not found or b.status <> 'ok' then raise exception 'Chỉ load hàng cho booking Đã xác nhận.'; end if;
-  if b.delivery_at is null then raise exception 'Booking chưa có danh sách cuộn: CS cần Xác nhận giao hàng trước.'; end if;
+  if b.delivery_at is null and coalesce((app.setting('requirePicking') #>> '{}')::boolean, true) then
+    raise exception 'Booking chưa có danh sách cuộn: CS cần Xác nhận giao hàng trước.';
+  end if;
   perform app.check_scope(me, b.customer_id);
   select * into c from app.customers where id = b.customer_id;
   update app.delivery_items set loaded = not (lot = any(coalesce(p_unloaded, '{}'))) where booking_id = p_id;
@@ -2544,6 +2605,9 @@ begin
   perform app.audit(p_id, 'Đang giao' || coalesce(', dự kiến tới ' || to_char(p_eta at time zone 'Asia/Ho_Chi_Minh', 'DD/MM HH24:MI'), ''));
   perform app.notify(app.customer_users(c.id), 'Đang giao', 'Đơn ' || coalesce(nullif(b.ref, ''), p_id) || ' đang giao'
     || coalesce(', dự kiến tới ' || to_char(p_eta at time zone 'Asia/Ho_Chi_Minh', 'DD/MM HH24:MI'), ''), jsonb_build_object('bk', p_id, 'day', b.day));
+  -- v3.15: báo thêm Sales phụ trách
+  perform app.notify(array[c.sales_user_id], 'Đang giao', p_id || ' · ' || c.name || ' đang giao'
+    || coalesce(', dự kiến tới ' || to_char(p_eta at time zone 'Asia/Ho_Chi_Minh', 'DD/MM HH24:MI'), ''), jsonb_build_object('bk', p_id));
 end $$;
 
 create or replace function public.mark_delivered(p_id text, p_at timestamptz) returns void
@@ -2771,7 +2835,7 @@ alter table app.bookings add column if not exists rev_tx     bigint;
 alter table app.bookings add column if not exists updated_by uuid;
 create or replace function app.bk_rev() returns trigger language plpgsql set search_path = '' as $$
 declare h text; v_who text;
-  skip constant text[] := array['rev','rev_tx','updated_at','updated_by','escalated_at','urgent'];
+  skip constant text[] := array['rev','rev_tx','updated_at','updated_by','escalated_at','urgent','ship_remind_on'];
 begin
   if (to_jsonb(new) - skip) = (to_jsonb(old) - skip) then return new; end if;
   if old.rev_tx is distinct from txid_current() then
@@ -2795,7 +2859,7 @@ alter table app.customers add constraint customers_segment_check check (segment 
 alter table app.profiles drop constraint if exists profiles_segment_check;
 alter table app.profiles add constraint profiles_segment_check check (segment in ('DD','DA','EX'));
 alter table app.profiles drop constraint if exists profiles_stat_scope_check;
-alter table app.profiles add constraint profiles_stat_scope_check check (stat_scope in ('own','DD','DA','EX','all'));
+alter table app.profiles add constraint profiles_stat_scope_check check (stat_scope in ('own','DD','DA','EX','all','team'));
 
 -- F6: nhập khách hàng + địa chỉ giao từ file (trình duyệt đọc Excel/CSV, chuẩn hóa segment / tỉnh rồi gửi lên).
 -- p_custs: [{row, code, name, segment (DD/DA/EX/''), sales_email, cs_email, default_wh, erp, active}]
@@ -2989,11 +3053,11 @@ begin
                  floor(extract(epoch from b.created_at) / 60), b.cs_user_id, b.proposed_day)), '[]')
             from app.bookings b join app.customers c on c.id = b.customer_id
            where (b.day between v_pfrom and greatest(p_to, v_today + 14) or b.status in ('hold','resched','draft'))
-             and (v_scope = 'all' or (v_scope in ('DD','DA','EX') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id))),
+             and (v_scope = 'all' or (v_scope in ('DD','DA','EX') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id) or (v_scope = 'team' and app.in_team(me.user_id, c.sales_user_id)))),
     'c', (select coalesce(jsonb_object_agg(c.id, jsonb_build_array(c.code, c.name, c.segment, c.sales_user_id, c.area, c.area_detail)), '{}')
             from app.customers c
            where exists (select 1 from app.bookings b where b.customer_id = c.id and (b.day >= v_pfrom or b.status in ('hold','resched','draft')))
-             and (v_scope = 'all' or (v_scope in ('DD','DA','EX') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id))),
+             and (v_scope = 'all' or (v_scope in ('DD','DA','EX') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id) or (v_scope = 'team' and app.in_team(me.user_id, c.sales_user_id)))),
     'u', (select coalesce(jsonb_object_agg(p.user_id, p.full_name), '{}') from app.profiles p where p.role in ('sales','cs','logistics','admin')),
     'cap', (select coalesce(jsonb_agg(jsonb_build_array(w.code, d::date, (m->>'cap')::numeric, (m->>'loaded')::numeric, (m->>'held')::numeric,
                    case when (m->>'off')::boolean then 1 else 0 end, case when (m->>'declared')::boolean then 1 else 0 end)), '[]')
@@ -3007,7 +3071,7 @@ begin
                     sum(app.bk_total(b.id)) filter (where b.status in ('ok','loaded','transit','delivered','failed')) ok
                from app.bookings b join app.customers c on c.id = b.customer_id
               where to_char(b.day, 'YYYY') = v_y
-                and (v_scope = 'all' or (v_scope in ('DD','DA','EX') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id))
+                and (v_scope = 'all' or (v_scope in ('DD','DA','EX') and c.segment = v_scope) or (v_scope = 'own' and c.sales_user_id = me.user_id) or (v_scope = 'team' and app.in_team(me.user_id, c.sales_user_id)))
               group by 1, 2) x),
     'r', (select coalesce(jsonb_object_agg(code, name), '{}') from (select distinct on (code) code, name from app.reason_codes order by code, kind) rc),
     'canTgt', app.role_has(me.role, 'config.targets'));

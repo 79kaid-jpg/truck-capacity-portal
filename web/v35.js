@@ -59,7 +59,7 @@ function dzLoad(Z,from,to){const key=from+'|'+to;if(Z.key===key||Z.busy===key)re
   D.rows.forEach(r=>r.grp=dzGrp(r));Z.D=D;render();}).catch(e=>{Z.busy=false;toast(e.message);});}
 
 /* ---------- lọc ---------- */
-function dzScope(Z,from,to){const D=Z.D;const f=r=>(!Z.wh||r.w===Z.wh)&&(!Z.seg||r.g===Z.seg);
+function dzScope(Z,from,to){const D=Z.D;const f=r=>(!Z.wh||r.w===Z.wh)&&(!Z.seg||r.g===Z.seg)&&(!Z.sp||r.sales===Z.sp);
  return{all:D.rows.filter(f),list:D.rows.filter(r=>f(r)&&r.d>=from&&r.d<=to),prev:D.rows.filter(r=>f(r)&&r.d>=D.pfrom&&r.d<from)};}
 function dzBuckets(from,to){const n=ndays(from,to);const B=[];
  if(n<=31){for(let d=from;d<=to;d=addDays(d,1))B.push({from:d,to:d,lb:dm(d),tip:WDS[dow(d)]+' '+dmy(d)});}
@@ -222,7 +222,7 @@ vDash=function(){const Z=dzInit();const tabs=DZ_TABS.filter(t=>t[2]());if(!tabs.
   ${Z.per==='custom'&&!mOnly?`<div class="field"><label for="dz-f">Từ</label><input id="dz-f" type="date" class="inp" value="${from}" data-dz="from"></div><div class="field"><label for="dz-t">Đến</label><input id="dz-t" type="date" class="inp" value="${to}" data-dz="to"></div>`:
    `<div class="row" style="gap:6px;align-items:center"><button class="btn ghost sm" data-a="dzNav" data-k="-1" aria-label="Kỳ trước">‹</button><b class="num">${from===to?WDS[dow(from)]+' '+dmy(from):dmy(from)+' – '+dmy(to)}</b><button class="btn ghost sm" data-a="dzNav" data-k="1" aria-label="Kỳ sau">›</button><button class="btn ghost sm" data-a="dzNav" data-k="0">Hôm nay</button></div>`}
   <div class="field"><label for="dz-w">Kho</label><select id="dz-w" class="inp" data-dz="wh"><option value="">Tất cả kho</option>${WH.map(w=>`<option value="${w.id}" ${Z.wh===w.id?'selected':''}>${esc(w.full)}</option>`).join('')}</select></div>
-  <div class="field"><label for="dz-s">Segment</label><select id="dz-s" class="inp" data-dz="seg"><option value="">Toàn bộ</option>${SEGS.map(g=>`<option value="${g}" ${Z.seg===g?'selected':''}>${SEG_LABEL[g]}</option>`).join('')}</select></div></div>`;
+  <div class="field"><label for="dz-s">Segment</label><select id="dz-s" class="inp" data-dz="seg"><option value="">Toàn bộ</option>${SEGS.map(g=>`<option value="${g}" ${Z.seg===g?'selected':''}>${SEG_LABEL[g]}</option>`).join('')}</select></div>${dzSalesSel(Z)}</div>`;
  dzLoad(Z,from,to);
  if(!Z.D||Z.key!==from+'|'+to)return `<div class="panel">${head}${bar}<div class="empty">Đang tải số liệu…</div></div>`;
  const S_=dzScope(Z,from,to);const f={ov:tabOv,cs:tabCs,log:tabLog,sales:tabSales,exc:tabExc,cal:tabCal,tgt:tabTgt}[Z.tab];
@@ -267,3 +267,8 @@ Object.assign(A,{tgtY:d=>{V.tgtY=(V.tgtY||+TODAY.slice(0,4))+(+d.k);render();},
  tgtSave:()=>{const C=V.tgtC;const p=Object.entries(C.v).map(([k,v])=>{const[m,g]=k.split('|');return{month:m,seg:g,tons:String(num(v)||0)};});
   if(p.some(x=>!(+x.tons>=0)))return toast('Mục tiêu phải là số không âm.');
   mutate('save_targets',{p},{ok:()=>{C.dirty=false;if(V.dz)V.dz.key='';toast('Đã lưu mục tiêu');render();}});}});
+
+// v3.15: lọc theo Sales (RSM xem từng người trong nhóm)
+function dzSalesSel(Z){const D=Z.D;if(!D||!D.rows)return '';const ids=[...new Set(D.rows.map(r=>r.sales).filter(Boolean))];if(ids.length<2)return '';
+ const nm=id=>(D.u&&D.u[id])||'?';ids.sort((a,b)=>nm(a).localeCompare(nm(b),'vi'));
+ return `<div class="field"><label for="dz-sp">Sales</label><select id="dz-sp" class="inp" data-dz="sp"><option value="">Tất cả${role()==='sales'?' trong nhóm':''}</option>${ids.map(id=>`<option value="${id}" ${Z.sp===id?'selected':''}>${esc(nm(id))}${id===V.me?' (tôi)':''}</option>`).join('')}</select></div>`;}

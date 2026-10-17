@@ -145,6 +145,11 @@
 <section id="log-ship" data-g="Logistics" data-t="Bốc hàng, giao hàng, đóng xe">
 <h2>Bốc hàng và giao hàng</h2>
 <ul><li><b>Đã bốc hàng</b>: tick các cuộn đã lên xe; cuộn không lên phải ghi chú → CS xử lý phần bốc thiếu.</li><li><b>Đang giao</b>: nhập giờ dự kiến tới. <b>Đã giao</b> / <b>Giao lỗi</b> (có lý do).</li><li><b>Đóng xe</b>: khóa không xếp thêm (ghi tải thực tế, lý do); mở lại nếu cần.</li></ul>
+<h3>Nhắc "Chưa xác nhận giao"</h3>
+<ul><li>Đơn <b>Đã load / Đang giao</b> đã qua ngày bốc (hoặc quá giờ dự kiến đến 6 tiếng) mà chưa bấm <b>Đã giao</b> / <b>Giao không thành công</b>: Logistics kho đó nhận <b>Nhắc việc</b> mỗi ngày một lần (7h–20h); quá 2 ngày báo thêm Admin. Mốc chỉnh trong Cấu hình → Ngưỡng & tải trọng.</li>
+<li>Các đơn này nằm trong <b>Cần xử lý</b> của Logistics và tab <b>Ngoại lệ → Chưa xác nhận giao</b> của Bảng thống kê.</li>
+<li>Khi Admin <b>tạm bỏ bắt buộc picking list</b> (nhãn cam trên thanh trên cùng), Logistics bấm <b>Đã bốc hàng</b> được ngay cả khi CS chưa nhập danh sách cuộn; số tấn load = số tấn của đơn.</li>
+<li>Thông báo: Đã load / Đã giao / Giao lỗi → CS, Sales, khách; Đang giao → Sales và khách.</li></ul>
 </section>
 
 <section id="log-urgent" data-g="Logistics" data-t="Đơn khẩn và hủy cận ngày">
@@ -173,6 +178,12 @@
 <section id="admin-users" data-g="Admin" data-t="Người dùng và phân quyền">
 <h2>Người dùng và phân quyền</h2>
 <ul><li><b>Setting user account › Người dùng</b>: cấp quyền tài khoản (email, vai trò, segment, kho), khóa / mở, reset 2 lớp.</li><li><b>Phân quyền</b>: ma trận quyền theo vai trò; bấm để bật / tắt, có nút khôi phục mặc định.</li><li>Tạo hàng loạt tài khoản: dùng file SQL do quản trị chạy trong Supabase (mật khẩu ban đầu chung, mỗi người tự đổi).</li></ul>
+<h3>RSM (quản lý vùng) xem nhóm Sales</h3>
+<ol><li>Mở hồ sơ từng Sales trong nhóm → <b>Quản lý trực tiếp (RSM)</b> = tài khoản RSM.</li>
+<li>Mở hồ sơ RSM (vai trò Sales) → <b>Phạm vi thống kê = Nhóm của tôi (RSM)</b>; tick <b>nhận thông báo khi đơn của nhóm bị từ chối / đề nghị đổi ngày</b> nếu muốn.</li></ol>
+<p>RSM thấy đầy đủ khách, đơn, yêu cầu đặt hàng của mình và cả nhóm, gửi yêu cầu cho khách của nhóm; Bảng thống kê có ô lọc <b>Sales</b>. Sales trong nhóm vẫn chỉ thấy khách của mình. Kiểm tra ở máy chủ, không chỉ ẩn trên giao diện.</p>
+<h3>Tạm bỏ bắt buộc picking list (chỉ Admin)</h3>
+<p>Cấu hình → Ngưỡng & tải trọng → ô <b>CS phải nhập danh sách cuộn trước khi Logistics load hàng</b>. Tắt trong giai đoạn pilot khi CS chưa kịp nhập; mọi lần đổi ghi nhật ký; Admin và Logistics thấy nhãn cam nhắc bật lại.</p>
 </section>
 
 <section id="admin-import" data-g="Admin" data-t="Khách hàng, nhập từ file">
