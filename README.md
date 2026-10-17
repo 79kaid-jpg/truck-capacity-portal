@@ -345,6 +345,9 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 ## v3.20 — Hạn mức trợ lý theo vai trò
 **Chạy `supabase/setup_all.sql` trước khi gộp.** Cấu hình `chatDailyRole` (lượt/người/ngày theo vai trò, 0 = không cho dùng; mặc định nội bộ 150, khách 30) và `chatDailyTotal` (chặn tổng toàn hệ thống/ngày, mặc định 2000; Admin được báo khi dùng 80%). Cấu hình → Ngưỡng & tải trọng → khung Trợ lý; mức dùng theo vai trò.
 
+## v3.21 — Trợ lý: số liệu khớp Bảng thống kê
+- Công cụ `stats` dùng `dash_data` và đúng định nghĩa của Bảng thống kê (kỳ ngày / tuần / tháng / quý / năm / tùy chọn; lọc kho, segment, Sales, khách); trả sẵn mọi con số + link mở Bảng thống kê đúng kỳ và bộ lọc. `find_bookings` trả tổng theo trạng thái, tìm cả ghi chú / người liên hệ / yêu cầu. Lời dặn cấm AI tự cộng. Test đối chiếu trong `test/e2e/v46.mjs`. Không cần SQL.
+
 
 
 ## Lưu ý gói miễn phí

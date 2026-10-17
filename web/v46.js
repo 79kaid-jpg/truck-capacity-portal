@@ -43,12 +43,17 @@ const TOOLS={
   return out;}},
  find_bookings:{d:'Tìm đơn/booking. args (đều tùy chọn): q (mã booking, SO, địa chỉ…), customer (tên/mã khách), status (chờ xếp xe, đã xếp xe, đang giao, đã giao, từ chối…), date, date_from, date_to, wh, region (tên tỉnh/khu vực), urgent (true), sort ("wait" = chờ lâu nhất), limit',run:async a=>{
   const d=dateArg(a.date),df=dateArg(a.date_from)||d,dt=dateArg(a.date_to)||d;if(df)await ensureRange(df);if(dt)await ensureRange(dt);
-  const st=stArg(a.status),w=whArg(a.wh),cs=a.customer?custFind(a.customer).map(c=>c.id):null,q=fz(a.q),rg=fz(a.region);
+  let note='';let cs=a.customer?custFind(a.customer).map(c=>c.id):null;let q=fz(a.q);
+  if(cs&&!cs.length){note='Không có công ty khách nào tên "'+a.customer+'": đã tìm theo người liên hệ / ghi chú / Ref / nội dung yêu cầu.';q=fz(a.customer);cs=null;}
+  const st=stArg(a.status),w=whArg(a.wh),rg=fz(a.region);
   let l=S.bookings.filter(b=>visibleBk(b)&&b.customerId!=='__other'&&(!st||b.status===st)&&(!w||b.wh===w)&&(!df||b.date>=df)&&(!dt||b.date<=dt)&&(!cs||cs.includes(b.customerId))
-   &&(!a.urgent||b.urgent)&&(!rg||fz(regName(b.region)+' '+b.addrText).includes(rg))&&(!q||fz(b.id+' '+b.ref+' '+b.addrText+' '+cust(b.customerId).name).includes(q)));
+   &&(!a.urgent||b.urgent)&&(!rg||fz(regName(b.region)+' '+b.addrText).includes(rg))&&(!q||fz(b.id+' '+b.ref+' '+b.addrText+' '+(b.note||'')+' '+cust(b.customerId).name).includes(q)));
   if(a.sort==='wait')l.sort((x,y)=>x.heldAt-y.heldAt);else l.sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:0);
   if(!l.length&&q){try{const r=await rpc('search',{p_q:a.q});const bs=(r&&r.bookings)||[];return {ghi_chu:'Không có trong dữ liệu đang tải, kết quả từ tìm kiếm toàn hệ thống',ket_qua:bs.slice(0,10)};}catch(e){}}
-  return {tong:l.length,ket_qua:l.slice(0,Math.min(+a.limit||15,30)).map(bkRow)};}},
+  const by={};l.forEach(b=>{const k=(isInt()?ST_LABEL:ST_CUST)[stKey(b)]||b.status;by[k]=by[k]||{don:0,MT:0};by[k].don++;by[k].MT+=bkTotal(b);});Object.values(by).forEach(v=>v.MT=t2(v.MT));
+  const rq=q?(S.reqs||[]).filter(r=>fz(r.body+' '+(cust(r.customerId)?.name||'')).includes(q)).slice(0,5).map(r=>({yeu_cau:r.id,khach:cust(r.customerId)?.name,ngay:r.date,kho:r.wh,noi_dung:r.body,trang_thai:RQ_ST[r.status]})):[];
+  return {ghi_chu:note||undefined,khoang_ngay:(df||dt)?(df||'')+' → '+(dt||''):'dữ liệu đang tải ('+RANGE.from+' → '+RANGE.to+')',tong_so_don:l.length,tong_MT:t2(l.reduce((s,b)=>s+bkTotal(b),0)),theo_trang_thai:by,
+   hien_thi:Math.min(l.length,Math.min(+a.limit||15,30)),ket_qua:l.slice(0,Math.min(+a.limit||15,30)).map(bkRow),...(rq.length?{yeu_cau_lien_quan:rq}:{})};}},
  booking_detail:{d:'Chi tiết một booking. args: id',run:async a=>{const b=bkById(String(a.id||'').trim().toUpperCase())||S.bookings.find(x=>fz(x.ref)===fz(a.id));if(!b||!visibleBk(b))return {loi:'Không tìm thấy booking (hoặc ngoài phạm vi của bạn).'};
   return {...bkRow(b),hang:b.lines.map(l=>`${l.p} · ${l.c} · ${l.th}×${l.w} · ${t2(l.t)} MT`),ngay_giao_yc:b.delivery||'',ly_do:b.rejectReason||'',ngay_de_xuat:b.proposedDate||'',ghi_chu:b.note||'',
    phan_xe:allocsOf(b.id).map(x=>({xe:truckByCode(x.truck)?.short||x.truck,tan:t2(x.tons)})),con_chua_gan_MT:b.status==='hold'?t2(bkTotal(b)-allocSum(b.id)):undefined};}},
@@ -108,6 +113,8 @@ CÁCH TRẢ LỜI: mỗi lượt chỉ in ra ĐÚNG MỘT đối tượng JSON, 
 - Gọi công cụ: {"tool":"tên","args":{...}}
 - Trả lời cuối: {"answer":"nội dung"}
 Trong "answer" có thể dùng **đậm**, xuống dòng, gạch đầu dòng "- ", và link: [BK-…](#bk:MÃ), [ngày 25/10 JM2](#day:2026-10-25:JM2), [DK-03](#truck:MÃ_XE_ĐẦY_ĐỦ), [mục hướng dẫn](#guide:ID).
+SỐ LIỆU TỔNG HỢP (tổng đã đặt, đã có xe, đã giao, còn phải giao, số đơn, theo khách / Sales / segment / kho trong một kỳ): LUÔN dùng công cụ "stats" – cùng cách tính với Bảng thống kê. TUYỆT ĐỐI KHÔNG tự cộng / đếm từ danh sách đơn; chỉ chép đúng số công cụ trả về, nêu rõ kỳ (từ ngày – đến ngày) và kèm link [Xem trên Bảng thống kê](#dash:...) mà công cụ đưa.
+"tháng này" = period "month"; "tuần này" = "week"; "hôm nay" = "day"; quý / năm tương tự. Tên người (vd "anh Ánh") có thể là người liên hệ chứ không phải công ty: nếu không chắc, hỏi lại.
 Quy tắc: ngày dạng YYYY-MM-DD; thiếu thông tin bắt buộc (khách, ngày, kho) thì hỏi lại thay vì đoán; với điền form chỉ nói "đã mở form, bạn kiểm tra và bấm Gửi" – không bao giờ nói đã gửi/đã lưu; câu hỏi ngoài phạm vi công việc thì lịch sự từ chối.`;}
 // ---------- vòng hỏi – công cụ – trả lời ----------
 function parseReply(t){if(t&&typeof t==='object')return normReply(t);t=String(t||'').trim();const i=t.indexOf('{'),j=t.lastIndexOf('}');
@@ -192,3 +199,37 @@ document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.datase
  document.querySelectorAll('.main [data-a="custEdit"]').forEach(b=>{if(b.parentNode.querySelector('[data-a="custChat"]'))return;const c=cust(b.dataset.id);if(!c)return;
   const x=document.createElement('button');x.className='btn ghost sm';x.dataset.a='custChat';x.dataset.id=c.id;x.title='Cho tài khoản của khách này dùng trợ lý';x.textContent=c.chatOn?'💬 Đang bật':'💬 Bật trợ lý';if(c.chatOn)x.style.borderColor='var(--ok)';b.parentNode.insertBefore(x,b);b.parentNode.insertBefore(document.createTextNode(' '),b);});};}
 A.custChat=d=>{const c=cust(d.id);mutate('set_customer_chat',{p_customer:c.id,p_on:!c.chatOn},{ok:()=>toast((!c.chatOn?'Đã bật':'Đã tắt')+' trợ lý cho '+c.name)});};
+
+// ---------- v3.21: Thống kê – cùng nguồn (dash_data) và cách tính với Bảng thống kê ----------
+const ST_DZ_OK=['ok','loaded','transit','delivered','failed'],ST_DZ_BOOK=[...ST_DZ_OK,'hold','resched','draft'];
+const stGrp=s=>ST_DZ_OK.includes(s.s)?'ok':s.s==='cancelled'?(s.late?'late':'canc'):s.s==='rejected'?'rej':s.s;
+function stPeriod(a){const d=dateArg(a.date)||TODAY;const[y,m]=parts(d);const per=String(a.period||'month');
+ if(a.date_from||a.date_to){const f=dateArg(a.date_from)||d,t=dateArg(a.date_to)||f;return [f<=t?f:t,f<=t?t:f,'custom'];}
+ switch(per){case'day':return[d,d,per];case'week':{const k=(dow(d)+6)%7;const f=addDays(d,-k);return[f,addDays(f,6),per];}
+  case'quarter':{const q=Math.floor((m-1)/3)*3+1;return[iso(y,q,1),iso(y,q+2,dim(y,q+2)),per];}case'year':return[iso(y,1,1),iso(y,12,31),per];
+  default:return[iso(y,m,1),iso(y,m,dim(y,m)),'month'];}}
+async function stRows(f,t){
+ if(isInt()){try{const D=await rpc('dash_data',{p_from:f,p_to:t});return (D.b||[]).map(a=>{const c=D.c[a[3]]||['','Khách khác','DD',null];return{id:a[0],d:a[1],w:a[2],cid:a[3],s:a[4],t:+a[5]||0,x:!!a[6],late:!!a[7],name:c[1],code:c[0],g:c[2],sales:c[3],salesName:(D.u||{})[c[3]]||''};});}catch(e){}}
+ await ensureRange(f);await ensureRange(t);
+ return S.bookings.filter(b=>visibleBk(b)&&b.customerId!=='__other'&&b.status!=='draft'||role()!=='customer'&&b.status==='draft'&&b.csId===V.me).map(b=>{const c=cust(b.customerId);return{id:b.id,d:b.date,w:b.wh,cid:b.customerId,s:b.status,t:bkTotal(b),x:!!b.urgent,late:!!b.lateCancel,name:c?c.name:'',code:c?c.code:'',g:c?c.segment:'',sales:c?c.salesId:null,salesName:c?user(c.salesId)?.name:''};});}
+const mt1=n=>(Math.round(n*10)/10).toLocaleString('vi-VN',{maximumFractionDigits:1})+' MT';
+TOOLS.stats={d:'SỐ LIỆU TỔNG HỢP giống Bảng thống kê (dùng cho mọi câu hỏi "bao nhiêu", "tổng", "đã giao", "còn phải giao"). args: period ("day"|"week"|"month"|"quarter"|"year", mặc định month), date (ngày trong kỳ, mặc định hôm nay) hoặc date_from + date_to; lọc tùy chọn: wh, segment (DD/DA/EX), sales (tên Sales), customer (tên/mã khách)',
+ run:async a=>{const[f,t,per]=stPeriod(a);let L=(await stRows(f,t)).filter(r=>r.d>=f&&r.d<=t);const loc=[];
+  const w=whArg(a.wh);if(a.wh){if(!w)return {loi:'Không có kho '+a.wh};L=L.filter(r=>r.w===w);loc.push('kho '+w);}
+  if(a.segment){const g=String(a.segment).toUpperCase().slice(0,2);L=L.filter(r=>r.g===g);loc.push('segment '+g);}
+  let sp='';if(a.sales&&isInt()){const k=fz(a.sales);const us=S.users.filter(u=>u.role==='sales'&&fz(u.name).includes(k));if(us.length!==1)return {loi:us.length?'Nhiều Sales khớp: '+us.map(u=>u.name).join(', '):'Không có Sales tên "'+a.sales+'"'};sp=us[0].id;L=L.filter(r=>r.sales===sp);loc.push('Sales '+us[0].name);}
+  let cid='';if(a.customer){const cs=custFind(a.customer);if(cs.length!==1)return {loi:cs.length?'Nhiều khách khớp: '+cs.map(c=>c.code+' '+c.name).join('; '):'Không có công ty khách tên "'+a.customer+'" (có thể là người liên hệ: dùng find_bookings với q).'};cid=cs[0].id;L=L.filter(r=>r.cid===cid);loc.push('khách '+cs[0].name);}
+  const sum=fn=>{const l=L.filter(fn);return {don:l.length,MT:mt1(l.reduce((s,r)=>s+r.t,0))};};
+  const B=L.filter(r=>ST_DZ_BOOK.includes(r.s));const top={};B.forEach(r=>{top[r.name]=(top[r.name]||0)+r.t;});
+  const link='#dash:'+(isInt()?'sales':'')+':'+f+':'+t+':'+(w||'')+':'+(a.segment?String(a.segment).toUpperCase().slice(0,2):'')+':'+sp;
+  return {ky:dmy(f)+' – '+dmy(t),loai_ky:per,loc:loc.join(', ')||'tất cả',
+   tong_da_dat:sum(r=>ST_DZ_BOOK.includes(r.s)),da_co_xe:sum(r=>stGrp(r)==='ok'),cho_xep_xe:sum(r=>r.s==='hold'),de_nghi_doi_ngay:sum(r=>r.s==='resched'),luu_tam:sum(r=>r.s==='draft'),
+   da_giao:sum(r=>r.s==='delivered'),dang_giao_hoac_da_load:sum(r=>r.s==='transit'||r.s==='loaded'),giao_loi:sum(r=>r.s==='failed'),
+   con_phai_giao:{...sum(r=>['ok','loaded','transit'].includes(r.s)),dinh_nghia:'đơn đã có xe nhưng chưa giao (Đã xếp xe / Đã load / Đang giao)'},
+   bi_tu_choi:sum(r=>stGrp(r)==='rej'),huy_can_ngay:sum(r=>stGrp(r)==='late'),huy_truoc_moc:sum(r=>stGrp(r)==='canc'),don_khan:sum(r=>r.x&&ST_DZ_BOOK.includes(r.s)),
+   khach_co_dat:new Set(B.map(r=>r.cid)).size,top_khach:Object.entries(top).sort((x,y)=>y[1]-x[1]).slice(0,5).map(([n,v])=>n+': '+mt1(v)),
+   ...(isInt()?{link_bang_thong_ke:link}:{}),ghi_chu:'Tính theo ngày bốc trong kỳ; Tổng đã đặt = Đã có xe + Chờ xếp xe + Đổi ngày + Lưu tạm (không gồm hủy, từ chối).'};}};
+STEP.stats='Lấy số liệu thống kê';
+// link mở Bảng thống kê đúng kỳ + bộ lọc
+{const g0=chatGo;chatGo=function(k){const p=String(k).split(':');if(p[0]!=='dash')return g0(k);if(!isInt()||!canAny('dash.'))return;
+ const Z=dzInit();Z.tab=p[1]&&p[1]!==''?p[1]:Z.tab;Z.per='custom';Z.from=p[2];Z.to=p[3];Z.anchor=p[2];Z.wh=p[4]||'';Z.seg=p[5]||'';Z.sp=p[6]||'';Z.key='';go('dash');};}

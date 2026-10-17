@@ -56,7 +56,23 @@ await session('log@demo.vn', async p => {
   ok(/"con_trong"/.test(globalThis.__toolRes) || /\[\]/.test(globalThis.__toolRes), 'tìm xe theo chỗ trống');
   S('link'); await p.locator('#chatPanel .cmsg.a a').last().click(); await p.waitForTimeout(400); ok(await p.evaluate(() => V.view) === 'day', 'link trong câu trả lời mở đúng màn');
   S('find'); globalThis.__plan = () => ({ tool: 'find_bookings', args: { status: 'chờ xếp xe', sort: 'wait' } }); await ask(p, 'đơn chờ lâu nhất');
-  ok(/"tong":\d+/.test(globalThis.__toolRes) && /cho_phut/.test(globalThis.__toolRes), 'tìm đơn chờ xếp xe, sắp theo thời gian chờ');
+  ok(/"tong_so_don":\d+/.test(globalThis.__toolRes) && /cho_phut/.test(globalThis.__toolRes), 'tìm đơn chờ xếp xe, sắp theo thời gian chờ');
+});
+await session('admin@demo.vn', async p => {
+  S('stats-match'); await p.evaluate(() => { dzInit(); V.dz.tab = 'sales'; go('dash'); }); await p.waitForTimeout(1500);
+  const cases = [{ period: 'month' }, { period: 'week' }, { period: 'day' }, { period: 'month', wh: 'JM2' }, { period: 'month', segment: 'DD' }, { period: 'quarter' }];
+  for (const a of cases) {
+    const r = await p.evaluate(async a => { const T = await TOOLS.stats.run(a); const Z = V.dz; Z.per = a.period; Z.anchor = TODAY; Z.wh = a.wh ? whArg(a.wh) : ''; Z.seg = a.segment || ''; Z.sp = '';
+      const [f, t] = dzRange(Z); const D = await rpc('dash_data', { p_from: f, p_to: t }); const rows = (D.b || []).map(x => { const c = D.c[x[3]] || ['', '', 'DD']; return { d: x[1], w: x[2], cid: x[3], s: x[4], t: +x[5] || 0, late: !!x[7], g: c[2], grp: null }; }); rows.forEach(r => r.grp = dzGrp(r));
+      Z.D = { rows, pfrom: f }; const { list } = dzScope(Z, f, t); const tot = dzTT(dzSum(list.filter(isBook))), ok = dzTT(dzSum(list.filter(r => r.grp === 'ok')));
+      return { tool: [T.tong_da_dat.MT, T.tong_da_dat.don, T.da_co_xe.MT, T.khach_co_dat, T.bi_tu_choi.MT], dash: [tot, list.filter(isBook).length, ok, new Set(list.filter(isBook).map(r => r.cid)).size, dzTT(dzSum(list.filter(r => r.grp === 'rej')))] }; }, a);
+    ok(JSON.stringify(r.tool) === JSON.stringify(r.dash), 'thống kê trợ lý khớp Bảng thống kê: ' + JSON.stringify(a), JSON.stringify(r));
+  }
+  S('stats-link'); const lk = await p.evaluate(async () => (await TOOLS.stats.run({ period: 'month', wh: 'JM2' })).link_bang_thong_ke);
+  await p.evaluate(k => { go('calendar'); chatGo(k.slice(1)); }, lk); await p.waitForTimeout(1200);
+  ok(await p.evaluate(() => V.view === 'dash' && V.dz.per === 'custom' && V.dz.wh === 'JM2'), 'link mở Bảng thống kê đúng kỳ + kho');
+  S('contact'); const r2 = await p.evaluate(async () => TOOLS.find_bookings.run({ customer: 'Anh Ánh' })); ok(/người liên hệ/.test(r2.ghi_chu || '') && r2.tong_so_don != null && r2.tong_MT != null, 'tên người liên hệ → tìm trong ghi chú, trả sẵn tổng');
+  ok(await p.evaluate(() => sysPrompt().includes('TUYỆT ĐỐI KHÔNG tự cộng')), 'lời dặn cấm AI tự cộng');
 });
 await session('cs@demo.vn', async p => {
   S('cs-fill'); const c = q("select name from app.customers where code='KH0102'");
