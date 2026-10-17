@@ -164,14 +164,21 @@ document.addEventListener('keydown',e=>{const ta=e.target.closest&&e.target.clos
  else if(e.key==='Escape'&&CHAT.open&&e.target.closest&&e.target.closest('#chatPanel')){chatToggle(false);}},true);
 {const r0=render;render=function(){r0();chatRender();};}
 // ---------- cấu hình (Admin) + bật cho từng khách ----------
+const CHAT_ROLES=[['cs','CS'],['sales','Sales'],['logistics','Logistics'],['admin','Admin'],['customer','Khách hàng']];
+const chatLim=k=>{const R=S.cfg.chatDailyRole||{};return R[k]!=null?R[k]:(k==='customer'?30:(S.cfg.chatDaily||150));};
+document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.chatlim;if(!k)return;const v=Math.round(num(e.target.value));if(!(v>=0)){toast('Nhập số từ 0 trở lên.');return;}
+ const R={};CHAT_ROLES.forEach(([r])=>R[r]=+chatLim(r));R[k]=v;mutate('update_settings',{p:{chatDailyRole:R}},{ok:()=>toast('Đã lưu hạn mức trợ lý')});});
 {const r0=render;render=function(){r0();if(!S||V.view!=='config'||(V.cfgTab||'general')!=='general'||!can('config.general'))return;const host=document.querySelector('.main .panel .fgrid');if(!host||document.querySelector('.chatcfg'))return;
  const C=S.cfg;const roles=Array.isArray(C.chatRoles)?C.chatRoles:['cs','sales','logistics','admin'];const card=document.createElement('div');card.className='pkcard chatcfg';
  card.innerHTML=`<h4>💬 Trợ lý (chatbot)</h4><label class="row" style="gap:8px"><input type="checkbox" data-f="cfgb" data-k="chatOn" ${C.chatOn===false?'':'checked'}> Bật trợ lý</label>
   <div class="row" style="gap:12px;margin:6px 0;flex-wrap:wrap"><span class="small">Vai trò được dùng:</span>${[['cs','CS'],['sales','Sales'],['logistics','Logistics'],['admin','Admin']].map(([k,l])=>`<label class="row" style="gap:4px"><input type="checkbox" data-chatrole="${k}" ${roles.includes(k)?'checked':''}> ${l}</label>`).join('')}<span class="small muted">Khách hàng: bật từng công ty ở Người dùng → Khách hàng.</span></div>
-  <div class="fgrid"><div class="field"><label for="cf-chatDaily">Số lượt tối đa mỗi người / ngày</label><div class="row" style="flex-wrap:nowrap"><input id="cf-chatDaily" class="inp num" data-f="cfg" data-k="chatDaily" value="${C.chatDaily||150}"><span class="muted small">lượt (1 câu hỏi ≈ 2–4 lượt)</span></div></div>
+  <div class="small" style="margin:8px 0 4px;font-weight:700">Số lượt tối đa mỗi người / ngày (1 câu hỏi ≈ 2–4 lượt; 0 = không cho dùng)</div>
+  <div class="fgrid">${CHAT_ROLES.map(([k,l])=>`<div class="field"><label for="cl-${k}">${l}</label><input id="cl-${k}" class="inp num" inputmode="numeric" data-chatlim="${k}" value="${chatLim(k)}"></div>`).join('')}
+  <div class="field"><label for="cf-chatDailyTotal">Chặn tổng toàn hệ thống / ngày</label><div class="row" style="flex-wrap:nowrap"><input id="cf-chatDailyTotal" class="inp num" data-f="cfg" data-k="chatDailyTotal" value="${C.chatDailyTotal||2000}"><span class="muted small">lượt · Admin được báo khi dùng 80%</span></div></div>
   <div class="field"><label>Mức dùng</label><div class="small" id="chatStat">Đang tải…</div></div></div>`;
  const pk=document.querySelector('.pkcard');(pk||host).parentNode.insertBefore(card,pk?pk.nextSibling:host);
- rpc('chat_stats').then(s=>{const el=document.getElementById('chatStat');if(el)el.innerHTML=`Hôm nay: <b>${s.today}</b> lượt · 14 ngày: ${s.days.reduce((n,d)=>n+d[1],0)} lượt${s.top.length?'<br>Dùng nhiều (7 ngày): '+s.top.map(t=>esc(t[0])+' '+t[1]).join(', '):''}`;}).catch(()=>{});};}
+ rpc('chat_stats').then(s=>{const el=document.getElementById('chatStat');if(!el)return;const R=s.roles||{};
+  el.innerHTML=`Hôm nay: <b>${s.today}</b>/${s.total} lượt (chặn tổng)<br>${CHAT_ROLES.filter(([k])=>R[k]).map(([k,l])=>`${l}: hôm nay ${R[k][0]} · 7 ngày ${R[k][1]}`).join('<br>')||'Chưa có lượt nào 7 ngày qua'}${s.top.length?'<br>Dùng nhiều (7 ngày): '+s.top.map(t=>esc(t[0])+' '+t[1]).join(', '):''}`;}).catch(()=>{});};}
 document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.chatrole;if(!k)return;const cur=new Set(Array.isArray(S.cfg.chatRoles)?S.cfg.chatRoles:['cs','sales','logistics','admin']);e.target.checked?cur.add(k):cur.delete(k);
  mutate('update_settings',{p:{chatRoles:[...cur]}},{ok:()=>toast('Đã lưu vai trò dùng trợ lý')});});
 {const r0=render;render=function(){r0();if(!S||V.view!=='users'||V.uTab!=='customers'||!can('customers.manage'))return;

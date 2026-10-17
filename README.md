@@ -342,6 +342,9 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - **Cài một lần trên Cloudflare:** Workers & Pages → project `truck-capacity-portal` → **Settings → Bindings → Add → Workers AI** → Variable name **`AI`** → Save → **Deployments → Retry deployment** (hoặc push một commit). Gói miễn phí Workers AI có hạn mức neuron mỗi ngày; hết thì trợ lý báo lỗi đến hôm sau.
 - Test: `test/99f_chat.sql`, `node test/chat_fn.mjs`, `test/e2e/v46.mjs` (AI giả lập).
 
+## v3.20 — Hạn mức trợ lý theo vai trò
+**Chạy `supabase/setup_all.sql` trước khi gộp.** Cấu hình `chatDailyRole` (lượt/người/ngày theo vai trò, 0 = không cho dùng; mặc định nội bộ 150, khách 30) và `chatDailyTotal` (chặn tổng toàn hệ thống/ngày, mặc định 2000; Admin được báo khi dùng 80%). Cấu hình → Ngưỡng & tải trọng → khung Trợ lý; mức dùng theo vai trò.
+
 
 
 ## Lưu ý gói miễn phí

@@ -82,6 +82,11 @@ await session('kh@demo.vn', async p => {
 await session('admin@demo.vn', async p => {
   S('cfg'); await p.evaluate(() => { V.cfgTab = 'general'; go('config'); }); await p.waitForTimeout(800);
   ok(await p.locator('.chatcfg').count() === 1 && /Hôm nay/.test(await p.locator('#chatStat').innerText()), 'Admin cấu hình trợ lý + xem mức dùng');
+  ok(await p.locator('[data-chatlim]').count() === 5 && await p.inputValue('#cl-customer') === '30', 'hạn mức riêng từng vai trò (khách mặc định 30)');
+  await p.fill('#cl-sales', '80'); await p.locator('#cl-sales').dispatchEvent('change'); await p.waitForTimeout(1000);
+  ok(q("select value->>'sales' from app.settings where key='chatDailyRole'") === '80', 'lưu hạn mức Sales');
+  ok(await p.locator('#cf-chatDailyTotal').count() === 1 && /chặn tổng/.test(await p.locator('#chatStat').innerText()), 'chặn tổng toàn hệ thống + mức dùng theo vai trò');
+  await p.screenshot({ path: `${OUT}/cfg.png` });
   await p.evaluate(() => { V.view = 'users'; V.uTab = 'customers'; render(); }); await p.waitForTimeout(300);
   ok(await p.locator('[data-a="custChat"]').count() >= 5, 'nút bật trợ lý cho từng khách');
 });

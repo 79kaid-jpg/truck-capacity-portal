@@ -19,3 +19,19 @@ select (public.chat_use()->>'left')::int as kh_left0;
 select public.chat_use();
 select set_config('request.jwt.claim.sub', :'AD', false);
 select (public.chat_stats()->>'today')::int as today_calls;
+\echo --- v3.20: hạn mức theo vai trò + tổng
+select set_config('request.jwt.claim.sub', :'AD', false);
+select public.update_settings('{"chatDaily": 150, "chatDailyRole": {"cs":1,"sales":150,"logistics":150,"admin":150,"customer":30}}');
+\echo expect ERROR không hợp lệ
+select public.update_settings('{"chatDailyRole": {"boss":5}}');
+select set_config('request.jwt.claim.sub', :'CS', false);
+\echo expect ERROR hết 1 lượt (CS đã dùng 1 lượt ở trên)
+select public.chat_use();
+select set_config('request.jwt.claim.sub', :'AD', false);
+select (public.chat_use()->>'limit')::int as admin_limit;
+select public.update_settings('{"chatDailyTotal": 6}');
+select count(*) as all_today from app.chat_log;
+\echo expect ERROR hạn mức chung (đã 5 lượt + thông báo 80% ở lượt 5)
+select public.chat_use(); select public.chat_use();
+select count(*) as admin_alert from app.notifications where text like 'Trợ lý (chatbot) đã dùng 80%%';
+select public.chat_stats()->'roles' as roles, (public.chat_stats()->>'total')::int as total;
