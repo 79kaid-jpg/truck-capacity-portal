@@ -290,6 +290,12 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - Menu khung Hướng dẫn có lề, nhóm tách rõ; toàn màn hình không còn bị cắt mép trái. Không cần chạy SQL.
 - Test: `test/e2e/v39.mjs`.
 
+## v3.11 — Lịch khách hàng nhiều kho
+- Khách chọn kho bằng hàng nút (Tất cả kho mặc định, kho hay đặt đứng đầu, nhớ lựa chọn).
+- Tất cả kho: mỗi ô ghi MT còn đặt được từng kho + huy hiệu đơn của khách theo kho; chi tiết ngày gộp mọi kho.
+- Khung "Đơn của tôi": KPI tháng + đơn 14 ngày tới mọi kho. Khách không còn thấy tooltip nội bộ. Không cần SQL.
+- Test: `test/e2e/v40.mjs`.
+
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.
 - Gói Free **không có backup tự động**. Mỗi tuần nên export các bảng chính (Table Editor → schema `app` → Export CSV).
@@ -309,6 +315,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v37.js                  Phím tắt: bộ xử lý, bảng ?, chỉnh trong Hồ sơ / Cấu hình
   v38.js                  Xem như khách hàng (chỉ xem), khung Hướng dẫn
   v39.js                  Lịch sử màn hình (B B / B N, Back / Forward)
+  v40.js                  Lịch khách hàng nhiều kho
   guide.html, guide/      Nội dung Hướng dẫn sử dụng + ảnh minh họa
   config.js               URL + anon key (công khai)
   favicon.svg, icon-*.png, apple-touch-icon.png, manifest.webmanifest   Biểu tượng trang / màn hình chính điện thoại
