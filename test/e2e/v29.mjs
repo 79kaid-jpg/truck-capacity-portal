@@ -102,7 +102,7 @@ await session('log@demo.vn', async p => {
   await ev(p, c => { V.modal = { type: 'truck', code: c, wide: true }; render(); }, code);
   await p.selectOption('#cl-r', 'FULL'); await p.locator('#cl-r').dispatchEvent('change');
   await p.click('[data-a="v9TruckClose"]'); await p.waitForTimeout(1000);
-  ok(await p.locator('text=Đã đóng').count() > 0, 'truck closed badge shown');
+  ok(await p.locator('text=Đã chốt').count() > 0, 'truck closed badge shown');
   ok(await p.locator('[data-a="place"]').count() === 0, 'Xếp đơn hidden for closed truck');
   await shot(p, '6-truck-closed');
   await p.click('[data-a="v9TruckOpen"]'); await p.waitForTimeout(1000);
