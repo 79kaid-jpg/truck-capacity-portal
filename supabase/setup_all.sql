@@ -889,6 +889,35 @@ revoke all on all functions in schema app from public, anon, authenticated;
 -- Toàn bộ dữ liệu cho giao diện trong khoảng ngày, đã lọc theo vai trò
 -- v3.1: p_cat = khóa danh mục khách trình duyệt đang giữ; trùng thì không gửi lại danh sách khách (null)
 drop function if exists public.get_state(date, date);
+-- v3.30: JSON một đơn cho nội bộ (dùng chung get_state / get_delta)
+create or replace function app.bk_json(b app.bookings, me app.profiles, p_sales uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  return case when not app.sees_sales(me, p_sales) then
+                     -- Sales: hàng của khách không phụ trách chỉ còn số tấn để tính capacity
+                     jsonb_build_object('id', b.id, 'wh', b.warehouse_code, 'date', b.day, 'customerId', '__other', 'ref', '', 'addrText', 'Khách khác',
+                       'province', '', 'region', coalesce(b.region_id, 'NONE'), 'status', b.status, 'csId', null,
+                       'heldAt', extract(epoch from b.held_at) / 60,
+                       'lines', jsonb_build_array(jsonb_build_object('p', '', 'c', '', 'th', null, 'w', null, 't', app.bk_total(b.id))))
+                   else
+                     jsonb_build_object('id', b.id, 'wh', b.warehouse_code, 'date', b.day, 'delivery', b.delivery_date, 'customerId', b.customer_id,
+                       'ref', b.ref, 'addrId', b.address_id, 'addrText', b.address_text, 'province', b.province, 'region', coalesce(b.region_id, 'NONE'),
+                       'status', b.status, 'rev', b.rev, 'csId', b.cs_user_id, 'heldAt', extract(epoch from coalesce(b.held_at, b.created_at)) / 60,
+                       'note', b.note, 'rejectReason', b.reason_note, 'reasonCode', b.reason_code, 'proposedDate', b.proposed_day,
+                       'origDate', b.original_day, 'changes', b.change_count, 'urgent', b.urgent, 'urgentSet', b.urgent_override, 'urgentNote', b.urgent_note,
+                       'lateCancel', b.late_cancel, 'parent', b.parent_id, 'requested', b.requested_tons, 'undelivered', b.undelivered_tons,
+                       'undeliveredNote', b.undelivered_note, 'deliveryAt', extract(epoch from b.delivery_at) / 60,
+                       'coils', (select count(*) from app.delivery_items di where di.booking_id = b.id),
+                       'coilTons', (select sum(qty) from app.delivery_items di where di.booking_id = b.id),
+                       'loadedAt', extract(epoch from b.loaded_at) / 60, 'shortTons', b.short_tons, 'loadNote', b.load_note,
+                       'eta', extract(epoch from b.eta) / 60, 'deliveredAt', extract(epoch from b.delivered_at) / 60, 'failNote', b.fail_note,
+                       'holiday', app.is_holiday(b.warehouse_code, b.day),
+                       'lines', (select coalesce(jsonb_agg(jsonb_build_object('p', l.product, 'c', l.color, 'th', l.thickness_mm, 'w', l.width_mm, 't', l.tons) order by l.id), '[]')
+                                 from app.booking_lines l where l.booking_id = b.id))
+                   end;
+end
+$$;
+
 create or replace function public.get_state(p_from date, p_to date, p_cat text default null) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare
@@ -1003,29 +1032,7 @@ begin
                 'by', coalesce(app.uname(f.updated_by), 'Hệ thống'),
                 'at', to_char(f.updated_at at time zone 'Asia/Ho_Chi_Minh', 'DD/MM HH24:MI'))), '[]')
               from app.daily_fleet f where f.day between p_from and p_to),
-    'bookings', (select coalesce(jsonb_agg(
-                   case when not app.sees_sales(me, c.sales_user_id) then
-                     -- Sales: hàng của khách không phụ trách chỉ còn số tấn để tính capacity
-                     jsonb_build_object('id', b.id, 'wh', b.warehouse_code, 'date', b.day, 'customerId', '__other', 'ref', '', 'addrText', 'Khách khác',
-                       'province', '', 'region', coalesce(b.region_id, 'NONE'), 'status', b.status, 'csId', null,
-                       'heldAt', extract(epoch from b.held_at) / 60,
-                       'lines', jsonb_build_array(jsonb_build_object('p', '', 'c', '', 'th', null, 'w', null, 't', app.bk_total(b.id))))
-                   else
-                     jsonb_build_object('id', b.id, 'wh', b.warehouse_code, 'date', b.day, 'delivery', b.delivery_date, 'customerId', b.customer_id,
-                       'ref', b.ref, 'addrId', b.address_id, 'addrText', b.address_text, 'province', b.province, 'region', coalesce(b.region_id, 'NONE'),
-                       'status', b.status, 'rev', b.rev, 'csId', b.cs_user_id, 'heldAt', extract(epoch from coalesce(b.held_at, b.created_at)) / 60,
-                       'note', b.note, 'rejectReason', b.reason_note, 'reasonCode', b.reason_code, 'proposedDate', b.proposed_day,
-                       'origDate', b.original_day, 'changes', b.change_count, 'urgent', b.urgent, 'urgentSet', b.urgent_override, 'urgentNote', b.urgent_note,
-                       'lateCancel', b.late_cancel, 'parent', b.parent_id, 'requested', b.requested_tons, 'undelivered', b.undelivered_tons,
-                       'undeliveredNote', b.undelivered_note, 'deliveryAt', extract(epoch from b.delivery_at) / 60,
-                       'coils', (select count(*) from app.delivery_items di where di.booking_id = b.id),
-                       'coilTons', (select sum(qty) from app.delivery_items di where di.booking_id = b.id),
-                       'loadedAt', extract(epoch from b.loaded_at) / 60, 'shortTons', b.short_tons, 'loadNote', b.load_note,
-                       'eta', extract(epoch from b.eta) / 60, 'deliveredAt', extract(epoch from b.delivered_at) / 60, 'failNote', b.fail_note,
-                       'holiday', app.is_holiday(b.warehouse_code, b.day),
-                       'lines', (select coalesce(jsonb_agg(jsonb_build_object('p', l.product, 'c', l.color, 'th', l.thickness_mm, 'w', l.width_mm, 't', l.tons) order by l.id), '[]')
-                                 from app.booking_lines l where l.booking_id = b.id))
-                   end), '[]')
+    'bookings', (select coalesce(jsonb_agg(app.bk_json(b, me, c.sales_user_id)), '[]')
                  from app.bookings b join app.customers c on c.id = b.customer_id
                 where (b.day between p_from and p_to or b.status in ('hold','resched','failed') or coalesce(b.short_tons, 0) > 0
                        or (b.status = 'draft' and b.parent_id is not null))
@@ -1042,6 +1049,104 @@ begin
                                     where b.day between p_from and p_to and app.sees_sales(me, c.sales_user_id)))
   );
   return res;
+end $$;
+
+-- v3.30: chỉ trả phần thay đổi từ lần tải trước (nội bộ). full = true → trình duyệt tải lại toàn bộ.
+create or replace function public.get_delta(p_since bigint, p_from date, p_to date, p_s bigint, p_c bigint, p_m bigint, p_n bigint) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare me app.profiles; v_ids text[]; v_in text[]; v_res jsonb;
+begin
+  select * into me from app.profiles where user_id = app.uid() and active;
+  if not found or me.role = 'customer' or p_since is null then return jsonb_build_object('full', true); end if;
+  if exists (select 1 from app.cust_views v where v.admin_id = app.real_uid() and v.expires_at > now()) then return jsonb_build_object('full', true); end if;
+  if p_s is distinct from (select case when is_called then last_value else 0 end from app.struct_seq) or p_c is distinct from (select last_value from app.cat_seq) then
+    return jsonb_build_object('full', true);
+  end if;
+  select coalesce(array_agg(id), '{}') into v_ids from app.bookings where chg > p_since;
+  if cardinality(v_ids) > 400 then return jsonb_build_object('full', true); end if;
+  -- đơn đổi mà vẫn trong phạm vi tải (cùng điều kiện get_state)
+  select coalesce(array_agg(b.id), '{}') into v_in from app.bookings b
+   where b.id = any(v_ids)
+     and (b.day between p_from and p_to or b.status in ('hold','resched','failed') or coalesce(b.short_tons, 0) > 0 or (b.status = 'draft' and b.parent_id is not null))
+     and (b.status <> 'draft' or b.cs_user_id = me.user_id or (b.parent_id is not null and me.role in ('cs','admin')));
+  v_res := jsonb_build_object(
+    'full', false, 'today', app.today(), 'now', extract(epoch from now()), 'ver', app.ver_of(me.user_id),
+    'bookings', (select coalesce(jsonb_agg(app.bk_json(b, me, c.sales_user_id)), '[]') from app.bookings b join app.customers c on c.id = b.customer_id where b.id = any(v_in)),
+    'changed', to_jsonb(v_ids || array(select id from app.deleted_bk where seq > p_since)),
+    'allocs', (select coalesce(jsonb_agg(jsonb_build_object('id', a.id, 'bk', a.booking_id, 'truck', a.truck_code, 'tons', a.tons,
+                 'override', a.override, 'reason', a.override_reason)), '[]')
+               from app.allocations a join app.bookings b on b.id = a.booking_id
+              where a.booking_id = any(v_ids) and (b.day between p_from and p_to or b.status in ('hold','resched'))),
+    'audit', (select coalesce(jsonb_agg(jsonb_build_object('obj', l.entity_id, 'text', l.detail, 'who', coalesce(app.uname(l.actor), 'Hệ thống'),
+                'at', extract(epoch from l.at) / 60) order by l.at desc), '[]')
+              from app.audit_log l
+             where l.entity_id = any(v_in) and l.entity_id in (select b.id from app.bookings b join app.customers c on c.id = b.customer_id
+                                    where b.day between p_from and p_to and app.sees_sales(me, c.sales_user_id))));
+  if p_m is distinct from (select case when is_called then last_value else 0 end from app.misc_seq) then
+    v_res := v_res || jsonb_build_object(
+      'reqs', (select coalesce(jsonb_agg(app.req_json(r) order by r.day, r.id), '[]') from app.order_requests r
+                where r.day between p_from - 7 and p_to
+                  and (r.created_by = me.user_id or app.sees_sales(me, (select c.sales_user_id from app.customers c where c.id = r.customer_id)))
+                  and (r.status = 'new' or r.handled_at > now() - interval '14 days' or r.day >= app.today())),
+      'talk', app.talk_list(me));
+  end if;
+  if p_n is distinct from coalesce((select max(id) from app.notifications where user_id = me.user_id), 0) then
+    v_res := v_res || jsonb_build_object('notifs', (select coalesce(jsonb_agg(jsonb_build_object('id', n.id, 'type', n.type, 'text', n.text, 'link', n.link,
+                 'at', extract(epoch from n.created_at), 'read', n.read_at is not null) order by n.created_at desc), '[]')
+               from (select * from app.notifications where user_id = me.user_id order by created_at desc limit 100) n));
+  end if;
+  return v_res;
+end $$;
+
+-- v3.30: theo dõi lượng dữ liệu tải về (ước tính băng thông) và lỗi phía trình duyệt
+create table if not exists app.usage_daily (day date not null, user_id uuid not null, kind text not null, calls int not null default 0, bytes bigint not null default 0,
+  primary key (day, user_id, kind));
+create table if not exists app.client_errors (id bigserial primary key, at timestamptz not null default now(), user_id uuid, msg text not null, src text, ver text, n int not null default 1);
+create index if not exists client_errors_at on app.client_errors (at);
+-- p: {usage: {full: {calls, bytes}, delta: {...}, poll: {...}}, errors: [{msg, src}], ver}
+create or replace function public.log_usage(p jsonb) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; k text; e jsonb; v_n int := 0;
+begin
+  select * into me from app.profiles where user_id = app.uid() and active;
+  if not found then return; end if;
+  for k in select jsonb_object_keys(coalesce(p->'usage', '{}')) loop
+    continue when k not in ('full','delta','poll','other');
+    insert into app.usage_daily (day, user_id, kind, calls, bytes)
+    values (app.today(), me.user_id, k, least(greatest(coalesce((p->'usage'->k->>'calls')::int, 0), 0), 100000), least(greatest(coalesce((p->'usage'->k->>'bytes')::bigint, 0), 0), 10000000000))
+    on conflict (day, user_id, kind) do update set calls = app.usage_daily.calls + excluded.calls, bytes = app.usage_daily.bytes + excluded.bytes;
+  end loop;
+  for e in select * from jsonb_array_elements(coalesce(p->'errors', '[]')) limit 20 loop
+    exit when (select count(*) from app.client_errors where user_id = me.user_id and at > now() - interval '1 hour') > 50;
+    update app.client_errors set n = n + 1, at = now() where user_id = me.user_id and msg = left(e->>'msg', 500) and at > now() - interval '1 day';
+    if not found then insert into app.client_errors (user_id, msg, src, ver) values (me.user_id, left(e->>'msg', 500), left(e->>'src', 300), left(p->>'ver', 20)); end if;
+  end loop;
+  delete from app.client_errors where at < now() - interval '30 days';
+  delete from app.usage_daily where day < app.today() - 90;
+end $$;
+
+create or replace function public.sys_health() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare me app.profiles;
+begin
+  me := app.require_perm('dash.system');
+  return jsonb_build_object(
+    'dbMb', round(pg_database_size(current_database()) / 1048576.0, 1),
+    'tables', (select coalesce(jsonb_agg(jsonb_build_array(relname, round(pg_total_relation_size(c.oid) / 1048576.0, 2)) order by pg_total_relation_size(c.oid) desc), '[]')
+                 from (select c.oid, c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                        where n.nspname = 'app' and c.relkind = 'r' order by pg_total_relation_size(c.oid) desc limit 8) c),
+    'usage', (select coalesce(jsonb_object_agg(k, v), '{}') from (
+               select 'today' k, jsonb_build_object('bytes', coalesce(sum(bytes), 0), 'calls', coalesce(sum(calls), 0)) v from app.usage_daily where day = app.today()
+               union all select 'd7', jsonb_build_object('bytes', coalesce(sum(bytes), 0), 'calls', coalesce(sum(calls), 0)) from app.usage_daily where day > app.today() - 7
+               union all select 'd30', jsonb_build_object('bytes', coalesce(sum(bytes), 0), 'calls', coalesce(sum(calls), 0)) from app.usage_daily where day > app.today() - 30
+               union all select 'month', jsonb_build_object('bytes', coalesce(sum(bytes), 0), 'calls', coalesce(sum(calls), 0)) from app.usage_daily where day >= date_trunc('month', app.today())) z),
+    'byKind', (select coalesce(jsonb_object_agg(kind, jsonb_build_object('bytes', b, 'calls', c)), '{}') from (select kind, sum(bytes) b, sum(calls) c from app.usage_daily where day > app.today() - 7 group by kind) z),
+    'topUsers', (select coalesce(jsonb_agg(jsonb_build_array(app.uname(user_id), b) order by b desc), '[]') from (select user_id, sum(bytes) b from app.usage_daily where day > app.today() - 7 group by user_id order by 2 desc limit 5) z),
+    'aiToday', (select count(*) from app.chat_log where at >= (app.today()::timestamp at time zone 'Asia/Ho_Chi_Minh')),
+    'aiCap', coalesce(app.setn('chatDailyTotal'), 2000),
+    'errors', (select coalesce(jsonb_agg(jsonb_build_object('at', extract(epoch from e.at) / 60, 'who', app.uname(e.user_id), 'msg', e.msg, 'src', e.src, 'ver', e.ver, 'n', e.n) order by e.at desc), '[]')
+                 from (select * from app.client_errors order by at desc limit 30) e),
+    'files', (select jsonb_build_object('n', count(*), 'mb', round(coalesce(sum(size), 0) / 1048576.0, 1)) from app.talk_files));
 end $$;
 
 -- Thống kê hệ thống cho Admin (DB-06)
@@ -2971,7 +3076,7 @@ begin perform nextval('app.cat_seq'); return null; end $$;
 do $$
 declare t text;
 begin
-  foreach t in array array['bookings','order_requests','talk_threads','talk_msgs','talk_reads','booking_lines','allocations','daily_fleet','truck_days','delivery_items','profiles',
+  foreach t in array array['bookings','order_requests','talk_threads','talk_msgs','booking_lines','allocations','daily_fleet','truck_days','delivery_items','profiles',
                            'regions','region_neighbors','warehouses','settings','holidays','reason_codes'] loop
     if to_regclass('app.' || t) is not null then
       execute format('drop trigger if exists zz_bump_data on app.%I', t);
@@ -2985,8 +3090,66 @@ begin
 end $$;
 
 -- d = dữ liệu chung, c = danh mục khách, n = thông báo mới nhất của người dùng
+-- v3.30: mở Trao đổi (ghi "đã đọc") không còn làm mọi người tải lại dữ liệu
+drop trigger if exists zz_bump_data on app.talk_reads;
+-- v3.30: tải phần thay đổi. s = cấu trúc (xe, cấu hình, người dùng, khu vực…) → tải lại toàn bộ; m = yêu cầu + Trao đổi;
+-- đơn: cột chg tăng mỗi khi đơn / dòng hàng / phần xe / cuộn / nhật ký đổi; đơn bị xóa ghi vào deleted_bk
+create sequence if not exists app.struct_seq;
+create sequence if not exists app.misc_seq;
+create or replace function app.bump_struct() returns trigger language plpgsql set search_path = '' as $$
+begin perform nextval('app.struct_seq'); return null; end $$;
+create or replace function app.bump_misc() returns trigger language plpgsql set search_path = '' as $$
+begin perform nextval('app.misc_seq'); return null; end $$;
+do $$
+declare t text;
+begin
+  foreach t in array array['daily_fleet','truck_days','profiles','regions','region_neighbors','warehouses','settings','holidays','reason_codes',
+                           'products','colors','thicknesses','widths','permissions','role_permissions','impersonations','cust_views'] loop
+    if to_regclass('app.' || t) is not null then
+      execute format('drop trigger if exists zz_bump_s on app.%I', t);
+      execute format('create trigger zz_bump_s after insert or update or delete on app.%I for each statement execute function app.bump_struct()', t);
+    end if;
+  end loop;
+  foreach t in array array['order_requests','talk_threads','talk_msgs'] loop
+    execute format('drop trigger if exists zz_bump_m on app.%I', t);
+    execute format('create trigger zz_bump_m after insert or update or delete on app.%I for each statement execute function app.bump_misc()', t);
+  end loop;
+end $$;
+alter table app.bookings add column if not exists chg bigint not null default 0;
+create index if not exists bookings_chg on app.bookings (chg);
+create table if not exists app.deleted_bk (id text not null, seq bigint not null, at timestamptz not null default now());
+create index if not exists deleted_bk_seq on app.deleted_bk (seq);
+create or replace function app.bk_chg() returns trigger language plpgsql set search_path = '' as $$
+begin new.chg := nextval('app.data_seq'); return new; end $$;
+drop trigger if exists bk_chg on app.bookings;
+create trigger bk_chg before insert or update on app.bookings for each row execute function app.bk_chg();
+create or replace function app.bk_child_chg() returns trigger language plpgsql set search_path = '' as $$
+declare v_id text;
+begin
+  if tg_table_name = 'audit_log' then v_id := new.entity_id;
+  elsif tg_op = 'DELETE' then v_id := old.booking_id;
+  else v_id := new.booking_id; end if;
+  if v_id is not null then update app.bookings set chg = 0 where id = v_id; end if;   -- bk_chg gán số mới
+  return null;
+end $$;
+do $$
+declare t text;
+begin
+  foreach t in array array['booking_lines','allocations','delivery_items'] loop
+    execute format('drop trigger if exists zz_bk_chg on app.%I', t);
+    execute format('create trigger zz_bk_chg after insert or update or delete on app.%I for each row execute function app.bk_child_chg()', t);
+  end loop;
+end $$;
+drop trigger if exists zz_bk_chg on app.audit_log;
+create trigger zz_bk_chg after insert on app.audit_log for each row when (new.entity_id like 'BK-%') execute function app.bk_child_chg();
+create or replace function app.bk_deleted() returns trigger language plpgsql set search_path = '' as $$
+begin insert into app.deleted_bk (id, seq) values (old.id, nextval('app.data_seq')); return null; end $$;
+drop trigger if exists zz_bk_del on app.bookings;
+create trigger zz_bk_del after delete on app.bookings for each row execute function app.bk_deleted();
+
 create or replace function app.ver_of(p_uid uuid) returns jsonb language sql stable set search_path = '' as $$
   select jsonb_build_object('d', (select last_value from app.data_seq), 'c', (select last_value from app.cat_seq),
+                            's', (select case when is_called then last_value else 0 end from app.struct_seq), 'm', (select case when is_called then last_value else 0 end from app.misc_seq),
                             'n', coalesce((select max(id) from app.notifications where user_id = p_uid), 0))
 $$;
 create or replace function public.get_ver() returns jsonb
@@ -3001,7 +3164,7 @@ alter table app.bookings add column if not exists rev_tx     bigint;
 alter table app.bookings add column if not exists updated_by uuid;
 create or replace function app.bk_rev() returns trigger language plpgsql set search_path = '' as $$
 declare h text; v_who text;
-  skip constant text[] := array['rev','rev_tx','updated_at','updated_by','escalated_at','urgent','ship_remind_on'];
+  skip constant text[] := array['rev','rev_tx','updated_at','updated_by','escalated_at','urgent','ship_remind_on','chg'];
 begin
   if (to_jsonb(new) - skip) = (to_jsonb(old) - skip) then return new; end if;
   if old.rev_tx is distinct from txid_current() then
@@ -3954,7 +4117,7 @@ begin
        'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa','list_bookings','booking_stats',
        'bulk_create_bookings','suggest_days','set_urgent','confirm_delivery','get_coils','mark_loaded','resolve_short','mark_transit',
        'mark_delivered','mark_failed','close_truck','set_email_prefs','send_to_logistics','save_warehouse','change_booking_wh',
-       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop','req_create','req_update','admin_create_user','admin_reset_password','my_pw_changed','admin_user_refs','admin_delete_user','chat_use','set_customer_chat','chat_stats','req_set_day','unload_booking','talk_get','talk_post','talk_edit','talk_react','talk_set','talk_upload','talk_file','my_new_notifs')
+       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop','req_create','req_update','admin_create_user','admin_reset_password','my_pw_changed','admin_user_refs','admin_delete_user','chat_use','set_customer_chat','chat_stats','req_set_day','unload_booking','get_delta','log_usage','sys_health','talk_get','talk_post','talk_edit','talk_react','talk_set','talk_upload','talk_file','my_new_notifs')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);

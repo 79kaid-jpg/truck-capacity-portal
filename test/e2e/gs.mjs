@@ -68,3 +68,5 @@ r = await search(p, 'cs@demo'); log('admin "cs@demo":', r.map(x => x.split(' | '
 await p.screenshot({ path: `${OUT}/19-gs-admin.png` }); await p.keyboard.press('Escape'); await p.context().close();
 step = 'gs-mobile'; p = await login('cs@demo.vn', { width: 390, height: 844 }); await p.click('.gsbtn'); await p.fill('#gs-q', 'dai loc'); await p.waitForTimeout(700); await p.screenshot({ path: `${OUT}/20-gs-mobile.png` }); await p.context().close();
 await b.close(); log('\nPAGE ERRORS:', errs.length ? errs.join('\n') : 'none');
+
+if (errs.length) process.exit(1);

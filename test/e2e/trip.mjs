@@ -43,14 +43,14 @@ const open = async p => { await p.evaluate(([w, d]) => { V.wh = w; V.whAll = fal
 const card = p => p.locator(`.tcard[data-c="${tk}"]`).first();
 await session('log@demo.vn', async p => {
   S('loading'); await open(p); const t = await card(p).innerText();
-  ok(/Đang bốc 1\/2/i.test(t) && !/Đã chạy/i.test(t), 'bốc 1/2 đơn: Đang bốc, chưa khóa', t.replace(/\n/g, ' | '));
+  ok(new RegExp("Đang bốc 1\\/"+bks.length,"i").test(t) && !/Đã chạy/i.test(t), 'bốc 1/2 đơn: Đang bốc, chưa khóa', t.replace(/\n/g, ' | '));
   ok(!/Đang xếp/.test(await p.locator('.main').innerText()), 'không còn chữ "Đang xếp"');
   await p.screenshot({ path: `${OUT}/loading.png` });
 });
 q(`update app.bookings set status='transit' where id='${bks[0]}'`);
 await session('log@demo.vn', async p => {
   S('dep'); await open(p); const t = await card(p).innerText();
-  ok(/Đã chạy/i.test(t) && /Đang giao 1\/2/i.test(t), 'có đơn Đang giao: khóa xe (Đã chạy)', t.replace(/\n/g, ' | '));
+  ok(/Đã chạy/i.test(t) && new RegExp("Đang giao 1\\/"+bks.length,"i").test(t), 'có đơn Đang giao: khóa xe (Đã chạy)', t.replace(/\n/g, ' | '));
   ok(await card(p).locator('[data-a="place"]').count() === 0, 'ẩn nút Xếp đơn');
   await p.selectOption('#f-st', 'transit'); await p.waitForTimeout(300); ok(await p.locator('.tcard').count() >= 1, 'lọc theo chuyến Đang giao');
   ok(/ĐANG GIAO: \d/.test(await p.locator('.foot').innerText()), 'dòng tổng đếm theo chuyến');

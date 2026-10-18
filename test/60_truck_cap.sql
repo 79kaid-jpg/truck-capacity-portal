@@ -1,3 +1,4 @@
+-- expect-errors: 7 (các bước kiểm tra bị chặn đúng)
 \set ON_ERROR_STOP 0
 select 'JM2-'||to_char(app.today(),'DDMMYY')||'-DK-01' as tr, 'JM2-'||to_char(app.today(),'DDMMYY')||'-DK-09' as tr9 \gset
 select app.today()+3+(extract(dow from app.today()+3)=0)::int as d3 \gset

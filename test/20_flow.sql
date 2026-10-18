@@ -1,3 +1,4 @@
+-- legacy: viết cho cách dựng dữ liệu cũ, test/sql.sh bỏ qua
 \set ON_ERROR_STOP 1
 select id as kh from app.customers where code='KH0102' \gset
 select id as kh2 from app.customers where code='KH0201' \gset

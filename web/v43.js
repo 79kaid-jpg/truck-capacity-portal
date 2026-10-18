@@ -14,8 +14,8 @@ if(typeof EXC==='object')EXC.ship=['🚚 Chưa xác nhận giao',r=>['loaded','t
  const tb=document.querySelector('.top .userbtn');const has=document.querySelector('.top .pkoff');
  if(pickOff()&&(role()==='admin'||role()==='logistics')){if(tb&&!has){const el=document.createElement('span');el.className='pkoff';el.title='Admin đang tắt bắt buộc CS nhập danh sách cuộn (picking list). Bật lại trong Cấu hình → Chung.';el.textContent='⚠ Tạm bỏ bắt buộc picking list';const g=document.querySelector('.top [data-a="guide"]');tb.parentNode.insertBefore(el,g||tb);}}else if(has)has.remove();
  // Cấu hình → Chung
- if(V.view==='config'&&(V.cfgTab||'general')==='general'){const host=document.querySelector('.main .panel .fgrid');if(host&&!document.querySelector('.pkcard')){
-  const C=S.cfg;const isAd=role()==='admin';const off=pickOff();const card=document.createElement('div');card.className='pkcard'+(off?' off':'');
+ if(V.view==='config'&&(V.cfgTab||'general')==='general'){const host=document.querySelector('.main .panel .fgrid');if(host&&!document.querySelector('.pkmain')){
+  const C=S.cfg;const isAd=role()==='admin';const off=pickOff();const card=document.createElement('div');card.className='pkcard pkmain'+(off?' off':'');
   card.innerHTML=`<h4>Danh sách cuộn (picking list) & xác nhận giao</h4>
    <label class="row" style="gap:8px;align-items:flex-start"><input type="checkbox" data-f="cfgb" data-k="requirePicking" ${off?'':'checked'} ${isAd?'':'disabled'}>
     <span><b>CS phải nhập danh sách cuộn trước khi Logistics load hàng</b><br><span class="small muted">${off?'<b style="color:#8a5200">Đang TẮT</b>: Logistics bấm Đã bốc hàng được ngay, không cần CS Xác nhận giao hàng. CS vẫn nhập được nếu có thời gian.':'Đang BẬT: như quy trình chuẩn.'} ${isAd?'':'Chỉ Admin bật/tắt được.'} Mọi lần đổi được ghi nhật ký.</span></span></label>

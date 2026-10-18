@@ -26,3 +26,5 @@ const d2 = new Date(Date.now() + 2*864e5 + 7*3600e3); if (d2.getUTCDay() === 0) 
 await p.fill('#bf-date', d2.toISOString().slice(0, 10)); await p.locator('#bf-date').dispatchEvent('change'); await p.waitForTimeout(150);
 await p.click('[data-a="bfHold"]'); await p.waitForTimeout(500); console.log('CS move ->', await p.locator('.toast').innerText().catch(() => '(none)'), await p.locator('.modal .err').innerText().catch(() => ''));
 await b.close(); console.log('page errors:', errs.length ? errs : 'none');
+
+if (errs.length) process.exit(1);

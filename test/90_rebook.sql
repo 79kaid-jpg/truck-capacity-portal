@@ -1,3 +1,4 @@
+-- expect-errors: 2 (các bước kiểm tra bị chặn đúng)
 -- Booking bị từ chối: CS chỉ đặt lại bằng Giữ chỗ (không Lưu tạm); booking đã hủy không sửa được
 select id as bk from app.bookings where status='hold' order by id limit 1 \gset
 select customer_id as cu, warehouse_code as wh from app.bookings where id = :'bk' \gset

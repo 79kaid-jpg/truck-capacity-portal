@@ -1,3 +1,4 @@
+-- legacy: viết cho cách dựng dữ liệu cũ, test/sql.sh bỏ qua
 \set ON_ERROR_STOP 1
 insert into auth.users (id,email) values
  ('00000000-0000-0000-0000-00000000000a','admin@demo.vn'),

@@ -1,3 +1,4 @@
+-- expect-errors: 12 (các bước kiểm tra bị chặn đúng)
 -- v2.9 (SRS mục 14): nhập nhiều dòng, ngày nghỉ có xe, đổi ngày có lý do, đơn khẩn, hủy cận ngày,
 -- xác nhận giao hàng + danh sách cuộn, load / giao / giao lỗi, tách đơn, đóng xe.
 \set CS  '00000000-0000-0000-0000-0000000000c1'

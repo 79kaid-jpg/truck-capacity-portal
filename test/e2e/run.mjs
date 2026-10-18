@@ -194,3 +194,5 @@ await session('kh@demo.vn', async p => { S('mobile'); await p.waitForSelector('.
 }
 await browser.close();
 console.log('\nERRORS:', errors.length ? '\n' + errors.join('\n') : 'none');
+
+if (errors.length) process.exit(1);

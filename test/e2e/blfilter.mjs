@@ -49,3 +49,5 @@ check('Sales list only own customers', (await rows(p)) > 0 && allOwn);
 check('Sales customer dropdown only own', await p.evaluate(() => [...document.querySelectorAll('#bl-cu option')].filter(o => !['all', 'mine'].includes(o.value)).every(o => cust(o.value).salesId === V.me)));
 await p.context().close();
 await browser.close(); console.log(errs.length ? 'ERRORS: ' + errs.join(' | ') : 'ALL BLFILTER CHECKS PASSED');
+
+if (errs.length) process.exit(1);

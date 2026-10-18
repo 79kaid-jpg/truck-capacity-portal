@@ -11,7 +11,7 @@ select (public.get_state(current_date, current_date)->'me'->>'chat') as kh_chat_
 select public.chat_use();
 select set_config('request.jwt.claim.sub', :'AD', false);
 select public.set_customer_chat((select customer_id from app.profiles where user_id = :'KH'), true);
-select public.update_settings('{"chatDaily": 2}');
+select public.update_settings('{"chatDaily": 2, "chatDailyRole": {"cs":150,"sales":150,"logistics":150,"admin":150,"customer":2}}');
 select set_config('request.jwt.claim.sub', :'KH', false);
 select (public.chat_use()->>'left')::int as kh_left1;
 select (public.chat_use()->>'left')::int as kh_left0;
@@ -29,7 +29,7 @@ select set_config('request.jwt.claim.sub', :'CS', false);
 select public.chat_use();
 select set_config('request.jwt.claim.sub', :'AD', false);
 select (public.chat_use()->>'limit')::int as admin_limit;
-select public.update_settings('{"chatDailyTotal": 6}');
+select public.update_settings('{"chatDailyTotal": 5}');
 select count(*) as all_today from app.chat_log;
 \echo expect ERROR hạn mức chung (đã 5 lượt + thông báo 80% ở lượt 5)
 select public.chat_use(); select public.chat_use();
