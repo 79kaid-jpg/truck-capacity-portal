@@ -120,7 +120,7 @@ await session('admin@demo.vn', async p => {
   await p.locator('.modal [data-a="addrDel"]').first().click(); await p.locator('.modal [data-a="addrDelGo"]').click(); await p.waitForTimeout(500);
   log('delete last address ->', await p.locator('.modal .err').innerText().catch(() => '(none)')); await shot(p, '11b-cust-addr');
   await p.click('[data-a="close"]');
-  S('custToggle'); await clr(p); await p.locator('tr', { hasText: 'Lysaght' }).locator('[data-a="custToggle"]').click(); log('stop customer ->', await toast(p));
+  S('custToggle'); await clr(p); p.once('dialog', d => d.accept()); await p.locator('tr', { hasText: 'Lysaght' }).locator('[data-a="custToggle"]').click(); log('stop customer ->', await toast(p));
 });
 await session('cs@demo.vn', async p => {
   S('csInactive'); await p.locator('[data-a="newBk"]').first().click(); await p.click('[data-g="code"][data-i="0"]'); await type(p, '[data-g="code"][data-i="0"]', 'van');

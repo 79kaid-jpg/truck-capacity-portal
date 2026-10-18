@@ -20,7 +20,7 @@
 .dz-leg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted);margin-bottom:6px}.dz-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 .dz-tbl td.c{cursor:pointer}.dz-tbl td.c:hover{background:var(--blue-bg)}.dz-tbl tr.c{cursor:pointer}.dz-tbl tr.c:hover td{background:var(--blue-bg)}
 .dz-up{color:var(--ok);font-weight:700}.dz-down{color:var(--bad);font-weight:700}
-.dz-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}.dz-cal .h{font-size:11px;color:var(--muted);text-align:center;font-weight:700}
+.dz-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}.dz-cal .h{font-size:12px;color:var(--muted);text-align:center;font-weight:700}
 .dz-cal .d{border:1px solid var(--line);border-radius:8px;padding:6px;min-height:78px;font-size:12px;cursor:pointer;background:var(--surface)}
 .dz-cal .d:hover{outline:2px solid var(--blue)}.dz-cal .d.x{visibility:hidden}.dz-cal .d b{font-size:14px}.dz-cal .d.off{background:var(--sand-2)}
 .dz-sub{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px}.dz-sub button.on{background:var(--navy);color:var(--on-navy)}
@@ -56,7 +56,7 @@ function dzLoad(Z,from,to){const key=from+'|'+to;if(Z.key===key||Z.busy===key)re
  rpc('dash_data',{p_from:from,p_to:to}).then(D=>{if(Z.busy!==key)return;Z.busy=false;Z.key=key;
   D.rows=(D.b||[]).map(a=>{const c=D.c[a[3]]||['','Khách khác','DD',null,'',''];return{id:a[0],d:a[1],w:a[2],cid:a[3],s:a[4],t:+a[5]||0,x:!!a[6],late:!!a[7],held:a[8],conf:a[9],rc:a[10],cr:a[11],cs:a[12],pd:a[13],
    code:c[0],name:c[1],g:c[2],sales:c[3],area:c[4]||'(chưa có Area)',aread:c[5]||''};});
-  D.rows.forEach(r=>r.grp=dzGrp(r));Z.D=D;render();}).catch(e=>{Z.busy=false;toast(e.message);});}
+  D.rows.forEach(r=>r.grp=dzGrp(r));Z.D=D;render();}).catch(e=>{Z.busy=false;toastErr(e.message);});}
 
 /* ---------- lọc ---------- */
 function dzScope(Z,from,to){const D=Z.D;const f=r=>(!Z.wh||r.w===Z.wh)&&(!Z.seg||r.g===Z.seg)&&(!Z.sp||r.sales===Z.sp);
@@ -254,7 +254,7 @@ document.addEventListener('change',e=>{const el=e.target;const k=el.dataset&&el.
 
 /* ---------- Cấu hình › Mục tiêu ---------- */
 function tgtCfg35(){const y=V.tgtY||+TODAY.slice(0,4);const C=V.tgtC;
- if(!C||C.y!==y){if(!V.tgtLoading){V.tgtLoading=true;rpc('dash_data',{p_from:y+'-01-01',p_to:y+'-01-01'}).then(D=>{V.tgtLoading=false;const v={};(D.tgt||[]).forEach(t=>{if(t[0].startsWith(y+''))v[t[0]+'|'+t[1]]=String(+t[2]);});V.tgtC={y,v,dirty:false};render();}).catch(e=>{V.tgtLoading=false;toast(e.message);});}
+ if(!C||C.y!==y){if(!V.tgtLoading){V.tgtLoading=true;rpc('dash_data',{p_from:y+'-01-01',p_to:y+'-01-01'}).then(D=>{V.tgtLoading=false;const v={};(D.tgt||[]).forEach(t=>{if(t[0].startsWith(y+''))v[t[0]+'|'+t[1]]=String(+t[2]);});V.tgtC={y,v,dirty:false};render();}).catch(e=>{V.tgtLoading=false;toastErr(e.message);});}
   return '<div class="empty">Đang tải mục tiêu…</div>';}
  const ms=[...Array(12)].map((_,i)=>y+'-'+pad(i+1));const sum=m=>SEGS.reduce((s,g)=>s+(num(C.v[m+'|'+g]||'')||0),0);
  return `<div class="row" style="gap:8px;margin:8px 0"><button class="btn ghost sm" data-a="tgtY" data-k="-1">‹</button><b>Năm ${y}</b><button class="btn ghost sm" data-a="tgtY" data-k="1">›</button><span class="grow"></span><span class="small muted">Tấn đặt mục tiêu theo tháng × segment; Country = tổng 3 segment. Để trống = chưa có mục tiêu.</span></div>

@@ -401,6 +401,17 @@ Không cần chạy SQL.
 - Lần đầu mở trên điện thoại: dải nhắc phía dưới (Cài / Để sau – 14 ngày không nhắc).
 - File: `web/v51.js`; test `test/e2e/v51.mjs`.
 
+## v3.37 — Đồng bộ giao diện
+Không đổi CSDL. File mới `web/v53.js` (mục 2.3, 2.6–2.8, 3.1–3.3, 3.5 của báo cáo rà soát UI/UX).
+- **Chữ ≥ 12px** trên toàn giao diện (trước có 65 chỗ 9,5–11,5px), trừ số trên huy hiệu menu.
+- **Nút viết thường** (bỏ in hoa toàn bộ, chữ 13px). Nhãn trạng thái ngắn vẫn in hoa.
+- **Biểu tượng SVG thay emoji** (⏳ 🚨 📦 💬 🔒 📌 🗑 ❓ ⌨ 👁 📲 🚚 🔔 📋 📷 ⛔ 🧪 💡) – hiển thị giống nhau trên Windows, Android, iPhone. Nội dung người dùng gõ (tin trao đổi, yêu cầu) giữ nguyên emoji.
+- **Lỗi hiện rõ**: thông báo lỗi màu đỏ, đọc ngay cho trình đọc màn hình, giữ 12 giây hoặc đến khi bấm ✕ (trước tự tắt sau 3,2 giây). Thông báo thường không đổi.
+- **Ngừng dùng** khách / khu vực: nút viền đỏ; ngừng dùng khách phải xác nhận.
+- Tiêu đề "SETTING USER ACCOUNT" → **TÀI KHOẢN & KHÁCH HÀNG**.
+- Bàn phím và trình đọc màn hình: nút chọn (Tháng / 2 tuần, bộ lọc, kho, tab) có `aria-pressed`; cửa sổ có tên và nhận con trỏ khi mở; vẽ lại không làm mất vị trí con trỏ.
+- Ô chọn ngày (mục 2.5): giữ ô ngày của trình duyệt. Người dùng dùng Chrome tiếng Việt nên ô hiển thị dd/mm/yyyy (chốt 18/10/2026).
+
 ## v3.36 — Điện thoại
 Không đổi CSDL. File mới `web/v52.js` (mục 1.3, 2.1, 2.2, 2.4 của báo cáo rà soát UI/UX). Máy tính giữ nguyên.
 - **Lưới Đặt hàng** dưới 700px: toàn màn hình, mỗi dòng đơn là một thẻ (Kho, Ngày bốc, Khách hàng, Số tấn…), ô nhập cao 44px, chữ 16px (iPhone không tự phóng to). Nút Đóng / Lưu tạm / Đặt & gửi Logistics luôn ở đáy. Ẩn A−/A+/Toàn màn hình và đoạn hướng dẫn dán Excel.
@@ -453,6 +464,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v45.js                  Tạo / lọc / xóa tài khoản
   v46.js                  Trợ lý (chatbot)
   v52.js                  v3.35: giao diện điện thoại (lưới Đặt hàng dạng thẻ, nút Lọc, ngày đã qua)
+  v53.js                  v3.36: biểu tượng SVG thay emoji, aria-pressed, giữ con trỏ khi vẽ lại
 functions/api/chat.js     Cloudflare Function gọi Workers AI
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)

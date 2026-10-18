@@ -26,7 +26,7 @@
 .g30cap .bar i{display:block;height:100%;background:var(--ok)}
 .g30cap .over{color:var(--bad)}.g30cap .over .bar i{background:var(--bad)}
 .g30dd{position:fixed;z-index:60;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);max-height:280px;overflow:auto;min-width:320px}
-.g30dd .h{font-size:11.5px;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--line)}
+.g30dd .h{font-size:12px;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--line)}
 .g30dd .o{padding:7px 10px;cursor:pointer;font-size:13px}
 .g30dd .o.on,.g30dd .o:hover{background:var(--blue-bg)}
 .g30dd .o small{color:var(--muted)}
