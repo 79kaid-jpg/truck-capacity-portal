@@ -18,20 +18,27 @@ let RAW=null,LAST_FULL=0;
 {const a0=adopt;adopt=function(st){RAW=st;return a0(st);};}
 const rangeNow=()=>{const[y,m]=V.ym;const ms=iso(y,m,1),me_=iso(y,m,dim(y,m));return [addDays(ms<TODAY?ms:TODAY,-7),addDays(me_>TODAY?me_:TODAY,21)];};
 function applyDelta(d){const ch=new Set(d.changed||[]);
- RAW.bookings=(RAW.bookings||[]).filter(b=>!ch.has(b.id)).concat(d.bookings||[]);
+ // giữ nguyên thứ tự cũ (đơn sửa thay đúng chỗ) để danh sách không nhảy
+ const nb=new Map((d.bookings||[]).map(b=>[b.id,b]));const keep=[];(RAW.bookings||[]).forEach(b=>{if(nb.has(b.id)){keep.push(nb.get(b.id));nb.delete(b.id);}else if(!ch.has(b.id))keep.push(b);});RAW.bookings=keep.concat([...nb.values()]);
  RAW.allocs=(RAW.allocs||[]).filter(a=>!ch.has(a.bk)).concat(d.allocs||[]);
  RAW.audit=(RAW.audit||[]).filter(a=>!ch.has(a.obj)).concat(d.audit||[]).sort((a,b)=>b.at-a.at);
  if(d.reqs)RAW.reqs=d.reqs;if(d.talk)RAW.talk=d.talk;if(d.notifs)RAW.notifs=d.notifs;
  RAW.ver=d.ver;RAW.today=d.today;RAW.now=d.now;VER=d.ver;TODAY=d.today;
  S=adopt(RAW);S.ver=(reload.n=(reload.n||0)+1);V.stats=null;}
 {const r0=reload;reload=async function(force){const [from,to]=rangeNow();
+ if(reload.forceNext){reload.forceNext=false;force=true;}
  const ok=!force&&RAW&&RAW.me&&RAW.me.role!=='customer'&&!RAW.custView&&VER&&VER.s!=null&&RANGE.from===from&&RANGE.to===to&&Date.now()-LAST_FULL<600000;
  if(ok){try{const d=await rpc('get_delta',{p_since:+VER.d,p_from:from,p_to:to,p_s:+VER.s,p_c:+VER.c,p_m:+VER.m,p_n:+VER.n});
    if(d&&d.full===false){usgAdd('delta',d);applyDelta(d);reload.lastKind='delta';return;}}catch(e){}}
  await r0();LAST_FULL=Date.now();reload.lastKind='full';if(RAW)usgAdd('full',RAW);};}
+// xác thực 2 lớp nằm ngoài dữ liệu app → tải đầy đủ
+Object.keys(A).filter(k=>/^mfa/.test(k)).forEach(k=>{const f=A[k];A[k]=function(...a){reload.forceNext=true;return f.apply(this,a);};});
 // ---------- hỏi "có gì mới" thường hơn khi đang thao tác (10 giây), 30 giây khi để yên ----------
 let LAST_ACT=Date.now();['pointerdown','keydown','scroll','touchstart'].forEach(ev=>addEventListener(ev,()=>{LAST_ACT=Date.now();},{passive:true,capture:true}));
 setInterval(()=>{if(!S||document.hidden||Date.now()-LAST_ACT>120000)return;usgAdd('poll',{d:1});poll(false);},10000);
+// không vẽ lại khi đang kéo thả đơn vào xe
+let PTR_DOWN=false;addEventListener('pointerdown',()=>{PTR_DOWN=true;},true);addEventListener('pointerup',()=>{PTR_DOWN=false;},true);addEventListener('pointercancel',()=>{PTR_DOWN=false;},true);
+{const p0=poll;poll=async function(t){if(PTR_DOWN||typeof DND!=='undefined'&&DND.drag)return;return p0(t);};}
 // ---------- Sức khỏe hệ thống (Bảng thống kê → Hệ thống) ----------
 const HL={d:null,busy:false,at:0};
 const mb=b=>b/1048576;
