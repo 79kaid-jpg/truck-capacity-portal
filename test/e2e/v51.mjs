@@ -29,7 +29,8 @@ const IOS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/
 const phone = ua => ({ ctx: { viewport: { width: 390, height: 844 }, userAgent: ua, isMobile: true, hasTouch: true } });
 const menu = async p => { await p.click('.userbtn'); await p.waitForTimeout(200); };
 await session('cs@demo.vn', async p => {
-  S('ios-menu'); await menu(p); ok(await p.locator('.top .menu .instlink').count() === 1, 'iPhone: menu có Cài lên điện thoại');
+  S('ios-menu'); await menu(p);
+  ok(await p.evaluate(() => { const m = document.querySelector('.top .menu'), r = m.getBoundingClientRect(); const e = document.elementFromPoint(r.x + r.width / 2, r.bottom - 8); return !!e && m.contains(e); }), 'điện thoại: menu tài khoản không bị che'); ok(await p.locator('.top .menu .instlink').count() === 1, 'iPhone: menu có Cài lên điện thoại');
   await p.click('.top .menu .instlink'); await p.waitForTimeout(300);
   const t = await p.locator('.modal').innerText(); ok(/Chia sẻ/.test(t) && /Thêm vào MH chính/.test(t), 'iPhone Safari: hướng dẫn 3 bước');
   ok(await p.locator('.modal .inststeps li').count() === 3, 'đủ 3 bước'); await p.screenshot({ path: `${OUT}/ios.png` });
