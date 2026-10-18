@@ -120,5 +120,33 @@ await session('admin@demo.vn', async p => {
   ok(/Ngừng dùng khách/.test(asked), 'Ngừng dùng hỏi xác nhận trước'); ok(await p.locator('[data-a="custToggle"].danger-ghost').count() >= 1, 'bấm Hủy → không ngừng dùng');
 });
 
+/* ---------- v3.38: màn Lịch ---------- */
+await session('cs@demo.vn', async p => {
+  S('cal-past'); const firstRowHasToday = () => p.evaluate(() => { const c = [...document.querySelectorAll('.cal .cell:not(.wk)')].find(e => e.getBoundingClientRect().height > 0); const top = c.getBoundingClientRect().top; return [...document.querySelectorAll('.cal .cell.today')].some(t => Math.abs(t.getBoundingClientRect().top - top) < 2); });
+  ok(await p.locator('.past54').isVisible() && /Xem \d+ tuần đã qua/.test(await p.locator('.past54').innerText()), 'tuần đã qua gom thành một dải');
+  ok(await firstRowHasToday(), 'hàng đầu tiên của lịch chứa hôm nay');
+  await p.click('.past54'); await p.waitForTimeout(300); ok(/Ẩn \d+ tuần đã qua/.test(await p.locator('.past54').innerText()) && !(await firstRowHasToday()), 'bấm dải → hiện lại các tuần đã qua');
+  await p.click('.past54'); await p.waitForTimeout(300);
+  S('cal-today'); ok(await p.locator('.cal .cell.today .today54').count() === 1, 'ô hôm nay có chữ "Hôm nay"');
+  S('cal-nested'); ok(await p.evaluate(() => [...document.querySelectorAll('.cal [role=button]')].filter(c => c.querySelector('button,a')).length === 0), 'không còn nút nằm trong ô vai trò nút');
+  S('cal-tip'); await p.locator('.cal .cell.c36').nth(1).focus(); await p.waitForTimeout(400); ok(await p.locator('#calTip').isVisible(), 'chọn ô bằng bàn phím → hiện chi tiết ngày');
+  await p.keyboard.press('Escape'); await p.waitForTimeout(100); ok(await p.locator('#calTip').count() === 0, 'Esc ẩn chi tiết ngày');
+  S('cal-week'); ok(await p.locator('.ts36 .wkbars .wkp').count() >= 4, 'biểu đồ theo tuần ghi % trên cột');
+  S('cal-w2'); await p.click('.cal36bar [data-a="calV"][data-v="w2"]'); await p.waitForTimeout(400);
+  ok(await p.evaluate(() => { const l = [...document.querySelectorAll('.cal .bl')]; return l.length > 0 && l.every(x => x.title && x.title.includes(' MT · ')); }), 'xem 2 tuần: mỗi dòng đơn có tên đầy đủ + trạng thái');
+});
+await session('kh@demo.vn', async p => {
+  S('cal-kh'); ok(await p.locator('.past54').isVisible(), 'lịch khách cũng gom tuần đã qua');
+  ok(await p.evaluate(() => [...document.querySelectorAll('.cwl .v')].every(v => !/,00 MT/.test(v.textContent) && v.getBoundingClientRect().height < 24)), 'lịch khách: "còn 225 MT" gọn, không xuống dòng');
+});
+await session('cs@demo.vn', async p => {
+  S('cal-phone'); const q = await p.evaluate(() => [...document.querySelectorAll('.qadd')].filter(e => e.getBoundingClientRect().height).map(e => Math.round(e.getBoundingClientRect().height)));
+  ok(q.length && q.every(h => h >= 44), 'điện thoại: nút + cao ≥ 44px', q.join(','));
+  ok(/Xem 17 ngày đã qua/.test(await p.locator('.past52').innerText()), 'điện thoại: nút ngày đã qua đếm đủ cả các tuần đã gom');
+  await p.click('.past52'); await p.waitForTimeout(300); ok(await p.evaluate(() => [...document.querySelectorAll('.cal .cell.past:not(.pad)')].some(e => e.getBoundingClientRect().height > 0)), 'điện thoại: bấm → hiện lại ngày đã qua');
+  await p.evaluate(() => scrollTo(0, document.body.scrollHeight)); await p.waitForTimeout(200);
+  ok(await p.evaluate(() => [...document.querySelectorAll('.qadd')].filter(e => { const r = e.getBoundingClientRect(); return r.height && r.top >= 0 && r.bottom <= innerHeight; }).every(e => { const r = e.getBoundingClientRect(); const el = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return el && e.contains(el); })), 'cuộn hết: nút chat không che nút +');
+}, phone);
+
 console.log(`\n${pass} đạt, ${errors.length} lỗi`); if (errors.length) { console.log(errors.join('\n')); process.exitCode = 1; }
 await browser.close();

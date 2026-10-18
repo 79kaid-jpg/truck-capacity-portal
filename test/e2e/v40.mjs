@@ -43,7 +43,7 @@ await session('kh@demo.vn', async p => {
   const badge = p.locator('.cbadge').first();
   if (await badge.count()) { await badge.dblclick(); await p.waitForTimeout(300); ok(/Tất cả kho/i.test(await p.locator('.modal').innerText()) && /Kho/i.test(await p.locator('.modal th').first().innerText()), 'chi tiết ngày: mọi kho có cột Kho'); await shot(p, 'cust-day'); await p.keyboard.press('Escape'); await p.evaluate(() => { V.modal = null; render(); }); }
   else ok(false, 'có huy hiệu đơn trong tháng');
-  await p.hover('.cell.call >> nth=20'); await p.waitForTimeout(300); ok(!(await p.locator('#calTip').isVisible().catch(() => false)), 'khách không thấy tooltip nội bộ (năng lực, xe trống)');
+  await p.evaluate(() => { V.past52 = true; render(); }); await p.hover('.cell.call >> nth=20'); await p.waitForTimeout(300); ok(!(await p.locator('#calTip').isVisible().catch(() => false)), 'khách không thấy tooltip nội bộ (năng lực, xe trống)');
   S('one'); const w = await p.locator('.cwh button').nth(1).getAttribute('data-w'); await p.locator('.cwh button').nth(1).click(); await p.waitForTimeout(300);
   ok(await ev(p, () => !V.whAll && V.wh) === w, 'bấm nút kho → lọc 1 kho');
   ok(await p.locator('.cell.call').count() === 0 && await p.locator('.bigavail').count() > 0, 'lịch 1 kho hiện Có thể đặt');

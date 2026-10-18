@@ -31,6 +31,7 @@ const ev = (p, f, a) => p.evaluate(f, a);
 
 await session('log@demo.vn', async p => {
   S('cal'); await shot(p, 'cal-month');
+  await p.evaluate(() => { V.past52 = true; render(); }); // v3.38: tuần đã qua mặc định gom lại
   ok(await p.locator('.cal.v36 .wd', { hasText: 'TUẦN' }).count() === 1 && await p.locator('.cell.wk').count() >= 4, 'có cột Tuần');
   const sunW = await p.locator('.cal.v36 .wd').first().boundingBox(), monW = await p.locator('.cal.v36 .wd').nth(1).boundingBox();
   ok(sunW.width < monW.width * 0.6, 'cột Chủ nhật hẹp', `${sunW.width} vs ${monW.width}`);

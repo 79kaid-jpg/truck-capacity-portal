@@ -59,7 +59,7 @@ dayCell=function(date){const isC=role()==='customer';const d=+date.slice(8);cons
  const mine=(V.calF==='mine')?bkOfDay(date).filter(b=>b.csId===V.me):[];
  const body=V.whAll?m.per.filter(x=>x.m.declared).map(({w,m:mm})=>`<div class="whl" data-a="openDayWh" data-w="${w}" data-d="${date}" title="Mở ngày ${dmy(date)} kho ${w}"><b>${w}</b><span class="capbar"><i style="width:${(mm.cap?Math.min(1,(mm.loaded+mm.held)/mm.cap):0)*100}%;background:${CAP_COL[mm.status]||'var(--muted)'}"></i></span><span class="num">còn ${Math.round(mm.avail)}</span></div>`).join('')
   :`<div class="tk num"><span>${DK_SVG()}${m.uDK}/${m.nDK}</span><span>${CN_SVG()}${m.uCN}/${m.nCN}</span></div>`;
- return `<div class="cell c36 ${past?'past':''} ${today?'today':''} ${sun?'sun':''} ${cellMatch(date,m)?'':'dim'}" ${V.whAll?'':`data-a="openDay" data-d="${date}"`} data-tip="${date}" tabindex="0" role="button" aria-label="Ngày ${dmy(date)}: còn đặt được ${t2(m.avail)} MT">
+ return `<div class="cell c36 ${past?'past':''} ${today?'today':''} ${sun?'sun':''} ${cellMatch(date,m)?'':'dim'}" ${V.whAll?'':`data-a="openDay" data-d="${date}"`} data-tip="${date}" tabindex="0" role="group" aria-label="Ngày ${dmy(date)}: còn đặt được ${t2(m.avail)} MT. Enter để mở ngày">
   <div class="ctop"><span class="dnum">${d}</span><span class="wdmobile small muted">${WDS[dow(date)]} · ${dm(date)}</span>${flag}</div>
   ${m.holiday?`<div class="holwarn">⚠ ${sun?'CN':'Lễ'} · giao ngày nghỉ</div>`:''}
   <div class="avail num">Còn đặt được<b>${MT(m.avail)}</b></div>
@@ -81,13 +81,13 @@ function weekCell(days){const ds=days.filter(Boolean);if(role()==='customer'||!d
 function gridDays(start,n){const out=[];let row=[];const first=dow(start);for(let i=0;i<first;i++)row.push(null);
  for(let i=0;i<n;i++){row.push(addDays(start,i));if(row.length===7){out.push(row);row=[];}}if(row.length){while(row.length<7)row.push(null);out.push(row);}return out;}
 function w2Cell(date){const c=dayCell(date);const l=bkOfDay(date).sort((a,b)=>bkTotal(b)-bkTotal(a));if(!l.length||role()==='customer')return c;
- const lines=l.slice(0,7).map(b=>`<div class="bl"><span>${esc(cust(b.customerId).name)}</span><b class="num">${t2(bkTotal(b))}</b><span class="st st-${stKey(b)}" style="font-size:12px;padding:0 4px">${(ST_LABEL[stKey(b)]||'').split(' ')[0]}</span></div>`).join('')+(l.length>7?`<div class="small muted">+${l.length-7} đơn</div>`:'');
+ const lines=l.slice(0,7).map(b=>`<div class="bl" title="${esc(cust(b.customerId).name)} · ${t2(bkTotal(b))} MT · ${esc(ST_LABEL[stKey(b)]||'')}"><span>${esc(cust(b.customerId).name)}</span><b class="num">${n54(bkTotal(b))}</b><span class="st st-${stKey(b)}" style="font-size:12px;padding:0 4px">${(ST_LABEL[stKey(b)]||'').split(' ')[0]}</span></div>`).join('')+(l.length>7?`<div class="small muted">+${l.length-7} đơn</div>`:'');
  const i=c.lastIndexOf('<button class="qadd"');return i>0?c.slice(0,i)+lines+c.slice(i):c.replace(/<\/div>$/,lines+'</div>');}
 
 vCalendar=function(){const[y,m]=V.ym;const isC=role()==='customer';const w2=!isC&&V.calV==='w2';
  let start,n;if(w2){start=V.w2s||addDays(TODAY,-dow(TODAY));n=14;}else{start=iso(y,m,1);n=dim(y,m);}
- const rows=gridDays(start,n);const cell=d=>d?(w2?w2Cell(d):dayCell(d)):'<div class="cell pad" aria-hidden="true"></div>';
- const cells=rows.map(r=>r.map(cell).join('')+(isC?'':weekCell(r))).join('');
+ const rows0=gridDays(start,n);const P54=w2?{rows:rows0,html:''}:pastRows54(rows0,isC?7:8);const rows=P54.rows;const cell=d=>d?(w2?w2Cell(d):dayCell(d)):'<div class="cell pad" aria-hidden="true"></div>';
+ const cells=P54.html+rows.map(r=>r.map(cell).join('')+(isC?'':weekCell(r))).join('');
  const title=w2?`${dm(start)} – ${dm(addDays(start,13))}/${addDays(start,13).slice(0,4)}`:`THÁNG ${pad(m)} ${y}`;
  const whSel=`<label class="whsel"><span>Kho:</span><select data-a36="wh" aria-label="Chọn kho">${isC?'':`<option value="__all" ${V.whAll?'selected':''}>Tất cả kho</option>`}${WH.map(w=>`<option value="${w.id}" ${!V.whAll&&w.id===V.wh?'selected':''}>${w.name}</option>`).join('')}</select></label>`;
  const IC={m:'<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3"/></svg>',w2:'<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="4" width="12" height="3.5" rx="1"/><rect x="2" y="9" width="12" height="3.5" rx="1"/></svg>',
@@ -117,7 +117,12 @@ function tipHtml(date){const m=dayX(date);const l=bkOfDay(date);const by={};l.fo
  ${rows.length?`<div style="margin-top:6px;border-top:1px solid var(--line);padding-top:6px">${rows.slice(0,10).map(([n,v])=>`<div class="r"><span>${esc(n)}</span><span class="num">${t2(v.t)} <span class="m">· ${[...v.s].join(', ')}</span></span></div>`).join('')}${rows.length>10?`<div class="m">+${rows.length-10} khách</div>`:''}</div>`:'<div class="m" style="margin-top:6px">Chưa có đơn.</div>'}
  ${m.reason?`<div class="m" style="margin-top:4px">Ghi chú xe: ${esc(m.reason)}</div>`:''}`;}
 (()=>{let tm,cur;const hide=()=>{clearTimeout(tm);cur=null;const t=document.getElementById('calTip');if(t)t.remove();};
- document.addEventListener('mouseover',e=>{const c=e.target.closest&&e.target.closest('[data-tip]');if(!c||V.view!=='calendar'||matchMedia('(hover:none)').matches){if(!c)hide();return;}
+ const show=(c,ms)=>{if(cur===c)return;hide();cur=c;tm=setTimeout(()=>{if(!S||cur!==c||!document.body.contains(c))return;const t=document.createElement('div');t.id='calTip';t.setAttribute('role','tooltip');t.innerHTML=tipHtml(c.dataset.tip);document.body.appendChild(t);
+   const r=c.getBoundingClientRect();const w=t.offsetWidth,h=t.offsetHeight;let x=r.right+8,y=r.top;if(x+w>innerWidth-8)x=r.left-w-8;if(x<8)x=8;if(y+h>innerHeight-8)y=innerHeight-h-8;t.style.left=x+'px';t.style.top=Math.max(8,y)+'px';},ms);};
+ document.addEventListener('focusin',e=>{const c=e.target.matches&&e.target.matches('.cal [data-tip]')?e.target:null;if(c&&V.view==='calendar')show(c,150);else if(cur)hide();});
+ document.addEventListener('focusout',e=>{if(cur&&e.target===cur)hide();});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&cur)hide();});
+document.addEventListener('mouseover',e=>{const c=e.target.closest&&e.target.closest('[data-tip]');if(!c||V.view!=='calendar'||matchMedia('(hover:none)').matches){if(!c)hide();return;}
   if(cur===c)return;hide();cur=c;tm=setTimeout(()=>{if(!S||cur!==c||!document.body.contains(c))return;const t=document.createElement('div');t.id='calTip';t.innerHTML=tipHtml(c.dataset.tip);document.body.appendChild(t);
    const r=c.getBoundingClientRect();const w=t.offsetWidth,h=t.offsetHeight;let x=r.right+8,y=r.top;if(x+w>innerWidth-8)x=r.left-w-8;if(x<8)x=8;if(y+h>innerHeight-8)y=innerHeight-h-8;t.style.left=x+'px';t.style.top=Math.max(8,y)+'px';},350);});
  document.addEventListener('click',hide,true);document.addEventListener('scroll',hide,true);})();
@@ -141,7 +146,7 @@ statsPanel=function(){if(role()==='customer'||role()==='sales'||V.statMode==='cu
   <div><div class="kpi"><span class="lbl">% sử dụng năng lực</span><b>${cap?pct((ld+hd)/cap):'–'}</b></div>${bar(cap?(ld+hd)/cap:0,'var(--ok)')}<div class="small muted num">Xếp ${t2(ld)} + chờ ${t2(hd)} / ${MT(cap)}</div></div>
   <div><div class="kpi"><span class="lbl">Lấp đầy xe đang chạy</span><b>${usedCap?pct(ld/usedCap):'–'}</b></div>${bar(usedCap?ld/usedCap:0,'#2f6db5')}<div class="small muted">MT trên xe ÷ tải trọng các xe có hàng</div></div>
   <div><div class="lbl">Lượt xe đã dùng / khai báo</div><div class="line num">${DK_SVG()} <span class="grow">${uDK}/${nDK}</span><b>${nDK?pct(uDK/nDK):'–'}</b></div>${bar(nDK?uDK/nDK:0,'#2346b0')}<div class="line num" style="margin-top:6px">${CN_SVG()} <span class="grow">${uXT}/${nXT}</span><b>${nXT?pct(uXT/nXT):'–'}</b></div>${bar(nXT?uXT/nXT:0,'#5f84a8')}</div>
-  <div><div class="lbl">Theo tuần (% đã xếp)</div><div class="wkbars">${wk.map(x=>`<div title="Tuần từ ${x.lb}: ${pct(x.p)}"><i style="height:${Math.max(2,x.p*48)}px;background:${x.p>=S.cfg.near/100?'#e0861a':'var(--ok)'}"></i>${x.lb}</div>`).join('')}</div></div>
+  <div><div class="lbl">Theo tuần (% đã xếp)</div><div class="wkbars">${wk.map(x=>`<div title="Tuần từ ${x.lb}: ${pct(x.p)}"><span class="wkp num">${pct(x.p)}</span><i style="height:${Math.max(2,x.p*48)}px;background:${x.p>=S.cfg.near/100?'#e0861a':'var(--ok)'}"></i>${x.lb}</div>`).join('')}</div></div>
   <div><div class="lbl">Hôm nay & ngày mai</div>${td.map(x=>`<div class="kpi clk" data-a="openDayWh" data-w="${whs[0]}" data-d="${x.d}"><span>${WDS[dow(x.d)]} ${dm(x.d)} · xe ${x.u}/${x.n}</span><span class="num">còn <b style="font-size:15px">${t2(x.a)}</b> MT</span></div>`).join('')}</div>
   <div class="clk" data-a="calF" data-v="hold"><div class="kpi"><span class="lbl">⏳ Chờ xếp xe trong tháng</span><b>${hold.length}</b></div><div class="small muted num">${MT(holdT)} · bấm để lọc lịch</div></div>
   ${peak.length?`<div><div class="lbl">Ngày cao điểm</div>${peak.map(([d,v])=>`<div class="kpi clk" data-a="openDayWh" data-w="${whs[0]}" data-d="${d}"><span>${WDS[dow(d)]} ${dm(d)}</span><span class="num">${MT(v)}</span></div>`).join('')}</div>`:''}
