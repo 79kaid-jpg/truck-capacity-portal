@@ -2,7 +2,7 @@
 (()=>{const st=document.createElement('style');st.textContent=`
 .tcard{container-type:inline-size}.tc-top{flex-wrap:wrap;row-gap:4px;min-width:0}.tc-top .grow{min-width:0}
 .tcard .pill{white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}.tc-acts{flex-wrap:wrap}
-@container (max-width:250px){.tc-top svg{width:88px}.tcard .tc-code{font-size:17px}.tcard .pill{font-size:10px;padding:2px 6px}.tc-acts .btn{padding:4px 8px;font-size:11px}}
+@container (max-width:250px){.tc-top svg{width:88px}.tcard .tc-code{font-size:17px}.tcard .pill{font-size:12px;padding:2px 6px}.tc-acts .btn{padding:4px 8px;font-size:12px}}
 @container (max-width:200px){.tc-top svg{width:72px}}
 .trk{margin:12px 0;padding:12px 14px;border:1.5px solid var(--ink);border-radius:12px;background:var(--surface)}
 .trk h4{margin:0 0 8px;font-size:13px;letter-spacing:.04em}.trk .row{gap:8px;flex-wrap:wrap;align-items:center}

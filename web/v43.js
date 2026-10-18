@@ -1,6 +1,6 @@
 // v3.15: công tắc bắt buộc picking list (Admin), nhắc xác nhận giao, nhóm "Chưa xác nhận giao"
 (()=>{const st=document.createElement('style');st.textContent=`
-.pkoff{display:inline-flex;align-items:center;gap:4px;margin-right:8px;padding:3px 9px;border-radius:999px;background:var(--warn-bg);color:var(--note-ink);border:1px solid var(--note-line);font-size:11.5px;font-weight:700;white-space:nowrap}
+.pkoff{display:inline-flex;align-items:center;gap:4px;margin-right:8px;padding:3px 9px;border-radius:999px;background:var(--warn-bg);color:var(--note-ink);border:1px solid var(--note-line);font-size:12px;font-weight:700;white-space:nowrap}
 .pkcard{border:1.5px solid var(--ink);border-radius:12px;padding:12px 14px;margin:0 0 14px;background:var(--surface)}
 .pkcard.off{border-color:#e0861a;background:var(--warn-bg)}.pkcard h4{margin:0 0 6px;font-size:14px}
 `;document.head.appendChild(st);})();

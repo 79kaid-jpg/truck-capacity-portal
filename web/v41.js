@@ -1,13 +1,13 @@
 // v3.13: Yêu cầu đặt hàng — khách / Sales ghi nhanh "20 MT HC 0.5 xanh dương…", CS xử lý thành đơn
 (()=>{const st=document.createElement('style');st.textContent=`
-.rqchip{display:inline-flex;align-items:center;gap:3px;margin-top:4px;padding:1px 7px;border-radius:999px;border:1.5px solid var(--req);background:var(--req-bg);color:var(--req-ink);font:inherit;font-size:11px;font-weight:700;cursor:pointer}
+.rqchip{display:inline-flex;align-items:center;gap:3px;margin-top:4px;padding:1px 7px;border-radius:999px;border:1.5px solid var(--req);background:var(--req-bg);color:var(--req-ink);font:inherit;font-size:12px;font-weight:700;cursor:pointer}
 .rqchip.done{border-color:var(--line);background:var(--surface);color:var(--muted);font-weight:600}
-.rqbtn{border-color:var(--req)!important;color:var(--req-ink)!important}.rqbtn b{background:#7a4bd1;color:#fff;border-radius:999px;padding:0 6px;margin-left:4px;font-size:11px}
+.rqbtn{border-color:var(--req)!important;color:var(--req-ink)!important}.rqbtn b{background:#7a4bd1;color:#fff;border-radius:999px;padding:0 6px;margin-left:4px;font-size:12px}
 .rq{border:1px solid var(--line);border-left:4px solid var(--req);border-radius:10px;padding:10px 12px;margin:8px 0;background:var(--surface)}
 .rq.st-done{border-left-color:var(--ok)}.rq.st-declined{border-left-color:var(--bad)}.rq.st-cancelled{border-left-color:var(--muted);opacity:.75}
 .rq .rqh{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.rq .rqh b{font-size:14px}.rq .rqb{white-space:pre-wrap;margin:6px 0;font-size:14px;background:var(--ground);border-radius:8px;padding:6px 9px}
 .rq .rqm{font-size:12px;color:var(--muted)}.rq .rqa{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.rq .rqr{font-size:12.5px;margin-top:4px}
-.rqtag{font-size:10.5px;font-weight:700;border-radius:6px;padding:1px 6px;background:var(--blue-bg);color:var(--blue)}.rqtag.k{background:var(--req-bg);color:var(--req-ink)}
+.rqtag{font-size:12px;font-weight:700;border-radius:6px;padding:1px 6px;background:var(--blue-bg);color:var(--blue)}.rqtag.k{background:var(--req-bg);color:var(--req-ink)}
 .rqform{display:grid;grid-template-columns:1fr 1fr;gap:10px}.rqform .span2{grid-column:span 2}.rqform textarea{min-height:110px}
 @media (max-width:700px){.rqform{grid-template-columns:1fr}.rqform .span2{grid-column:auto}}
 .rqic{vertical-align:-2px;flex:none}.rqbtn{display:inline-flex;align-items:center;gap:5px}.rqbtn .rqic{margin-right:0}@media (max-width:700px){.cal36bar .rqbtn .t{display:none}.cal36bar .rqbtn{padding:5px 9px;min-height:34px}}

@@ -6,7 +6,7 @@
 #guide .gh{display:flex;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line)}
 #guide .gb{display:grid;grid-template-columns:230px 1fr;min-height:0;flex:1}
 #guide nav{overflow:auto;border-right:1px solid var(--line);background:var(--ground);padding:12px 12px 24px 16px;font-size:13px;line-height:1.35}
-#guide nav b{display:block;margin:16px 4px 6px;padding-top:10px;border-top:1px solid var(--line);}#guide nav b:first-child{margin-top:2px;padding-top:0;border-top:0}#guide nav b{font-size:11px;letter-spacing:.06em;color:var(--muted)}
+#guide nav b{display:block;margin:16px 4px 6px;padding-top:10px;border-top:1px solid var(--line);}#guide nav b:first-child{margin-top:2px;padding-top:0;border-top:0}#guide nav b{font-size:12px;letter-spacing:.06em;color:var(--muted)}
 #guide nav a{display:block;padding:6px 12px;margin:1px 0;border-radius:6px;border-left:3px solid transparent;color:inherit;text-decoration:none;cursor:pointer}#guide nav a:hover{background:var(--blue-bg)}#guide nav a.on{background:var(--blue-bg);border-left-color:var(--blue);font-weight:600}
 #guide article{overflow:auto;padding:16px 24px 40px;font-size:14px;line-height:1.55}
 #guide article h2{font-size:18px;margin:4px 0 8px}#guide article h3{font-size:15px;margin:16px 0 6px}

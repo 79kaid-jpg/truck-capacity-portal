@@ -12,12 +12,12 @@
 .st-transit{color:var(--blue);background:var(--blue-bg);outline:1px dashed var(--blue)}
 .st-delivered{color:var(--ok);background:var(--ok-bg);outline:1px solid var(--ok)}
 .st-failed{color:var(--bad);background:var(--bad-bg);outline:1px solid var(--bad)}
-.urg{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.04em;color:var(--bad);background:var(--bad-bg);border-radius:4px;padding:1px 6px;vertical-align:1px}
-.holwarn{font-size:11px;font-weight:700;color:var(--bad);background:var(--bad-bg);border-radius:4px;padding:1px 6px;margin:2px 0;display:inline-block}
+.urg{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.04em;color:var(--bad);background:var(--bad-bg);border-radius:4px;padding:1px 6px;vertical-align:1px}
+.holwarn{font-size:12px;font-weight:700;color:var(--bad);background:var(--bad-bg);border-radius:4px;padding:1px 6px;margin:2px 0;display:inline-block}
 .holbanner{background:var(--bad-bg);color:var(--bad);border:1px solid var(--bad);border-radius:8px;padding:8px 12px;font-weight:700;font-size:12.5px;margin-bottom:8px}
 .offrow{background:var(--bad-bg)}
 .c29{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
-.c29 span{font-size:10.5px;font-weight:700;border-radius:4px;padding:1px 5px;white-space:nowrap}
+.c29 span{font-size:12px;font-weight:700;border-radius:4px;padding:1px 5px;white-space:nowrap}
 .c29 .u{color:var(--bad);background:var(--bad-bg)}.c29 .t{color:var(--blue);background:var(--blue-bg)}
 .c29 .d{color:var(--ok);background:var(--ok-bg)}.c29 .f{color:var(--bad);background:var(--surface);border:1px solid var(--bad)}
 .v9tbl td,.v9tbl th{padding:4px 6px;font-size:12.5px}
@@ -296,7 +296,7 @@ Object.assign(A,{
   try{const r=await rpcH29('confirm_delivery',{p});await reload();setBusy(false);V.modal=null;V.asg=null;
    toast(`Đã lưu ${r.coils} cuộn (${t2(+r.tons)} MT), Logistics đã được báo${r.child?'. Phần còn lại: '+r.child:''}`);render();}
   catch(e){setBusy(false);if(e.hint==='warn'){M.warn=e.message.replace(/^Cần kiểm tra:\s*/,'');M.forced=false;}else{M.err=e.message;}render();}},
- v9Coils:d=>{V.modal={type:'coils',wide:true,id:d.id,coils:null};render();rpc('get_coils',{p_id:d.id}).then(cs=>{if(V.modal&&V.modal.type==='coils'){V.modal.coils=cs;render();}}).catch(e=>toast(e.message));},
+ v9Coils:d=>{V.modal={type:'coils',wide:true,id:d.id,coils:null};render();rpc('get_coils',{p_id:d.id}).then(cs=>{if(V.modal&&V.modal.type==='coils'){V.modal.coils=cs;render();}}).catch(e=>toastErr(e.message));},
  v9CoilsCsv:()=>{const M=V.modal;downloadCsv29(M.id+'-cuon.csv',[['Whs','Order no','Ln','Itmno','Name','Lot number','Allocated qty','Attr value','Customer','Lên xe'],...M.coils.map(x=>[x.whs,x.order_no,x.ln,x.itmno,x.name,x.lot,x.qty,x.attr,x.customer,x.loaded?'Có':'Không'])]);},
  v9Ship:d=>{V.modal={type:'ship',kind:d.k,id:d.id,off:[],note:'',code:'',at:d.k==='delivered'?localDT29():d.k==='transit'?localDT29(new Date(Date.now()+3*3600e3)):'',coils:null,err:''};render();
   if(d.k==='load')rpc('get_coils',{p_id:d.id}).then(cs=>{if(V.modal&&V.modal.type==='ship'){V.modal.coils=cs;render();}}).catch(e=>{V.modal.err=e.message;render();});},
