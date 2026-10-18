@@ -39,7 +39,7 @@ await session('cs@demo.vn', async p => {
   ok(/Nội bộ – khách hàng không thấy/.test(await p.locator('#talkPanel').innerText()), 'nhãn nội bộ');
   ok(await p.locator('#talkPanel .tq button').count() >= 2, 'có câu hỏi mẫu');
   S('mention'); await p.fill('#talkPanel textarea', 'Xe đến kho mấy giờ @Lo'); await p.locator('#talkPanel textarea').dispatchEvent('input'); await p.waitForTimeout(150);
-  ok(await p.locator('#tkAt button').count() >= 1, 'gõ @ hiện gợi ý tên');
+  ok(await p.locator('#tkAt button').count() >= 1, 'gõ @ hiện gợi ý tên', JSON.stringify(await p.evaluate(() => [!!document.getElementById('tkAt'), (document.getElementById('tkAt')||{}).innerHTML, document.activeElement && document.activeElement.tagName, V.modal && V.modal.type, typeof TK !== 'undefined' && TK.open])).slice(0, 300));
   await p.keyboard.press('Enter'); await p.waitForTimeout(100);
   ok(/@Log JM2 $/.test(await p.inputValue('#talkPanel textarea')), 'chọn @Log JM2', await p.inputValue('#talkPanel textarea'));
   await p.keyboard.type('nhé?'); await p.keyboard.press('Enter'); await p.waitForTimeout(1200);

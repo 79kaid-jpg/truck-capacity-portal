@@ -1433,7 +1433,7 @@ async function startApp(){
 // v3.1 F3: chỉ hỏi "có gì mới" (vài byte); có thay đổi và người dùng không đang nhập liệu thì mới tải lại
 async function poll(tick){if(!S||document.hidden||V.busy||poll.on)return;const ae=document.activeElement;
  const idle=!V.modal&&!(V.asg&&V.view==='booking')&&!(ae&&['INPUT','TEXTAREA','SELECT'].includes(ae.tagName));poll.on=true;
- try{const v=await rpc('get_ver');if(!v)return;const ch=!VER||v.d!==VER.d||v.c!==VER.c||v.n!==VER.n;
+ try{const v=await rpc('get_ver');if(!v)return;const ch=!VER||v.d!==VER.d||v.c!==VER.c||v.n!==VER.n||v.m!==VER.m||v.s!==VER.s;
   if(ch&&idle){await reload();render();}else if(tick&&idle)render();}catch(e){}finally{poll.on=false;}}
 // v3.2: đăng nhập bằng tên ngắn – không có @ thì tự thêm tên miền công ty (config.js: LOGIN_DOMAIN)
 const LOGIN_DOMAIN=(window.APP_CONFIG||{}).LOGIN_DOMAIN||'bluescope.com';
