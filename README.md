@@ -404,7 +404,7 @@ Không đổi CSDL. File mới `web/v53.js` (mục 2.3, 2.6–2.8, 3.1–3.3, 3.
 - **Ngừng dùng** khách / khu vực: nút viền đỏ; ngừng dùng khách phải xác nhận.
 - Tiêu đề "SETTING USER ACCOUNT" → **TÀI KHOẢN & KHÁCH HÀNG**.
 - Bàn phím và trình đọc màn hình: nút chọn (Tháng / 2 tuần, bộ lọc, kho, tab) có `aria-pressed`; cửa sổ có tên và nhận con trỏ khi mở; vẽ lại không làm mất vị trí con trỏ.
-- Chưa làm: ô chọn ngày theo dd/mm/yyyy (mục 2.5) – chờ xác nhận người dùng dùng Chrome tiếng Việt hay tiếng Anh.
+- Ô chọn ngày (mục 2.5): giữ ô ngày của trình duyệt. Người dùng dùng Chrome tiếng Việt nên ô hiển thị dd/mm/yyyy (chốt 18/10/2026).
 
 ## v3.35 — Điện thoại
 Không đổi CSDL. File mới `web/v52.js` (mục 1.3, 2.1, 2.2, 2.4 của báo cáo rà soát UI/UX). Máy tính giữ nguyên.
