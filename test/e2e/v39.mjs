@@ -39,7 +39,7 @@ await session('admin@demo.vn', async p => {
   await key(p, 'g', 'c'); ok(await view(p) === 'config', 'G C → Cấu hình');
   await key(p, 'b', 'b'); ok(await view(p) === 'dash', 'B B → về Thống kê');
   await key(p, 'b', 'b'); ok(await view(p) === 'calendar', 'B B lần 2 → về Lịch');
-  await key(p, 'b', 'b'); ok(/Không còn màn hình trước/.test(await toastTxt(p)), 'B B ở đầu → báo hết', JSON.stringify(await p.evaluate(() => [V.view, V.modal && V.modal.type, [...document.querySelectorAll('.toast')].map(t => t.textContent).join('|'), document.activeElement && document.activeElement.tagName + '.' + document.activeElement.className])));
+  await key(p, 'b', 'b'); ok(/Không còn màn hình trước/.test(await toastTxt(p)), 'B B ở đầu → báo hết', JSON.stringify(await p.evaluate(() => [V.view, V.modal && V.modal.type, [...document.querySelectorAll('.toast')].map(t => t.textContent).join('|'), NH.pos, NH.list.map(e => e.s.view + ':' + e.s.ym + ':' + e.s.day).join(',')])));
   await key(p, 'b', 'n'); ok(await view(p) === 'dash', 'B N → đi tới Thống kê');
   await key(p, 'b', 'n'); ok(await view(p) === 'config', 'B N → đi tới Cấu hình');
   await key(p, 'b', 'n'); ok(/Không còn màn hình phía trước/.test(await toastTxt(p)), 'B N ở cuối → báo hết');
@@ -47,7 +47,7 @@ await session('admin@demo.vn', async p => {
   await key(p, 'g', 't'); ok(await view(p) === 'notifs', 'mở màn mới sau khi lùi');
   await key(p, 'b', 'n'); ok(/phía trước/.test(await toastTxt(p)), 'màn mới xoá danh sách đi tới');
   S('month'); await key(p, 'g', 'l'); const ym0 = await ev(p, () => V.ym.join('-')); await key(p, 'ArrowRight');
-  ok(await ev(p, () => V.ym.join('-')) !== ym0, 'sang tháng sau', JSON.stringify(await p.evaluate(() => [V.view, V.modal && V.modal.type, [...document.querySelectorAll('.toast')].map(t => t.textContent).join('|'), document.activeElement && document.activeElement.tagName + '.' + document.activeElement.className]))); await key(p, 'b', 'b'); ok(await ev(p, () => V.ym.join('-')) === ym0, 'B B → về tháng trước đó');
+  ok(await ev(p, () => V.ym.join('-')) !== ym0, 'sang tháng sau', JSON.stringify(await p.evaluate(() => [V.view, V.modal && V.modal.type, [...document.querySelectorAll('.toast')].map(t => t.textContent).join('|'), NH.pos, NH.list.map(e => e.s.view + ':' + e.s.ym + ':' + e.s.day).join(',')]))); await key(p, 'b', 'b'); ok(await ev(p, () => V.ym.join('-')) === ym0, 'B B → về tháng trước đó');
   S('typing'); await key(p, 'g', 's'); await p.evaluate(() => { const i = document.createElement('input'); i.id = 'tt'; document.body.appendChild(i); }); await p.focus('#tt'); await key(p, 'b', 'b');
   ok(await view(p) === 'dash' && await p.inputValue('#tt') === 'bb', 'gõ "bb" trong ô không chuyển màn');
   S('help'); await p.evaluate(() => document.getElementById('tt').remove()); await p.evaluate(() => A.scHelp()); await p.waitForTimeout(300);

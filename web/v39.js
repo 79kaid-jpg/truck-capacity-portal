@@ -4,6 +4,7 @@ const NH_KEYS=['view','day','wh','whAll','ym','calV','w2s','bk','dashTab','cfgTa
 const nhSnap=()=>{const o={};NH_KEYS.forEach(k=>{const v=V[k];o[k]=Array.isArray(v)?v.slice():v;});return o;};
 const nhSame=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 function nhRecord(){if(!S){NH.list=[];NH.pos=-1;return;}if(NH.busy)return;const s=nhSnap();const cur=NH.list[NH.pos];if(cur&&nhSame(cur.s,s))return;
+ if(cur&&typeof BG_RENDER!=='undefined'&&BG_RENDER){cur.s=s;return;}
  const e={id:++NH.seq,s};
  if(!cur){NH.list=[e];NH.pos=0;try{history.replaceState({tcp:e.id},'');}catch(_){}return;}
  NH.list=NH.list.slice(0,NH.pos+1);NH.list.push(e);
