@@ -243,3 +243,13 @@ if(typeof TOOLS!=='undefined'){
 {const r0=render;render=function(){r0();if(!S||V.view!=='config'||(V.cfgTab||'general')!=='general'||!can('config.general'))return;const host=document.querySelector('.main .panel .fgrid');if(!host||document.querySelector('.tkcfg'))return;
  const card=document.createElement('div');card.className='pkcard tkcfg';card.innerHTML=`<h4>💬 Trao đổi nội bộ</h4><div class="fgrid"><div class="field"><label for="cf-talkRemindHours">Nhắc người được hỏi nếu chưa trả lời sau</label><div class="row" style="flex-wrap:nowrap"><input id="cf-talkRemindHours" class="inp num" inputmode="decimal" data-f="cfg" data-k="talkRemindHours" value="${S.cfg.talkRemindHours||2}"><span class="muted small">giờ · gấp đôi thời gian này báo trưởng nhóm + Admin (7h–20h)</span></div></div></div>`;
  host.parentNode.insertBefore(card,host);};}
+// v3.25: đổi người dùng (Login as / Thoát, Xem như khách hàng / Thoát) → xóa dữ liệu và bộ lọc đã tải của người trước
+// (Bảng thống kê, bộ lọc Sales, danh sách booking, trợ lý, Trao đổi, tìm kiếm), tải lại theo quyền người mới.
+let ID_KEY=null;
+function idReset(){V.dz=null;V.stats=null;V.hl=null;V.asg=null;V.blF={wh:'all',region:'all',q:'',cust:'all',per:'month'};V.blTab='all';
+ if(typeof CHAT!=='undefined'){CHAT.msgs=[];CHAT.open=false;CHAT.dot=false;CHAT.watch=null;CHAT.left=null;}
+ Object.assign(TK,{open:false,k:null,r:null,d:null,draft:'',ment:[],tags:[],file:null,img:{},pinEdit:false,edit:null,at:null,ver:null,tab:'need',wh:''});
+ if(typeof GS!=='undefined'&&GS&&typeof GS==='object'){for(const k of ['q','res','items','sel','last'])if(k in GS)GS[k]=Array.isArray(GS[k])?[]:(typeof GS[k]==='string'?'':null);}
+ TKN.last=null;}
+{const a0=adopt;adopt=function(st){const s=a0(st);const key=st&&st.me?[st.me.id,st.imp?'imp':'',st.custView?st.custView.customerId:''].join('|'):null;
+ if(key&&ID_KEY&&key!==ID_KEY)idReset();if(key)ID_KEY=key;return s;};}

@@ -81,5 +81,17 @@ await session('kh@demo.vn', async p => {
   S('kh'); ok(await p.locator('.side [data-v="talk"]').count() === 0 && await p.evaluate(() => (S.talk || []).length) === 0, 'khách không thấy Trao đổi');
   ok(await p.evaluate(async () => { try { await rpc('talk_get', { p_kind: 'bk', p_ref: 'x' }); return false; } catch (e) { return /nội bộ/.test(e.message); } }), 'khách gọi API bị chặn');
 });
+await session('admin@demo.vn', async p => {
+  S('login-as-reset'); await p.evaluate(() => { dzInit(); V.dz.tab = 'sales'; go('dash'); }); await p.waitForTimeout(1500);
+  const s2 = q("select user_id from app.profiles where email='s2@demo.vn'");
+  await p.evaluate(sid => { V.dz.sp = sid; CHAT.msgs.push({ role: 'user', content: 'bí mật admin' }); render(); }, s2); await p.waitForTimeout(800);
+  const s1 = q("select user_id from app.profiles where email='s1@demo.vn'");
+  await p.evaluate(id => A.loginAs({ id }), s1); await p.waitForTimeout(1500);
+  ok(await p.evaluate(() => V.dz === null && CHAT.msgs.length === 0 && TK.d === null), 'Login as → xóa Bảng thống kê / trợ lý / Trao đổi của Admin');
+  await p.evaluate(() => { dzInit(); V.dz.tab = 'sales'; go('dash'); }); await p.waitForTimeout(1800);
+  ok(await p.evaluate(() => !V.dz.sp && V.dz.D && V.dz.D.rows.every(r => { const c = cust(r.cid); return !c || c.salesId === S.me.id; })), 'Login as Sales → Bảng thống kê chỉ có khách của Sales đó');
+  await p.evaluate(() => A.impStop()); await p.waitForTimeout(1500);
+  ok(await p.evaluate(() => V.dz === null && S.me.role === 'admin'), 'Thoát Login as → tải lại theo Admin');
+});
 await browser.close();
 console.log(`${pass} OK, ${errors.length} lỗi`); if (errors.length) { console.log(errors.join('\n')); process.exit(1); }
