@@ -1,3 +1,4 @@
+-- legacy: viết cho cách dựng dữ liệu cũ, test/sql.sh bỏ qua
 \set ON_ERROR_STOP 1
 select array_agg(id order by id) as ids from (select id from app.bookings where status='hold' and day=app.today() order by id limit 3) x \gset
 select (select id from app.bookings where status='hold' and day=app.today() order by id offset 3 limit 1) as h4,

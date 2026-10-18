@@ -1,3 +1,4 @@
+-- expect-errors: 5 (các bước kiểm tra bị chặn đúng)
 \set ON_ERROR_STOP 0
 select id as kh_dd from app.customers where code='KH0102' \gset
 select id as kh_da from app.customers where code='KH0201' \gset

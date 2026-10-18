@@ -1,5 +1,6 @@
 # Test-only stand-in for Supabase: serves web/ and executes RPCs against local Postgres as the given user.
-import json, os, sys, http.server, psycopg2, psycopg2.extras
+import json, os, sys, threading, http.server, psycopg2, psycopg2.extras
+LOCK = threading.Lock()  # một kết nối DB dùng chung → xử lý tuần tự
 WEB = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../web'))
 DSN = os.environ.get('DSN', 'host=/tmp user=postgres dbname=t')
 conn = psycopg2.connect(DSN); conn.autocommit = True
@@ -11,6 +12,8 @@ class H(http.server.SimpleHTTPRequestHandler):
     def __init__(s, *a, **k): super().__init__(*a, directory=WEB, **k)
     def log_message(s, *a): pass
     def do_POST(s):
+        with LOCK: s._post()
+    def _post(s):
         body = json.loads(s.rfile.read(int(s.headers['Content-Length'])) or b'{}')
         out, code = None, 200
         try:

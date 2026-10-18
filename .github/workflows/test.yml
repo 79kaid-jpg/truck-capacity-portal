@@ -1,0 +1,48 @@
+# Tự chạy kiểm thử khi có PR hoặc gộp vào main: test SQL (dựng database trống) + test giao diện (Playwright).
+# Miễn phí trong 2.000 phút/tháng của GitHub; mỗi lần chạy khoảng 15–20 phút. Kết quả xem ở tab Actions và ngay trong PR.
+name: Kiểm thử tự động
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      TZ: Asia/Ho_Chi_Minh
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Postgres 16 (socket /tmp, không mật khẩu – chỉ dùng để test)
+        run: |
+          ls /usr/lib/postgresql/16/bin/initdb >/dev/null 2>&1 || { sudo apt-get update -qq; sudo apt-get install -y -qq postgresql-16 >/dev/null; }
+          sudo -u postgres /usr/lib/postgresql/16/bin/initdb -D /tmp/pgdata --auth=trust >/dev/null
+          sudo -u postgres /usr/lib/postgresql/16/bin/pg_ctl -D /tmp/pgdata -o "-k /tmp -c listen_addresses=" -l /tmp/pg.log start
+          sleep 2
+          psql -h /tmp -U postgres -Atc 'select version()'
+      - name: Test SQL
+        run: bash test/sql.sh
+      - name: Cài Playwright + thư viện Python
+        run: |
+          sudo mkdir -p /opt/npm-tools && sudo chown "$USER" /opt/npm-tools
+          cd /opt/npm-tools && npm init -y >/dev/null && npm i --silent playwright@1.56.0
+          npx playwright install --with-deps chromium
+          python3 -m pip install --quiet --break-system-packages psycopg2-binary
+      - name: Test giao diện
+        run: bash test/e2e/all.sh
+      - name: Ảnh chụp khi lỗi
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-shots
+          path: /tmp/e2e-shots
+          retention-days: 7

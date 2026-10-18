@@ -112,3 +112,5 @@ await p.context().close();
 
 await browser.close();
 log(errs.length ? '\nERRORS:\n' + errs.join('\n') : '\nALL MFA CHECKS PASSED');
+
+if (errs.length) process.exit(1);

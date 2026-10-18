@@ -1,3 +1,4 @@
+-- expect-errors: 3 (các bước kiểm tra bị chặn đúng)
 -- MFA: Logistics / CS / Admin cần aal2; Sales, Khách hàng không bắt buộc trừ khi tự bật
 \echo --- CS aal1 -> get_state báo mfa_required, không có dữ liệu
 begin;

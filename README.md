@@ -388,6 +388,14 @@ Không cần chạy SQL.
 **Chạy `supabase/setup_all.sql` trước khi gộp** (cấu hình `uatOn`).
 - Menu tên người dùng có **🧪 Kiểm thử UAT**: mở checklist UAT vòng 2 (https://claude.ai/artifact/2ZXnJ44xxMcaRcGaZpBQYv) đúng vai trò (#kh, #sales, #rsm, #cs, #log, #admin). Admin tắt ở Cấu hình → Chung khi go-live.
 
+## v3.30 – v3.31 — Hiệu năng và trải nghiệm
+**Chạy `supabase/setup_all.sql` trước khi gộp** (get_delta, theo dõi thay đổi đơn, sức khỏe hệ thống, link tài xế, ảnh giao hàng, tổng quan khách, email tuần + lịch `weekly-summary`).
+- **Tải phần thay đổi**: thay vì tải lại toàn bộ (~1 KB/đơn × mọi đơn) mỗi khi có người sửa, app chỉ nhận các đơn vừa đổi (vài KB). Đổi khai báo xe / cấu hình / người dùng / Login as thì tải toàn bộ. Cứ 10 phút tải toàn bộ một lần cho chắc.
+- Mở Trao đổi không còn làm mọi người tải lại. Đang thao tác: hỏi "có gì mới" mỗi 10 giây (để yên: 30 giây).
+- **Sức khỏe hệ thống** (Bảng thống kê → Hệ thống): băng thông ước tính / 5 GB, database / 500 MB, lượt trợ lý, lỗi người dùng gặp.
+- **GitHub tự chạy test** khi có PR (`.github/workflows/test.yml`: `test/sql.sh` + `test/e2e/all.sh`). Sửa 4 test lỗi theo ngày; phát hiện và sửa 2 lỗi thật: thẻ "bắt buộc picking list" bị ẩn trong Cấu hình từ v3.23, nút trợ lý che góc co giãn lưới đặt hàng.
+- **Việc của tôi** (G V), **Chế độ kho**, **Link tài xế** (`web/driver.html`, không cần tài khoản, ảnh biên nhận), **Copy tin cho khách**, **Tổng quan khách**, **email tổng kết tuần** cho Sales / RSM.
+
 
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.

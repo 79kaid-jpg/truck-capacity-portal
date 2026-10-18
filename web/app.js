@@ -1433,8 +1433,10 @@ async function startApp(){
 // v3.1 F3: chỉ hỏi "có gì mới" (vài byte); có thay đổi và người dùng không đang nhập liệu thì mới tải lại
 async function poll(tick){if(!S||document.hidden||V.busy||poll.on)return;const ae=document.activeElement;
  const idle=!V.modal&&!(V.asg&&V.view==='booking')&&!(ae&&['INPUT','TEXTAREA','SELECT'].includes(ae.tagName));poll.on=true;
- try{const v=await rpc('get_ver');if(!v)return;const ch=!VER||v.d!==VER.d||v.c!==VER.c||v.n!==VER.n;
-  if(ch&&idle){await reload();render();}else if(tick&&idle)render();}catch(e){}finally{poll.on=false;}}
+ try{const v=await rpc('get_ver');if(!v)return;const ch=!VER||v.d!==VER.d||v.c!==VER.c||v.n!==VER.n||v.m!==VER.m||v.s!==VER.s;
+  if(ch&&idle){await reload();bgRender();}else if(tick&&idle)bgRender();}catch(e){}finally{poll.on=false;}}
+// vẽ lại do dữ liệu nền thay đổi (không phải người dùng chuyển màn) → không thêm vào lịch sử B B
+let BG_RENDER=false;function bgRender(){BG_RENDER=true;try{render();}finally{BG_RENDER=false;}}
 // v3.2: đăng nhập bằng tên ngắn – không có @ thì tự thêm tên miền công ty (config.js: LOGIN_DOMAIN)
 const LOGIN_DOMAIN=(window.APP_CONFIG||{}).LOGIN_DOMAIN||'bluescope.com';
 const loginEmail=v=>{v=String(v||'').trim().toLowerCase();return v&&!v.includes('@')?v+'@'+LOGIN_DOMAIN:v;};

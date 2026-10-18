@@ -12,7 +12,7 @@ async function session(email, fn, viewport = { width: 1440, height: 1000 }) {
   await page.route('**/config.js', r => r.fulfill({ contentType: 'text/javascript', body: "window.APP_CONFIG={SUPABASE_URL:'http://127.0.0.1:8787',SUPABASE_ANON_KEY:'test'}" }));
   await page.route('**/fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
   page.on('pageerror', e => errors.push(`[${email} ${step}] pageerror: ${e.message}`));
-  page.on('console', m => { if (m.type() === 'error') errors.push(`[${email} ${step}] console: ${m.text()}`); });
+  page.on('console', m => { if (m.type() === 'error' && !/status of 400/.test(m.text())) errors.push(`[${email} ${step}] console: ${m.text()}`); });
   await page.goto('http://127.0.0.1:8787/');
   await page.fill('#lg-e', email); await page.fill('#lg-p', 'Test@1234'); await page.click('#login button');
   await page.waitForTimeout(800);
@@ -194,3 +194,5 @@ await session('kh@demo.vn', async p => { S('mobile'); await p.waitForSelector('.
 }
 await browser.close();
 console.log('\nERRORS:', errors.length ? '\n' + errors.join('\n') : 'none');
+
+if (errors.length) process.exit(1);

@@ -42,3 +42,5 @@ check('CS sees confirmed booking in off-day list', (await okr.count()) === 1);
 if (await okr.count()) { await okr.click(); await p.waitForTimeout(200); check('CS can edit it', (await p.locator('[data-a="editBk"]').count()) === 1); }
 await p.context().close();
 await browser.close(); console.log(errs.length ? 'ERRORS: ' + errs.join(' | ') : 'ALL OFFDAY CHECKS PASSED');
+
+if (errs.length) process.exit(1);

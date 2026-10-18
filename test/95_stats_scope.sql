@@ -1,3 +1,4 @@
+-- expect-errors: 2 (các bước kiểm tra bị chặn đúng)
 -- Phạm vi thống kê: Sales mặc định khách mình; DD/DA = toàn segment; khách hàng không gọi được
 \echo --- s1 mặc định own: chỉ khách của s1
 begin;

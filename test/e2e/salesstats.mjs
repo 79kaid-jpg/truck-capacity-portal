@@ -68,3 +68,5 @@ await p.click('[data-a="statMode"][data-v="cust"]'); await p.waitForTimeout(700)
 check('CS Khách panel works', (await big(p)) === (await p.evaluate(() => t2(0) )) ? false : true);
 await p.context().close();
 await browser.close(); console.log(errs.length ? 'ERRORS: ' + errs.join(' | ') : 'ALL SALESSTATS CHECKS PASSED');
+
+if (errs.length) process.exit(1);

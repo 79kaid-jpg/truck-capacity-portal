@@ -24,3 +24,5 @@ await p.click('.modal [data-a="bfHold"]'); await p.waitForTimeout(600);
 const st = await p.evaluate(x => { const b = bkById(x); return [b.status, bkTotal(b), allocSum(b.id)]; }, id);
 check('confirmed booking edited -> Chờ xếp xe, xe gỡ (BR-11)', st[0] === 'hold' && st[2] === 0, JSON.stringify(st));
 await browser.close(); console.log(errs.length ? 'ERRORS: ' + errs.join(' | ') : 'ALL TRUCKEDIT CHECKS PASSED');
+
+if (errs.length) process.exit(1);

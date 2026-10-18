@@ -1,3 +1,4 @@
+-- expect-errors: 5 (các bước kiểm tra bị chặn đúng)
 \set ON_ERROR_STOP 0
 -- 2 CS: Trúc (c1) phụ trách KH0105, CS2 (c2) là người nhận thay
 insert into auth.users(id,email) values ('00000000-0000-0000-0000-0000000000c2','cs2@demo.vn');

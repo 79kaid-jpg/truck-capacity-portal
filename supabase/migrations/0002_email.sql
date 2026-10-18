@@ -210,6 +210,11 @@ do $$ begin
   perform cron.unschedule('email-digest');
 exception when others then null; end $$;
 select cron.schedule('email-digest', '0 * * * *', 'select app.send_digests()');
+-- v3.31: email tổng kết tuần cho Sales / RSM (thứ Hai 07:10 giờ VN = 00:10 UTC)
+do $$ begin
+  perform cron.unschedule('weekly-summary');
+exception when others then null; end $$;
+select cron.schedule('weekly-summary', '10 0 * * 1', 'select app.send_weekly()');
 
 -- Admin: thống kê (thêm phần email) và gửi email thử
 create or replace function public.admin_stats() returns jsonb
