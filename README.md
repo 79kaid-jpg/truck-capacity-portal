@@ -1,6 +1,6 @@
 # Truck Capacity Booking Portal – POV
 
-Cổng đặt tải xe cho kho Phú Mỹ, Cửa Lò, Hải Phòng. Bản POV chạy hoàn toàn trên hạ tầng miễn phí:
+Cổng đặt tải xe cho kho Phú Mỹ, Cửa Lò, Hải Phòng. Bản POV chạy hoàn toàn trên hạ tầng miễn phí (kiến trúc mã: [CLAUDE.md](CLAUDE.md)):
 
 | Thành phần | Dịch vụ | Vai trò |
 |---|---|---|
