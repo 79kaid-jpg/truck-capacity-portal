@@ -51,6 +51,8 @@ insert into app.settings (key, value) values
 on conflict (key) do nothing;
 
 update app.settings set value = value || '["Nhắc việc"]'::jsonb where key = 'emailTypes' and not (value ? 'Nhắc việc');
+-- v3.24: tin Trao đổi nội bộ vào email tóm tắt (người nhận mức "tất cả")
+update app.settings set value = value || '["Trao đổi"]'::jsonb where key = 'emailTypes' and not (value ? 'Trao đổi');
 -- v2.9: loại thông báo mới có email; loại gấp gửi ngay, còn lại vào email tóm tắt
 update app.settings set value = (select jsonb_agg(distinct t) from (
   select jsonb_array_elements_text(value) t union select unnest(array['Đơn khẩn','Hủy cận ngày','Giao hàng gấp','Chi tiết giao hàng',
@@ -178,6 +180,9 @@ begin
            string_agg('• [' || type || '] ' || text, chr(10) order by id)
       into v_ids, v_body
       from (select * from app.email_digest_items where user_id = r.user_id and sent_at is null order by id limit 100) x;
+    -- v3.24: câu hỏi Trao đổi đang chờ người này trả lời
+    v_body := v_body || coalesce(chr(10) || chr(10) || '❓ Câu hỏi đang chờ bạn trả lời: ' || (select string_agg(app.talk_title(t), '; ' order by t.asked_at)
+                from app.talk_threads t where t.status = 'wait' and r.user_id = any(t.wait_users)), '');
     insert into app.email_outbox (to_email, subject, html)
     values (r.email, '[Đặt Xe] Tóm tắt ' || to_char(v_now, 'HH24:MI DD/MM') || ': ' || cardinality(v_ids) || ' cập nhật',
             replace(app.email_html(r.full_name, 'Tóm tắt', v_body, null), chr(10), '<br>'));

@@ -52,6 +52,8 @@ insert into app.settings (key, value) values
 on conflict (key) do nothing;
 
 update app.settings set value = value || '["Nhắc việc"]'::jsonb where key = 'emailTypes' and not (value ? 'Nhắc việc');
+-- v3.24: tin Trao đổi nội bộ vào email tóm tắt (người nhận mức "tất cả")
+update app.settings set value = value || '["Trao đổi"]'::jsonb where key = 'emailTypes' and not (value ? 'Trao đổi');
 -- v2.9: loại thông báo mới có email; loại gấp gửi ngay, còn lại vào email tóm tắt
 update app.settings set value = (select jsonb_agg(distinct t) from (
   select jsonb_array_elements_text(value) t union select unnest(array['Đơn khẩn','Hủy cận ngày','Giao hàng gấp','Chi tiết giao hàng',

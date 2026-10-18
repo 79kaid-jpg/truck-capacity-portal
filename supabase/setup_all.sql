@@ -178,6 +178,60 @@ create index if not exists order_requests_day on app.order_requests (day, status
 alter table app.order_requests add column if not exists deliver_on date;
 update app.order_requests set deliver_on = day where deliver_on is null;
 
+-- v3.24: Trao đổi nội bộ theo đơn / xe / ngày-kho (khách hàng không thấy)
+create table if not exists app.talk_threads (
+  id          bigserial primary key,
+  kind        text not null check (kind in ('bk','truck','day')),
+  ref         text not null,
+  wh          text,
+  day         date,
+  customer_id uuid,
+  status      text not null default 'open' check (status in ('open','wait','answered','done')),
+  asked_by    uuid,
+  asked_at    timestamptz,
+  wait_users  uuid[] not null default '{}',
+  reminded    int not null default 0,
+  pinned      text,
+  pinned_by   uuid,
+  pinned_at   timestamptz,
+  last_at     timestamptz not null default now(),
+  last_by     uuid,
+  last_text   text,
+  n           int not null default 0,
+  created_at  timestamptz not null default now(),
+  unique (kind, ref)
+);
+create table if not exists app.talk_files (
+  id         bigserial primary key,
+  data       bytea not null,
+  mime       text not null,
+  size       int not null,
+  created_by uuid not null,
+  created_at timestamptz not null default now()
+);
+create table if not exists app.talk_msgs (
+  id         bigserial primary key,
+  thread_id  bigint not null references app.talk_threads(id) on delete cascade,
+  body       text not null default '',
+  ask        boolean not null default false,
+  mentions   uuid[] not null default '{}',
+  tags       text[] not null default '{}',
+  file_id    bigint references app.talk_files(id) on delete set null,
+  reacts     jsonb not null default '{}',
+  created_by uuid not null,
+  created_at timestamptz not null default now(),
+  edited_at  timestamptz,
+  deleted_at timestamptz
+);
+create index if not exists talk_msgs_thread on app.talk_msgs (thread_id, id);
+create table if not exists app.talk_reads (
+  user_id   uuid not null,
+  thread_id bigint not null references app.talk_threads(id) on delete cascade,
+  read_at   timestamptz,
+  mode      text not null default '' check (mode in ('','follow','mute')),
+  primary key (user_id, thread_id)
+);
+
 -- v3.8: Admin "Xem như khách hàng" (chỉ xem) – không cần khách có tài khoản
 create table if not exists app.cust_views (
   admin_id    uuid primary key references app.profiles(user_id) on delete cascade,
@@ -878,6 +932,7 @@ begin
                 and (case when not v_internal then r.customer_id = me.customer_id
                           else r.created_by = me.user_id or app.sees_sales(me, (select c.sales_user_id from app.customers c where c.id = r.customer_id)) end)
                 and (r.status = 'new' or r.handled_at > now() - interval '14 days' or r.day >= app.today())),
+    'talk', case when v_internal and v_cv.admin_id is null then app.talk_list(me) else '[]'::jsonb end,
     'custView', case when v_cv.admin_id is not null then jsonb_build_object('customerId', v_cv.customer_id, 'name', v_cvname, 'expiresAt', extract(epoch from v_cv.expires_at)) end,
     'notifs', case when v_cv.admin_id is not null then '[]'::jsonb else (select coalesce(jsonb_agg(jsonb_build_object('id', n.id, 'type', n.type, 'text', n.text, 'link', n.link,
                  'at', extract(epoch from n.created_at), 'read', n.read_at is not null) order by n.created_at desc), '[]')
@@ -1556,7 +1611,7 @@ begin
   me := app.require_perm('config.general');
   for k in select jsonb_object_keys(p) loop
     if k not in ('near','capDK','capCN','split','sla','maxStops','fillMin','suggestOn','sundayOff','holidays','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours',
-                 'shipRemindHours','shipAdminDays','requirePicking','chatOn','chatRoles','chatDaily','chatDailyRole','chatDailyTotal','transitDays') then
+                 'shipRemindHours','shipAdminDays','requirePicking','chatOn','chatRoles','chatDaily','chatDailyRole','chatDailyTotal','transitDays','talkRemindHours') then
       raise exception 'Cấu hình % không hợp lệ.', k;
     end if;
     -- v3.15: bật/tắt bắt buộc picking list – chỉ Admin
@@ -1566,7 +1621,7 @@ begin
       insert into app.audit_log (entity_id, detail, actor) values ('config', me.full_name || case when (p->>k)::boolean then ' BẬT' else ' TẮT' end
         || ' bắt buộc CS nhập danh sách cuộn (picking list) trước khi load hàng', me.user_id);
     end if;
-    if k in ('near','capDK','capCN','split','sla','maxStops','fillMin','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours','shipRemindHours','shipAdminDays','chatDaily','chatDailyTotal') and not ((p->>k)::numeric > 0) then
+    if k in ('near','capDK','capCN','split','sla','maxStops','fillMin','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours','shipRemindHours','shipAdminDays','chatDaily','chatDailyTotal','talkRemindHours') and not ((p->>k)::numeric > 0) then
       raise exception 'Giá trị % phải lớn hơn 0.', k;
     end if;
     if k = 'transitDays' and (jsonb_typeof(p->k) <> 'object' or exists (select 1 from jsonb_each(p->k) e
@@ -1846,7 +1901,7 @@ end $$;
 -- Nhắc việc: booking Đề nghị đổi ngày quá N giờ chưa xử lý, hoặc Chờ xếp xe đã quá ngày bốc → nhắc tất cả CS (+ Logistics kho).
 create or replace function app.escalate() returns int
 language plpgsql security definer set search_path = '' as $$
-declare r record; n int := 0; v_h numeric := coalesce(app.setn('escalateHours'), 4); v_cs uuid[];
+declare r record; n int := 0; v_h numeric := coalesce(app.setn('escalateHours'), 4); v_cs uuid[]; tt app.talk_threads;
 begin
   v_cs := array(select user_id from app.profiles where role = 'cs' and active and not app.is_away(user_id));
   for r in select b.*, c.name as cname from app.bookings b join app.customers c on c.id = b.customer_id
@@ -1892,6 +1947,26 @@ begin
     update app.bookings set ship_remind_on = app.today() where id = r.id;
     n := n + 1;
   end loop;
+  -- v3.24: câu hỏi trong Trao đổi chưa ai trả lời quá N giờ → nhắc người được hỏi; quá 2N giờ → báo trưởng nhóm + Admin
+  if extract(hour from now() at time zone 'Asia/Ho_Chi_Minh') between 7 and 20 then
+    for tt in select t.* from app.talk_threads t
+              where t.status = 'wait' and t.reminded < 2
+                and t.asked_at < now() - make_interval(secs => (coalesce(app.setn('talkRemindHours'), 2) * 3600 * (t.reminded + 1))::int) loop
+      if tt.reminded = 0 then
+        perform app.notify(tt.wait_users, 'Nhắc việc', 'Chưa trả lời câu hỏi của ' || coalesce(app.uname(tt.asked_by), '?') || ' · ' || app.talk_title(tt) || ': ' || left(coalesce(tt.last_text, ''), 100),
+                           jsonb_build_object('talk', jsonb_build_object('k', tt.kind, 'r', tt.ref)));
+      else
+        perform app.notify(array(select distinct x from unnest(
+                   array(select manager_id from app.profiles where user_id = any(tt.wait_users) and manager_id is not null)
+                   || array(select user_id from app.profiles where role = 'admin' and active)) x where x is not null),
+          'Nhắc việc', 'Câu hỏi chưa ai trả lời quá ' || app.fmt(coalesce(app.setn('talkRemindHours'), 2) * 2) || ' giờ · ' || app.talk_title(tt)
+            || ' (hỏi: ' || coalesce(app.uname(tt.asked_by), '?') || ', chờ: ' || coalesce((select string_agg(full_name, ', ') from app.profiles where user_id = any(tt.wait_users)), '?') || ')',
+          jsonb_build_object('talk', jsonb_build_object('k', tt.kind, 'r', tt.ref)));
+      end if;
+      update app.talk_threads set reminded = reminded + 1 where id = tt.id;
+      n := n + 1;
+    end loop;
+  end if;
   return n;
 end $$;
 
@@ -2860,7 +2935,7 @@ begin perform nextval('app.cat_seq'); return null; end $$;
 do $$
 declare t text;
 begin
-  foreach t in array array['bookings','order_requests','booking_lines','allocations','daily_fleet','truck_days','delivery_items','profiles',
+  foreach t in array array['bookings','order_requests','talk_threads','talk_msgs','talk_reads','booking_lines','allocations','daily_fleet','truck_days','delivery_items','profiles',
                            'regions','region_neighbors','warehouses','settings','holidays','reason_codes'] loop
     if to_regclass('app.' || t) is not null then
       execute format('drop trigger if exists zz_bump_data on app.%I', t);
@@ -3514,6 +3589,316 @@ begin
     'total', coalesce(app.setn('chatDailyTotal'), 2000));
 end $$;
 
+
+-- v3.24: Trao đổi nội bộ ----------------------------------------------------
+-- Người dùng nội bộ đang hoạt động, không ở chế độ Xem như khách hàng
+create or replace function app.talk_me() returns app.profiles
+language plpgsql stable security definer set search_path = '' as $$
+declare m app.profiles;
+begin
+  select * into m from app.profiles where user_id = app.uid() and active;
+  if not found or m.role = 'customer' then raise exception 'Trao đổi chỉ dành cho nhân viên nội bộ.' using errcode = '42501'; end if;
+  if exists (select 1 from app.cust_views v where v.admin_id = app.real_uid() and v.expires_at > now()) then
+    raise exception 'Đang ở chế độ Xem như khách hàng (chỉ xem). Bấm Thoát trên thanh màu cam trước khi thao tác.' using errcode = '42501';
+  end if;
+  return m;
+end $$;
+
+create or replace function app.talk_access(m app.profiles, p_kind text, p_ref text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select m.user_id is not null and m.role <> 'customer' and case p_kind
+    when 'bk' then exists (select 1 from app.bookings b join app.customers c on c.id = b.customer_id
+                            where b.id = p_ref and app.sees_sales(m, c.sales_user_id))
+    when 'truck' then p_ref ~ '^[A-Z0-9]{2,8}-[0-9]{6}-(DK|XT)-[0-9]{2}$'
+    when 'day' then p_ref ~ '^[A-Z0-9]{2,8}:[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+    else false end
+$$;
+
+create or replace function app.talk_title(t app.talk_threads) returns text
+language sql stable security definer set search_path = '' as $$
+  select case t.kind
+    when 'bk' then t.ref || coalesce(' · ' || (select name from app.customers where id = t.customer_id), '')
+    when 'truck' then 'Xe ' || split_part(t.ref, '-', 3) || '-' || split_part(t.ref, '-', 4) || ' · ' || t.wh || ' ' || app.dm(t.day)
+    else 'Ngày ' || app.dm(t.day) || ' · kho ' || t.wh end
+$$;
+
+create or replace function app.talk_ensure(p_kind text, p_ref text) returns app.talk_threads
+language plpgsql security definer set search_path = '' as $$
+declare t app.talk_threads; b app.bookings;
+begin
+  select * into t from app.talk_threads where kind = p_kind and ref = p_ref;
+  if found then return t; end if;
+  if p_kind = 'bk' then
+    select * into b from app.bookings where id = p_ref;
+    insert into app.talk_threads (kind, ref, wh, day, customer_id) values (p_kind, p_ref, b.warehouse_code, b.day, b.customer_id)
+      on conflict (kind, ref) do nothing;
+  elsif p_kind = 'truck' then
+    insert into app.talk_threads (kind, ref, wh, day) values (p_kind, p_ref, split_part(p_ref, '-', 1), to_date(split_part(p_ref, '-', 2), 'DDMMYY'))
+      on conflict (kind, ref) do nothing;
+  else
+    insert into app.talk_threads (kind, ref, wh, day) values (p_kind, p_ref, split_part(p_ref, ':', 1), split_part(p_ref, ':', 2)::date)
+      on conflict (kind, ref) do nothing;
+  end if;
+  select * into t from app.talk_threads where kind = p_kind and ref = p_ref;
+  return t;
+end $$;
+
+-- CS phụ trách khách (nghỉ → người nhận thay)
+create or replace function app.talk_cs_of(p_customer uuid) returns uuid[]
+language sql stable security definer set search_path = '' as $$
+  select coalesce(array_agg(case when app.is_away(p.user_id) and p.delegate_id is not null then p.delegate_id else p.user_id end), '{}')
+    from app.customers c join app.profiles p on p.user_id = c.cs_user_id and p.active where c.id = p_customer
+$$;
+
+-- Những người liên quan mặc định: đơn → CS, Sales của khách + CS tạo đơn + Logistics kho; xe / ngày → Logistics kho + CS, Sales các đơn trên xe / ngày
+create or replace function app.talk_related(t app.talk_threads) returns uuid[]
+language sql stable security definer set search_path = '' as $$
+  select coalesce(array_agg(distinct x) filter (where x is not null), '{}') from unnest(
+    app.logistics_of(t.wh)
+    || case when t.kind = 'bk' then
+         app.talk_cs_of(t.customer_id)
+         || array(select sales_user_id from app.customers where id = t.customer_id)
+         || array(select cs_user_id from app.bookings where id = t.ref)
+       when t.kind = 'truck' then
+         array(select c.cs_user_id from app.allocations a join app.bookings b on b.id = a.booking_id join app.customers c on c.id = b.customer_id where a.truck_code = t.ref)
+         || array(select c.sales_user_id from app.allocations a join app.bookings b on b.id = a.booking_id join app.customers c on c.id = b.customer_id where a.truck_code = t.ref)
+       else '{}'::uuid[] end) x
+$$;
+
+-- @nhóm: log = Logistics kho; cs = CS phụ trách khách (không có → mọi CS); sales = Sales phụ trách khách; admin
+create or replace function app.talk_tag_users(t app.talk_threads, p_tag text) returns uuid[]
+language sql stable security definer set search_path = '' as $$
+  select case p_tag
+    when 'log' then app.logistics_of(t.wh)
+    when 'cs' then case when t.kind = 'bk' and cardinality(app.talk_cs_of(t.customer_id)) > 0 then app.talk_cs_of(t.customer_id)
+                        else array(select user_id from app.profiles where role = 'cs' and active and not app.is_away(user_id)) end
+    when 'sales' then case when t.kind = 'bk' then array(select sales_user_id from app.customers where id = t.customer_id and sales_user_id is not null)
+                           else array(select distinct c.sales_user_id from app.allocations a join app.bookings b on b.id = a.booking_id join app.customers c on c.id = b.customer_id
+                                       where a.truck_code = t.ref and c.sales_user_id is not null) end
+    when 'admin' then array(select user_id from app.profiles where role = 'admin' and active)
+    else '{}'::uuid[] end
+$$;
+
+create or replace function app.talk_inv(t app.talk_threads, p_uid uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select p_uid = any(t.wait_users) or p_uid = t.asked_by or p_uid = any(app.talk_related(t))
+      or exists (select 1 from app.talk_msgs m where m.thread_id = t.id and (m.created_by = p_uid or p_uid = any(m.mentions)))
+      or exists (select 1 from app.talk_reads r where r.thread_id = t.id and r.user_id = p_uid and r.mode = 'follow')
+$$;
+
+-- Danh sách trao đổi cho get_state (đang chờ trả lời, có ghim, hoặc có tin trong 45 ngày)
+create or replace function app.talk_list(me app.profiles) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select coalesce(jsonb_agg(j order by lt desc), '[]') from (
+    select t.last_at as lt, jsonb_build_object('id', t.id, 'k', t.kind, 'ref', t.ref, 'wh', t.wh, 'day', t.day, 'cid', t.customer_id, 'st', t.status,
+      'askedBy', t.asked_by, 'askedAt', extract(epoch from t.asked_at) / 60, 'wait', to_jsonb(t.wait_users), 'pin', t.pinned,
+      'lastAt', extract(epoch from t.last_at) / 60, 'lastBy', app.uname(t.last_by), 'lastById', t.last_by, 'lastText', t.last_text, 'n', t.n,
+      'unread', (select count(*) from app.talk_msgs x where x.thread_id = t.id and x.deleted_at is null and x.created_by <> me.user_id
+                   and x.created_at > coalesce(r.read_at, '-infinity'::timestamptz)),
+      'mode', coalesce(r.mode, ''), 'inv', app.talk_inv(t, me.user_id) and coalesce(r.mode, '') <> 'mute',
+      'mine', exists (select 1 from app.talk_msgs x where x.thread_id = t.id and x.created_by = me.user_id)) j
+      from app.talk_threads t left join app.talk_reads r on r.thread_id = t.id and r.user_id = me.user_id
+     where (t.n > 0 or t.pinned is not null)
+       and (t.status = 'wait' or t.last_at > now() - interval '45 days' or (t.pinned is not null and t.day >= app.today() - 7))
+     order by t.last_at desc limit 400) z
+  where app.talk_access(me, z.j->>'k', z.j->>'ref')
+$$;
+
+create or replace function app.talk_json(t app.talk_threads, me app.profiles) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object(
+    'thread', jsonb_build_object('id', t.id, 'k', t.kind, 'ref', t.ref, 'wh', t.wh, 'day', t.day, 'cid', t.customer_id, 'st', t.status, 'title', app.talk_title(t),
+      'askedBy', app.uname(t.asked_by), 'askedById', t.asked_by, 'askedAt', extract(epoch from t.asked_at) / 60,
+      'wait', (select coalesce(jsonb_agg(jsonb_build_object('id', user_id, 'name', full_name)), '[]') from app.profiles where user_id = any(t.wait_users)),
+      'pin', t.pinned, 'pinBy', app.uname(t.pinned_by), 'pinAt', extract(epoch from t.pinned_at) / 60,
+      'mode', coalesce((select mode from app.talk_reads where thread_id = t.id and user_id = me.user_id), '')),
+    'msgs', (select coalesce(jsonb_agg(jsonb_build_object('id', m.id, 'by', m.created_by, 'byName', coalesce(app.uname(m.created_by), 'Người dùng đã xóa'),
+               'role', (select role from app.profiles where user_id = m.created_by),
+               'body', case when m.deleted_at is null then m.body else '' end, 'del', m.deleted_at is not null, 'ask', m.ask,
+               'at', extract(epoch from m.created_at) / 60, 'edited', m.edited_at is not null, 'file', case when m.deleted_at is null then m.file_id end,
+               'reacts', m.reacts, 'tags', to_jsonb(m.tags),
+               'ment', (select coalesce(jsonb_agg(full_name), '[]') from app.profiles where user_id = any(m.mentions))) order by m.id), '[]')
+               from (select * from app.talk_msgs where thread_id = t.id order by id desc limit 300) m),
+    'reads', (select coalesce(jsonb_agg(jsonb_build_object('name', app.uname(r.user_id), 'id', r.user_id, 'at', extract(epoch from r.read_at) / 60) order by r.read_at), '[]')
+                from app.talk_reads r where r.thread_id = t.id and r.user_id <> me.user_id and r.read_at is not null))
+$$;
+
+create or replace function public.talk_get(p_kind text, p_ref text) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare m app.profiles; t app.talk_threads;
+begin
+  m := app.talk_me();
+  if not app.talk_access(m, p_kind, p_ref) then raise exception 'Bạn không có quyền xem trao đổi này.' using errcode = '42501'; end if;
+  select * into t from app.talk_threads where kind = p_kind and ref = p_ref;
+  if not found then return jsonb_build_object('thread', null, 'msgs', '[]'::jsonb, 'reads', '[]'::jsonb); end if;
+  insert into app.talk_reads (user_id, thread_id, read_at) values (m.user_id, t.id, now())
+    on conflict (user_id, thread_id) do update set read_at = now();
+  return app.talk_json(t, m);
+end $$;
+
+-- p: {kind, ref, body, ask (true/false/null = tự nhận: có "?" hoặc có @), mentions: [uuid], tags: ['log','cs','sales','admin'], fileId}
+create or replace function public.talk_post(p jsonb) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare m app.profiles; t app.talk_threads; v_k text := p->>'kind'; v_r text := p->>'ref'; v_body text := trim(coalesce(p->>'body', ''));
+        v_ment uuid[]; v_tags text[]; v_tagu uuid[] := '{}'; v_ask boolean; v_file bigint := nullif(p->>'fileId', '')::bigint;
+        v_wait uuid[]; v_rcpt uuid[]; v_mid bigint; tg text; v_txt text;
+begin
+  m := app.talk_me();
+  if not app.talk_access(m, v_k, v_r) then raise exception 'Bạn không có quyền trao đổi ở đây.' using errcode = '42501'; end if;
+  if length(v_body) = 0 and v_file is null then raise exception 'Nhập nội dung tin nhắn.'; end if;
+  if length(v_body) > 2000 then raise exception 'Tin nhắn quá dài (tối đa 2000 ký tự).'; end if;
+  if v_file is not null and not exists (select 1 from app.talk_files where id = v_file and created_by = m.user_id) then raise exception 'Ảnh không hợp lệ.'; end if;
+  v_ment := array(select distinct x::uuid from jsonb_array_elements_text(coalesce(p->'mentions', '[]')) x
+                   where exists (select 1 from app.profiles where user_id = x::uuid and active and role <> 'customer'));
+  v_tags := array(select distinct x from jsonb_array_elements_text(coalesce(p->'tags', '[]')) x where x in ('log','cs','sales','admin'));
+  t := app.talk_ensure(v_k, v_r);
+  foreach tg in array v_tags loop v_tagu := v_tagu || app.talk_tag_users(t, tg); end loop;
+  v_ask := coalesce((p->>'ask')::boolean, v_body like '%?%' or cardinality(v_ment) + cardinality(v_tags) > 0);
+  insert into app.talk_msgs (thread_id, body, ask, mentions, tags, file_id, created_by)
+  values (t.id, v_body, v_ask, v_ment, v_tags, v_file, m.user_id) returning id into v_mid;
+  if v_ask then
+    v_wait := array(select distinct x from unnest(v_ment || v_tagu) x where x is not null and x <> m.user_id);
+    if cardinality(v_wait) = 0 then
+      v_wait := array(select distinct x from unnest(app.talk_related(t)) x join app.profiles pp on pp.user_id = x
+                       where x <> m.user_id and pp.role <> m.role);
+    end if;
+    update app.talk_threads set status = 'wait', asked_by = m.user_id, asked_at = now(), wait_users = v_wait, reminded = 0 where id = t.id;
+  elsif t.status = 'wait' and m.user_id <> t.asked_by then
+    update app.talk_threads set status = 'answered' where id = t.id;
+  elsif t.status = 'done' then
+    update app.talk_threads set status = 'open' where id = t.id;
+  end if;
+  update app.talk_threads set last_at = now(), last_by = m.user_id, n = n + 1,
+         last_text = case when v_body = '' then '📷 Ảnh' else left(v_body, 200) end where id = t.id returning * into t;
+  insert into app.talk_reads (user_id, thread_id, read_at) values (m.user_id, t.id, now())
+    on conflict (user_id, thread_id) do update set read_at = now();
+  -- Người nhận: được @ (luôn nhận) + người đã tham gia / theo dõi + (không @ ai thì) những người liên quan; bỏ người tắt theo dõi
+  v_rcpt := array(select distinct x from unnest(
+      v_ment || v_tagu
+      || array(select x2 from unnest(
+           array(select created_by from app.talk_msgs where thread_id = t.id)
+           || array(select user_id from app.talk_reads where thread_id = t.id and mode = 'follow')
+           || case when cardinality(v_ment) + cardinality(v_tags) = 0 then app.talk_related(t) else '{}'::uuid[] end) x2
+         where not exists (select 1 from app.talk_reads r where r.thread_id = t.id and r.user_id = x2 and r.mode = 'mute'))) x
+    where x is not null and x <> m.user_id);
+  v_txt := app.talk_title(t) || ' · ' || m.full_name || case when v_ask then ' hỏi: ' else ': ' end || case when v_body = '' then '📷 Ảnh' else left(v_body, 160) end;
+  perform app.notify(v_rcpt, 'Trao đổi', v_txt, jsonb_build_object('talk', jsonb_build_object('k', t.kind, 'r', t.ref)));
+  return app.talk_json(t, m);
+end $$;
+
+-- Sửa / xóa tin của mình trong 5 phút (ghi nhật ký)
+create or replace function public.talk_edit(p_id bigint, p_body text, p_delete boolean default false) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare m app.profiles; x app.talk_msgs; t app.talk_threads;
+begin
+  m := app.talk_me();
+  select * into x from app.talk_msgs where id = p_id for update;
+  if not found or x.deleted_at is not null then raise exception 'Không tìm thấy tin nhắn.'; end if;
+  if x.created_by <> m.user_id then raise exception 'Chỉ sửa / xóa được tin của mình.' using errcode = '42501'; end if;
+  if x.created_at < now() - interval '5 minutes' then raise exception 'Chỉ sửa / xóa được trong 5 phút sau khi gửi.'; end if;
+  if p_delete then
+    update app.talk_msgs set deleted_at = now() where id = p_id;
+    insert into app.audit_log (entity_id, detail, actor) values ('TALK-' || x.thread_id, m.full_name || ' xóa tin: ' || left(x.body, 300), m.user_id);
+  else
+    if length(trim(coalesce(p_body, ''))) = 0 then raise exception 'Nhập nội dung tin nhắn.'; end if;
+    update app.talk_msgs set body = left(trim(p_body), 2000), edited_at = now() where id = p_id;
+    insert into app.audit_log (entity_id, detail, actor) values ('TALK-' || x.thread_id, m.full_name || ' sửa tin: "' || left(x.body, 200) || '" → "' || left(trim(p_body), 200) || '"', m.user_id);
+  end if;
+  select * into t from app.talk_threads where id = x.thread_id;
+  update app.talk_threads set last_text = (select case when body = '' then '📷 Ảnh' else left(body, 200) end from app.talk_msgs
+                                            where thread_id = t.id and deleted_at is null order by id desc limit 1) where id = t.id returning * into t;
+  return app.talk_json(t, m);
+end $$;
+
+-- Thả cảm xúc (bấm lại để bỏ). Người đang được hỏi thả 👍 / ✅ = đã trả lời.
+create or replace function public.talk_react(p_id bigint, p_emoji text) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare m app.profiles; x app.talk_msgs; t app.talk_threads; v_arr jsonb; v_me text;
+begin
+  m := app.talk_me(); v_me := m.user_id::text;
+  if p_emoji not in ('👍','✅','👀','🙏','❤️') then raise exception 'Biểu tượng không hợp lệ.'; end if;
+  select * into x from app.talk_msgs where id = p_id for update;
+  if not found or x.deleted_at is not null then raise exception 'Không tìm thấy tin nhắn.'; end if;
+  select * into t from app.talk_threads where id = x.thread_id;
+  if not app.talk_access(m, t.kind, t.ref) then raise exception 'Bạn không có quyền.' using errcode = '42501'; end if;
+  v_arr := coalesce(x.reacts->p_emoji, '[]');
+  if v_arr ? v_me then v_arr := (select coalesce(jsonb_agg(e), '[]') from jsonb_array_elements_text(v_arr) e where e <> v_me);
+  else v_arr := v_arr || to_jsonb(v_me); end if;
+  update app.talk_msgs set reacts = case when jsonb_array_length(v_arr) = 0 then reacts - p_emoji else jsonb_set(reacts, array[p_emoji], v_arr) end where id = p_id;
+  if p_emoji in ('👍','✅') and t.status = 'wait' and m.user_id = any(t.wait_users) and v_arr ? v_me then
+    update app.talk_threads set status = 'answered' where id = t.id;
+  end if;
+  insert into app.talk_reads (user_id, thread_id, read_at) values (m.user_id, t.id, now())
+    on conflict (user_id, thread_id) do update set read_at = now();
+  select * into t from app.talk_threads where id = t.id;
+  return app.talk_json(t, m);
+end $$;
+
+-- ✓ Đã xong / mở lại; ghim ghi chú; theo dõi / tắt theo dõi
+create or replace function public.talk_set(p_kind text, p_ref text, p_what text, p_value text default null) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare m app.profiles; t app.talk_threads; v text := nullif(trim(coalesce(p_value, '')), '');
+begin
+  m := app.talk_me();
+  if not app.talk_access(m, p_kind, p_ref) then raise exception 'Bạn không có quyền.' using errcode = '42501'; end if;
+  t := app.talk_ensure(p_kind, p_ref);
+  if p_what = 'status' then
+    if v not in ('done','open') then raise exception 'Trạng thái không hợp lệ.'; end if;
+    update app.talk_threads set status = v, wait_users = case when v = 'done' then '{}' else wait_users end where id = t.id;
+    insert into app.audit_log (entity_id, detail, actor) values ('TALK-' || t.id, m.full_name || case when v = 'done' then ' đánh dấu Đã xong' else ' mở lại' end || ' trao đổi ' || app.talk_title(t), m.user_id);
+  elsif p_what = 'pin' then
+    if length(coalesce(v, '')) > 300 then raise exception 'Ghi chú ghim tối đa 300 ký tự.'; end if;
+    update app.talk_threads set pinned = v, pinned_by = case when v is null then null else m.user_id end, pinned_at = case when v is null then null else now() end where id = t.id;
+    insert into app.audit_log (entity_id, detail, actor) values (case when t.kind = 'bk' then t.ref else 'TALK-' || t.id end,
+      m.full_name || case when v is null then ' bỏ ghim ghi chú' else ' ghim ghi chú: ' || v end, m.user_id);
+  elsif p_what = 'mode' then
+    if coalesce(v, '') not in ('', 'follow', 'mute') then raise exception 'Chế độ không hợp lệ.'; end if;
+    insert into app.talk_reads (user_id, thread_id, mode) values (m.user_id, t.id, coalesce(v, ''))
+      on conflict (user_id, thread_id) do update set mode = coalesce(v, '');
+  else raise exception 'Thao tác không hợp lệ.';
+  end if;
+  select * into t from app.talk_threads where id = t.id;
+  return app.talk_json(t, m);
+end $$;
+
+-- Ảnh đính kèm (trình duyệt đã nén ≤ 1600px, JPEG) – lưu trong database, chỉ người có quyền xem trao đổi mới tải được
+create or replace function public.talk_upload(p_b64 text, p_mime text) returns bigint
+language plpgsql volatile security definer set search_path = '' as $$
+declare m app.profiles; v_data bytea; v_id bigint;
+begin
+  m := app.talk_me();
+  if p_mime not in ('image/jpeg','image/png','image/webp') then raise exception 'Chỉ gửi được ảnh JPG / PNG / WebP.'; end if;
+  v_data := decode(p_b64, 'base64');
+  if length(v_data) > 700000 then raise exception 'Ảnh quá lớn (tối đa 700 KB sau khi nén).'; end if;
+  if (select count(*) from app.talk_files where created_by = m.user_id and created_at > now() - interval '1 day') >= 60 then
+    raise exception 'Đã gửi quá 60 ảnh hôm nay.';
+  end if;
+  insert into app.talk_files (data, mime, size, created_by) values (v_data, p_mime, length(v_data), m.user_id) returning id into v_id;
+  return v_id;
+end $$;
+
+create or replace function public.talk_file(p_id bigint) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare m app.profiles; f app.talk_files;
+begin
+  m := app.talk_me();
+  select * into f from app.talk_files where id = p_id;
+  if not found then raise exception 'Không tìm thấy ảnh.'; end if;
+  if f.created_by <> m.user_id and not exists (select 1 from app.talk_msgs x join app.talk_threads t on t.id = x.thread_id
+                                                where x.file_id = p_id and x.deleted_at is null and app.talk_access(m, t.kind, t.ref)) then
+    raise exception 'Bạn không có quyền xem ảnh này.' using errcode = '42501';
+  end if;
+  return jsonb_build_object('mime', f.mime, 'b64', encode(f.data, 'base64'));
+end $$;
+
+-- Thông báo mới sau id (dùng khi ứng dụng chạy nền để hiện thông báo trên máy)
+create or replace function public.my_new_notifs(p_after bigint) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select coalesce(jsonb_agg(jsonb_build_object('id', n.id, 'type', n.type, 'text', n.text, 'link', n.link) order by n.id), '[]')
+    from (select * from app.notifications where user_id = app.uid() and id > coalesce(p_after, 0) and read_at is null
+           and created_at > now() - interval '1 hour' order by id limit 10) n
+$$;
+
 -- ---------------------------------------------------------------------
 -- 8. Quyền gọi hàm
 -- ---------------------------------------------------------------------
@@ -3533,7 +3918,7 @@ begin
        'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa','list_bookings','booking_stats',
        'bulk_create_bookings','suggest_days','set_urgent','confirm_delivery','get_coils','mark_loaded','resolve_short','mark_transit',
        'mark_delivered','mark_failed','close_truck','set_email_prefs','send_to_logistics','save_warehouse','change_booking_wh',
-       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop','req_create','req_update','admin_create_user','admin_reset_password','my_pw_changed','admin_user_refs','admin_delete_user','chat_use','set_customer_chat','chat_stats','req_set_day')
+       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop','req_create','req_update','admin_create_user','admin_reset_password','my_pw_changed','admin_user_refs','admin_delete_user','chat_use','set_customer_chat','chat_stats','req_set_day','talk_get','talk_post','talk_edit','talk_react','talk_set','talk_upload','talk_file','my_new_notifs')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);
@@ -3592,6 +3977,8 @@ insert into app.settings (key, value) values
 on conflict (key) do nothing;
 
 update app.settings set value = value || '["Nhắc việc"]'::jsonb where key = 'emailTypes' and not (value ? 'Nhắc việc');
+-- v3.24: tin Trao đổi nội bộ vào email tóm tắt (người nhận mức "tất cả")
+update app.settings set value = value || '["Trao đổi"]'::jsonb where key = 'emailTypes' and not (value ? 'Trao đổi');
 -- v2.9: loại thông báo mới có email; loại gấp gửi ngay, còn lại vào email tóm tắt
 update app.settings set value = (select jsonb_agg(distinct t) from (
   select jsonb_array_elements_text(value) t union select unnest(array['Đơn khẩn','Hủy cận ngày','Giao hàng gấp','Chi tiết giao hàng',
@@ -3719,6 +4106,9 @@ begin
            string_agg('• [' || type || '] ' || text, chr(10) order by id)
       into v_ids, v_body
       from (select * from app.email_digest_items where user_id = r.user_id and sent_at is null order by id limit 100) x;
+    -- v3.24: câu hỏi Trao đổi đang chờ người này trả lời
+    v_body := v_body || coalesce(chr(10) || chr(10) || '❓ Câu hỏi đang chờ bạn trả lời: ' || (select string_agg(app.talk_title(t), '; ' order by t.asked_at)
+                from app.talk_threads t where t.status = 'wait' and r.user_id = any(t.wait_users)), '');
     insert into app.email_outbox (to_email, subject, html)
     values (r.email, '[Đặt Xe] Tóm tắt ' || to_char(v_now, 'HH24:MI DD/MM') || ': ' || cardinality(v_ids) || ' cập nhật',
             replace(app.email_html(r.full_name, 'Tóm tắt', v_body, null), chr(10), '<br>'));
@@ -3801,7 +4191,7 @@ insert into app.settings (key, value) values
   ('cutoff', '"16:00"'), ('coilPct', '3'), ('coilTons', '0.5'), ('digestTimes', '["07:00","16:00"]'),
   ('requirePicking', 'true'), ('shipRemindHours', '6'), ('shipAdminDays', '2'),
   ('chatOn', 'true'), ('chatRoles', '["cs","sales","logistics","admin"]'), ('chatDaily', '150'),
-  ('chatDailyRole', '{"cs":150,"sales":150,"logistics":150,"admin":150,"customer":30}'), ('chatDailyTotal', '2000'), ('transitDays', '{}')
+  ('chatDailyRole', '{"cs":150,"sales":150,"logistics":150,"admin":150,"customer":30}'), ('chatDailyTotal', '2000'), ('transitDays', '{}'), ('talkRemindHours', '2')
 on conflict (key) do nothing;
 
 insert into app.warehouses (code, name, full_name) values
