@@ -353,6 +353,12 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - "Tổng đã đặt" = Đã có xe + Chờ xếp xe + Đổi ngày ở khung thống kê bên lịch, Bảng thống kê và trợ lý; Lưu tạm hiện riêng ("chưa tính"). Khung bên lịch: "Đã có xe" gồm cả đơn đã bốc / đang giao / đã giao, thêm dòng "trong đó đã giao". Test đối chiếu khung lịch ↔ Bảng thống kê ↔ trợ lý.
 
 
+## v3.23 — Yêu cầu theo ngày giao · trợ lý không che màn hình
+**Chạy `supabase/setup_all.sql` trước khi gộp** (thêm cột ngày giao cho yêu cầu, cấu hình số ngày vận chuyển, hàm `req_set_day`).
+- Form yêu cầu đặt hàng ghi **Ngày giao** (ngày hàng đến khách). Ngày bốc dự kiến = ngày giao − số ngày vận chuyển của kho (Cấu hình → Chung, mặc định 1). CS đổi ngày bốc ngay trong danh sách yêu cầu. Yêu cầu cũ: ngày giao = ngày bốc cũ.
+- Trợ lý mở form / chuyển màn → tự thu gọn thành nút 💬 có chấm đỏ; gửi hoặc đóng form → mở lại kèm kết quả. Khi chat đang mở, cửa sổ căn giữa phần màn hình còn trống.
+- Trợ lý hiểu "giao 20/10" là ngày giao và giữ nguyên câu người dùng gõ trong nội dung yêu cầu.
+
 
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.

@@ -20,26 +20,32 @@ const rqCanNew=()=>!!S&&!S.custView&&(role()==='customer'||can('req.create'));
 const rqCanHandle=()=>!!S&&!S.custView&&role()!=='customer'&&can('req.handle');
 const rqOpen=()=>(S&&S.reqs||[]).filter(r=>r.status==='new');
 const rqOf=(date,wh)=>(S&&S.reqs||[]).filter(r=>r.date===date&&(!wh||r.wh===wh)&&r.status!=='cancelled');
+// v3.23: f.day trong form = NGÀY GIAO (khách / Sales chỉ quan tâm ngày hàng đến); r.date = ngày bốc dự kiến, r.deliver = ngày giao
+const rqTransit=wh=>{const T=S&&S.cfg&&S.cfg.transitDays||{};return T[wh]!=null?+T[wh]:1;};
+const rqLoadDay=(wh,dl)=>{if(!dl)return '';const d=addDays(dl,-rqTransit(wh));return d<TODAY?TODAY:d;};
+const rqDl=r=>r.deliver||r.date;
 const rqCustName=id=>{const c=cust(id);return c?c.name:'?';};
 function rqChip(date,wh){const l=rqOf(date,wh);if(!l.length)return '';const open=l.filter(r=>r.status==='new');
  const t=l.reduce((s,r)=>s+(+r.tons||0),0);
- return `<button type="button" class="rqchip ${open.length?'':'done'}" data-a="rqList" data-d="${date}" ${wh?`data-w="${wh}"`:''} title="${open.length?open.length+' yêu cầu đặt hàng chờ xử lý':'Yêu cầu đã xử lý'}">${RQ_IC} ${open.length||l.length}${t?` · ${k1(t)} MT`:''}</button>`;}
+ return `<button type="button" class="rqchip ${open.length?'':'done'}" data-a="rqList" data-d="${date}" ${wh?`data-w="${wh}"`:''} title="${open.length?open.length+' yêu cầu đặt hàng chờ xử lý':'Yêu cầu đã xử lý'} · bốc dự kiến ngày này, giao ${[...new Set(l.map(r=>dm(rqDl(r))))].join(', ')}">${RQ_IC} ${open.length||l.length}${t?` · ${k1(t)} MT`:''}</button>`;}
 const rqInject=(h,chip)=>chip?h.replace(/<\/div>\s*$/,chip+'</div>'):h;
 {const d0=dayCell;dayCell=function(date){const h=d0(date);return rqInject(h,rqChip(date,V.whAll?null:V.wh));};}
 if(typeof cAllCell==='function'){const c0=cAllCell;cAllCell=function(date){return rqInject(c0(date),rqChip(date,null));};}
 // ---------- tạo yêu cầu ----------
 function rqCusts(){if(role()==='customer')return [cust(me().customerId)];return S.customers.filter(c=>ownsCust(c.id)&&c.active!==false).sort((a,b)=>a.code<b.code?-1:1);}
-A.rqNew=d=>{const cs=rqCusts();const day=d.d&&d.d>=TODAY?d.d:(V.day&&V.day>=TODAY?V.day:addDays(TODAY,1));
+A.rqNew=d=>{const cs=rqCusts();const day=d.d&&d.d>=TODAY?d.d:(V.day&&V.day>=TODAY?V.day:addDays(TODAY,2));
  V.modal={type:'rqNew',f:{cid:role()==='customer'?me().customerId:(d.c||''),q:'',wh:d.w||(V.whAll?(WH[0]||{}).id:V.wh),day,tons:'',body:''},err:''};
  if(role()!=='customer'&&cs.length===1){V.modal.f.cid=cs[0].id;}render();setTimeout(()=>{const el=document.getElementById(role()==='customer'?'rq-body':'rq-cust');if(el)el.focus();},50);};
-function rqCap(f){const m=f.wh&&f.day?dayM(f.wh,f.day):null;if(!m)return '';if(!m.declared)return `<span class="muted small">${m.off?'Kho không bốc hàng ngày này':'Kho chưa mở lịch xe ngày này'} — CS sẽ báo lại.</span>`;
- return `<span class="small">Kho còn nhận được <b class="num">${t2(m.avail)} MT</b> ngày ${dm(f.day)}.</span>`;}
+function rqCap(f){if(!f.wh||!f.day)return '';const ld=rqLoadDay(f.wh,f.day);const n=rqTransit(f.wh);const m=dayM(f.wh,ld);
+ const head=`<span class="small">Kho bốc dự kiến <b>${WDS[dow(ld)]} ${dm(ld)}</b>${n&&ld===addDays(f.day,-n)?` (vận chuyển ${n} ngày)`:''}. </span>`;
+ if(!m||!m.declared)return head+`<span class="muted small">${m&&m.off?'Kho không bốc hàng ngày này':'Kho chưa mở lịch xe ngày này'} — CS sẽ chọn ngày bốc phù hợp.</span>`;
+ return head+`<span class="small">Ngày đó kho còn nhận được <b class="num">${t2(m.avail)} MT</b>.</span>`;}
 M29.rqNew=function(){const M=V.modal,f=M.f;const isC=role()==='customer';const cs=rqCusts();const c=f.cid?cust(f.cid):null;
  return `<div class="mhead"><h2>💬 YÊU CẦU ĐẶT HÀNG</h2><span class="meta">${isC?esc(c.name):'Ghi nhanh để CS tạo đơn'}</span></div>
  <div class="rqform">
   ${isC?'':`<div class="field span2"><label for="rq-cust">Khách hàng <span class="req">*</span></label><input id="rq-cust" class="inp" list="rq-cl" data-rq="q" value="${esc(c?c.code+' – '+c.name:f.q)}" placeholder="Gõ mã hoặc tên khách" autocomplete="off"><datalist id="rq-cl">${cs.map(x=>`<option value="${esc(x.code+' – '+x.name)}">`).join('')}</datalist></div>`}
   <div class="field"><label for="rq-wh">Kho <span class="req">*</span></label><select id="rq-wh" class="inp" data-rq="wh">${WH.map(w=>`<option value="${w.id}" ${w.id===f.wh?'selected':''}>${esc(w.name)}</option>`).join('')}</select></div>
-  <div class="field"><label for="rq-day">Ngày bốc <span class="req">*</span></label><input id="rq-day" type="date" class="inp" min="${TODAY}" data-rq="day" value="${f.day}"></div>
+  <div class="field"><label for="rq-day">Ngày giao (hàng đến khách) <span class="req">*</span></label><input id="rq-day" type="date" class="inp" min="${TODAY}" data-rq="day" value="${f.day}"></div>
   <div class="span2" id="rq-cap">${rqCap(f)}</div>
   <div class="field span2"><label for="rq-body">Nội dung <span class="req">*</span></label><textarea id="rq-body" class="inp" maxlength="2000" data-rq="body" placeholder="VD: Anh Ánh đặt 20 MT HC 0.5 Xanh dương, 30 MT Titan 0.45 Trắng sứ. Giao Bình Dương.">${esc(f.body)}</textarea>
    <span class="small muted">Ghi tự nhiên như nhắn tin: sản phẩm, màu, độ dày, khổ, số MT, nơi giao, người liên hệ.</span></div>
@@ -57,11 +63,11 @@ document.addEventListener('input',e=>{const el=e.target;const k=el.dataset&&el.d
 document.addEventListener('change',e=>{const el=e.target;if(el.dataset&&el.dataset.rq&&V.modal&&V.modal.type==='rqNew'){V.modal.f[el.dataset.rq==='q'?'q':el.dataset.rq]=el.value;if(el.dataset.rq==='q'){const c=rqFindCust(el.value);V.modal.f.cid=c?c.id:'';}const cap=document.getElementById('rq-cap');if(cap)cap.innerHTML=rqCap(V.modal.f);}});
 A.rqSend=()=>{const M=V.modal,f=M.f;M.err='';
  if(!f.cid){M.err='Chọn khách hàng trong danh sách gợi ý.';return render();}
- if(!f.day||f.day<TODAY){M.err='Chọn ngày bốc từ hôm nay trở đi.';return render();}
+ if(!f.day||f.day<TODAY){M.err='Chọn ngày giao từ hôm nay trở đi.';return render();}
  if((f.body||'').trim().length<3){M.err='Ghi nội dung yêu cầu.';return render();}
  const t=rqNum(f.tons);if(f.tons&&(t==null||t<=0)){M.err='Tổng MT không hợp lệ.';return render();}
  const day=f.day,wh=f.wh;
- mutate('req_create',{p:{customerId:f.cid,wh,day,tons:t,body:f.body.trim()}},{ok:()=>{V.modal=null;render();toast('Đã gửi yêu cầu. CS sẽ xử lý và báo lại.');},err:m=>{if(V.modal)V.modal.err=m;}});};
+ mutate('req_create',{p:{customerId:f.cid,wh,deliver:day,tons:t,body:f.body.trim()}},{ok:()=>{V.modal=null;render();toast('Đã gửi yêu cầu. CS sẽ xử lý và báo lại.');},err:m=>{if(V.modal)V.modal.err=m;}});};
 // ---------- danh sách yêu cầu ----------
 A.rqList=d=>{V.modal={type:'rqList',date:d.d||null,wh:d.w||null,act:null,reply:'',bk:'',err:'',all:!d.d};render();};
 function rqCard(r,M){const b=cust(r.customerId);const mine=r.by===V.me;const act=M.act&&M.act.id===r.id?M.act.k:null;
@@ -72,7 +78,7 @@ function rqCard(r,M){const b=cust(r.customerId);const mine=r.by===V.me;const act
  const form=act?`<div class="rqr"><div class="row" style="gap:6px;flex-wrap:wrap">${act==='done'?`<input class="inp" style="max-width:220px" placeholder="Mã booking (nếu có)" data-rqa="bk" value="${esc(M.bk)}">`:''}
    <input class="inp" style="flex:1;min-width:200px" placeholder="${act==='declined'?'Lý do không nhận (bắt buộc)':'Ghi chú cho người gửi (không bắt buộc)'}" data-rqa="reply" value="${esc(M.reply)}">
    <button class="btn sm ${act==='declined'||act==='cancelled'?'danger':''}" data-a="rqDo" data-id="${r.id}" data-k="${act}">${act==='done'?'Xác nhận đã tạo đơn':act==='declined'?'Báo không nhận':'Xác nhận hủy'}</button><button class="btn ghost sm" data-a="rqAct" data-id="">Thôi</button></div>${M.err?`<div class="err small">${esc(M.err)}</div>`:''}</div>`:'';
- return `<div class="rq st-${r.status}"><div class="rqh"><b>${esc(b?b.name:'?')}</b>${b&&role()!=='customer'?`<span class="muted small">${esc(b.code)}</span>`:''}<span class="num">${esc(r.wh)} · ${WDS[dow(r.date)]} ${dmy(r.date)}</span>${r.tons?`<b class="num">${t2(r.tons)} MT</b>`:''}<span class="grow"></span><span class="st st-${r.status==='new'?'hold':r.status==='done'?'ok':r.status==='declined'?'rejected':'cancelled'}">${RQ_ST[r.status]}</span></div>
+ return `<div class="rq st-${r.status}"><div class="rqh"><b>${esc(b?b.name:'?')}</b>${b&&role()!=='customer'?`<span class="muted small">${esc(b.code)}</span>`:''}<span class="num">${esc(r.wh)} · <b>Giao ${WDS[dow(rqDl(r))]} ${dmy(rqDl(r))}</b> · ${r.status==='new'&&rqCanHandle()?`Bốc <input type="date" class="inp rqld" style="width:auto;padding:1px 4px;font-size:12.5px" min="${TODAY}" max="${rqDl(r)}" value="${r.date}" data-rqld="${r.id}" title="CS đổi ngày bốc dự kiến">`:`bốc dự kiến ${dm(r.date)}`}</span>${r.tons?`<b class="num">${t2(r.tons)} MT</b>`:''}<span class="grow"></span><span class="st st-${r.status==='new'?'hold':r.status==='done'?'ok':r.status==='declined'?'rejected':'cancelled'}">${RQ_ST[r.status]}</span></div>
   <div class="rqb">${esc(r.body)}</div>
   <div class="rqm">Gửi bởi ${esc(r.byName||'?')} ${r.byCust?'<span class="rqtag k">Khách</span>':'<span class="rqtag">BlueScope</span>'} · ${clockStr(r.at)}${r.handledBy?` · ${r.status==='cancelled'?'Hủy':'Xử lý'} bởi ${esc(r.handledBy)} ${clockStr(r.handledAt)}`:''}${r.bookingId?` · booking <b>${esc(r.bookingId)}</b>`:''}</div>
   ${r.reply?`<div class="rqr">↳ ${esc(r.reply)}</div>`:''}
@@ -87,6 +93,8 @@ M29.rqList=function(){const M=V.modal;let l=(S.reqs||[]).slice();
  <div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button>${rqCanNew()?`<button class="btn" data-a="rqNew" ${M.date?`data-d="${M.date}"`:''} ${M.wh?`data-w="${M.wh}"`:''}>+ Yêu cầu mới</button>`:''}</div>`;};
 A.rqShow=d=>{V.modal.showAll=!!d.v;render();};
 A.rqAct=d=>{const M=V.modal;M.act=d.id?{id:+d.id,k:d.k}:null;M.reply='';M.bk='';M.err='';render();setTimeout(()=>{const el=document.querySelector('[data-rqa="'+(d.k==='done'?'bk':'reply')+'"]');if(el)el.focus();},30);};
+document.addEventListener('change',e=>{const id=e.target.dataset&&e.target.dataset.rqld;if(!id||!e.target.value)return;
+ mutate('req_set_day',{p_id:+id,p_day:e.target.value},{ok:()=>toast('Đã đổi ngày bốc dự kiến sang '+dm(e.target.value)+'.'),err:m=>toast(m)});});
 document.addEventListener('input',e=>{const k=e.target.dataset&&e.target.dataset.rqa;if(k&&V.modal&&V.modal.type==='rqList')V.modal[k]=e.target.value;});
 A.rqDo=d=>{const M=V.modal;M.err='';if(d.k==='declined'&&(M.reply||'').trim().length<3){M.err='Ghi lý do để báo lại người gửi.';return render();}
  mutate('req_update',{p_id:+d.id,p_status:d.k,p_reply:(M.reply||'').trim()||null,p_booking:(M.bk||'').trim()||null},{ok:()=>{if(V.modal&&V.modal.type==='rqList'){V.modal.act=null;}render();toast(d.k==='done'?'Đã đánh dấu tạo đơn, người gửi được báo.':d.k==='declined'?'Đã báo không nhận.':'Đã hủy yêu cầu.');},err:m=>{if(V.modal)V.modal.err=m;}});};
@@ -110,3 +118,11 @@ A.rqMake=d=>{const r=S.reqs.find(x=>x.id===+d.id);if(!r)return;if(typeof openGri
 {const o0=A.openNotif;A.openNotif=d=>{const n=S.notifs.find(x=>String(x.id)===String(d.id));const L=n&&n.link||{};if(!L.req)return o0(d);
  if(!n.read){n.read=true;rpc('mark_notifs_read',{p_ids:[n.id]}).catch(()=>{});}
  V.view='calendar';if(L.wh&&!V.whAll)V.wh=L.wh;V.modal={type:'rqList',date:L.day,wh:null,act:null,reply:'',bk:'',err:''};afterNav(goMonth(L.day));};}
+// v3.23: Cấu hình → Chung: số ngày vận chuyển từng kho (ngày bốc dự kiến = ngày giao − số ngày này)
+{const r0=render;render=function(){r0();if(!S||V.view!=='config'||(V.cfgTab||'general')!=='general'||!can('config.general'))return;const host=document.querySelector('.main .panel .fgrid');if(!host||document.querySelector('.trcard'))return;
+ const card=document.createElement('div');card.className='pkcard trcard';
+ card.innerHTML=`<h4>🚚 Số ngày vận chuyển (yêu cầu đặt hàng)</h4><p class="small muted" style="margin:0 0 8px">Khách / Sales ghi <b>ngày giao</b>; ngày bốc dự kiến = ngày giao − số ngày dưới đây. CS vẫn đổi được ngày bốc trong danh sách yêu cầu.</p>
+  <div class="fgrid">${WH.map(w=>`<div class="field"><label for="tr-${w.id}">${esc(w.id)} · ${esc(w.short||w.name)}</label><div class="row" style="flex-wrap:nowrap"><input id="tr-${w.id}" class="inp num" inputmode="numeric" data-trwh="${w.id}" value="${rqTransit(w.id)}"><span class="muted small">ngày</span></div></div>`).join('')}</div>`;
+ host.parentNode.insertBefore(card,host);};}
+document.addEventListener('change',e=>{const w=e.target.dataset&&e.target.dataset.trwh;if(!w)return;const v=Math.round(num(e.target.value));if(!(v>=0&&v<=15)){toast('Nhập số ngày từ 0 đến 15.');return;}
+ const T={};WH.forEach(x=>T[x.id]=rqTransit(x.id));T[w]=v;mutate('update_settings',{p:{transitDays:T}},{ok:()=>toast('Đã lưu số ngày vận chuyển')});});

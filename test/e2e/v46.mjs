@@ -37,7 +37,7 @@ import { execSync } from 'child_process';
 const sql = q => execSync(`psql -h /tmp -U postgres -d t -Atc "${q.replace(/"/g, '\\"')}"`).toString().trim();
 import { execSync as ex2 } from 'child_process';
 const q = s => ex2(`psql -h /tmp -U postgres -d t -Atc "${s.replace(/"/g, '\\"')}"`).toString().trim();
-const ask = async (p, text) => { await p.fill('#chatPanel textarea', text); await p.keyboard.press('Enter'); await p.waitForFunction(() => !CHAT.busy, null, { timeout: 15000 }); await p.waitForTimeout(300); };
+const ask = async (p, text) => { if (!await p.locator('#chatPanel').count()) await p.click('#chatFab'); await p.fill('#chatPanel textarea', text); await p.keyboard.press('Enter'); await p.waitForFunction(() => !CHAT.busy, null, { timeout: 15000 }); await p.waitForTimeout(300); };
 const hold = q("select b.id from app.bookings b where b.status='hold' and b.day>=current_date and b.warehouse_code='JM2' and exists(select 1 from app.daily_fleet f where f.warehouse_code=b.warehouse_code and f.day=b.day) order by b.day limit 1");
 await session('log@demo.vn', async p => {
   S('fab'); ok(await p.locator('#chatFab').count() === 1, 'Logistics thấy nút trợ lý');
@@ -48,6 +48,8 @@ await session('log@demo.vn', async p => {
   S('suggest'); globalThis.__plan = () => ({ tool: 'suggest_trucks', args: { booking_id: hold } });
   await ask(p, 'Gợi ý xe cho ' + hold);
   ok(await p.evaluate(() => V.view) === 'day' && await p.locator('.tcard.sugg').count() >= 1, 'gợi ý xe → mở màn đội xe, viền chạy quanh xe');
+  ok(await p.locator('#chatPanel').count() === 0 && await p.locator('#chatFab.dot').count() === 1, 'gợi ý xe → khung chat tự thu gọn, nút 💬 có chấm báo');
+  await p.click('#chatFab'); await p.waitForTimeout(200);
   ok(/"goi_y":\[/.test(globalThis.__toolRes || '') && /ly_do/.test(globalThis.__toolRes), 'kết quả có giải thích lý do chọn xe');
   ok(await p.locator('#chatPanel .cstep').count() >= 1 && /Đã xong công cụ/.test(await p.locator('#chatPanel .cmsg.a').last().innerText()), 'hiện bước + câu trả lời');
   ok(/Còn 42 lượt/.test(await p.locator('#chatPanel .cl').innerText()), 'hiện số lượt còn lại');
@@ -85,7 +87,16 @@ await session('cs@demo.vn', async p => {
   await p.click('#chatFab'); await ask(p, 'ghi yêu cầu cho KH0102 50 MT mai JM2');
   ok(await p.evaluate(() => V.modal && V.modal.type === 'rqNew' && V.modal.f.cid && /Titan/.test(V.modal.f.body) && V.modal.f.tons === '50'), 'điền sẵn form yêu cầu đặt hàng (chưa gửi)');
   ok(q("select count(*) from app.order_requests") === '0', 'bot không tự gửi');
-  await p.evaluate(() => { V.modal = null; render(); });
+  ok(await p.locator('#chatPanel').count() === 0 && await p.locator('#chatFab.dot').count() === 1, 'mở form → khung chat tự ẩn, không che form');
+  ok(await p.evaluate(() => V.modal.f.day === addDays(TODAY, 1) && /ngày giao/i.test(document.querySelector('label[for="rq-day"]').textContent) && /bốc dự kiến/.test(document.getElementById('rq-cap').textContent)), '"mai" là ngày giao, form hiện ngày bốc dự kiến');
+  await p.evaluate(() => { V.modal = null; render(); }); await p.waitForTimeout(200);
+  ok(await p.locator('#chatPanel').count() === 1 && /chưa gửi/.test(await p.locator('#chatPanel .cmsg.a').last().innerText()), 'đóng form → khung chat mở lại, báo chưa gửi');
+  S('cs-fill-send'); globalThis.__plan = () => ({ tool: 'fill_request', args: { customer: 'KH0102', wh: 'JM2', date: '25/10', body: 'HC 0.45' } });
+  await ask(p, 'Hai Yến yêu cầu 50 MT HC 0.45 giao 25/10 kho JM2');
+  ok(await p.evaluate(() => V.modal.f.body === 'Hai Yến yêu cầu 50 MT HC 0.45 giao 25/10 kho JM2' && V.modal.f.day.endsWith('-10-25')), 'giữ nguyên câu người dùng, ngày 25/10 là ngày giao');
+  await p.click('[data-a="rqSend"]'); await p.waitForTimeout(1500);
+  ok(await p.locator('#chatPanel').count() === 1 && /Đã gửi yêu cầu/.test(await p.locator('#chatPanel .cmsg.a').last().innerText()), 'gửi xong → khung chat mở lại, báo đã gửi');
+  ok(q("select deliver_on::text like '%-10-25' and day = deliver_on - 1 from app.order_requests order by id desc limit 1") === 't', 'lưu ngày giao, ngày bốc = giao − 1');
   S('cs-order'); globalThis.__plan = () => ({ tool: 'fill_order', args: { customer: 'KH0102', wh: 'JM2', date: 'ngày mai', tons: 12 } }); await ask(p, 'đặt hàng 12 MT KH0102 mai');
   ok(await p.evaluate(() => V.modal && V.modal.type === 'grid' && V.modal.rows[0].cid && V.modal.rows[0].tons === '12'), 'CS: mở lưới đặt hàng điền sẵn');
   await p.evaluate(() => { V.modal = null; render(); });

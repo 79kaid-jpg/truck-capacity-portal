@@ -37,9 +37,9 @@ const clickCell = async (p, d) => { const b = await p.locator(cellSel(d)).boundi
 await session('s1@demo.vn', async p => {
   S('sales'); const d = await future(p); await clickCell(p, d);
   const t = await p.locator('#cellMenu').innerText().catch(() => '');
-  ok(/Yêu cầu đặt hàng ngày này/.test(t) && /Mở chi tiết ngày/.test(t) && !/Đặt hàng ·/.test(t), 'Sales: menu có Yêu cầu + Chi tiết ngày, không có Đặt hàng', t.replace(/\n/g, ' | '));
+  ok(/Yêu cầu giao ngày này/.test(t) && /Mở chi tiết ngày/.test(t) && !/Đặt hàng ·/.test(t), 'Sales: menu có Yêu cầu + Chi tiết ngày, không có Đặt hàng', t.replace(/\n/g, ' | '));
   await p.screenshot({ path: `${OUT}/sales-menu.png` });
-  await p.click('#cellMenu button:has-text("Yêu cầu đặt hàng")'); await p.waitForTimeout(300);
+  await p.click('#cellMenu button:has-text("Yêu cầu giao")'); await p.waitForTimeout(300);
   ok(await p.evaluate(d => V.modal && V.modal.type === 'rqNew' && V.modal.f.day === d, d), 'mở form yêu cầu đúng ngày');
   await p.keyboard.press('Escape'); await p.evaluate(() => { V.modal = null; render(); });
   S('dbl'); await p.locator(cellSel(d)).dblclick({ position: { x: 30, y: 60 } }); await p.waitForTimeout(500);
@@ -53,7 +53,7 @@ await session('s1@demo.vn', async p => {
 });
 await session('cs@demo.vn', async p => {
   S('cs'); const d = await future(p); await clickCell(p, d); const t = await p.locator('#cellMenu').innerText().catch(() => '');
-  ok(/Đặt hàng/.test(t) && /Yêu cầu đặt hàng ngày này/.test(t), 'CS: có Đặt hàng + Yêu cầu', t.replace(/\n/g, ' | '));
+  ok(/Đặt hàng/.test(t) && /Yêu cầu giao ngày này/.test(t), 'CS: có Đặt hàng + Yêu cầu', t.replace(/\n/g, ' | '));
   await p.click('#cellMenu button:has-text("Đặt hàng ·")'); await p.waitForTimeout(400); ok(await p.evaluate(d => V.modal && V.modal.type === 'grid' && V.modal.day === d, d), 'Đặt hàng mở lưới đúng ngày');
   await p.evaluate(() => { V.modal = null; render(); });
   S('all'); await p.evaluate(() => { V.whAll = true; render(); }); await p.waitForTimeout(200);
@@ -68,7 +68,7 @@ await session('log@demo.vn', async p => {
 await session('kh@demo.vn', async p => {
   S('kh'); const d = await p.evaluate(() => { const c = [...document.querySelectorAll('.cal .cell.mine[data-cd]')].find(x => x.dataset.cd >= TODAY); return c && c.dataset.cd; });
   await clickCell(p, d); const t = await p.locator('#cellMenu').innerText().catch(() => '');
-  ok(/Yêu cầu đặt hàng ngày này/.test(t) && /Xem đơn của tôi/.test(t) && !/đội xe/.test(t), 'Khách: Yêu cầu + Xem đơn của tôi', t.replace(/\n/g, ' | '));
+  ok(/Yêu cầu giao ngày này/.test(t) && /Xem đơn của tôi/.test(t) && !/đội xe/.test(t), 'Khách: Yêu cầu + Xem đơn của tôi', t.replace(/\n/g, ' | '));
   await p.screenshot({ path: `${OUT}/kh-menu.png` }); await p.keyboard.press('Escape');
   await p.locator(cellSel(d)).dblclick({ position: { x: 30, y: 40 } }); await p.waitForTimeout(400); ok(await p.evaluate(() => V.modal && V.modal.type === 'custDay'), 'Khách bấm đúp → xem đơn ngày');
 });

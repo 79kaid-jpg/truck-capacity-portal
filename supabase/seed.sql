@@ -10,7 +10,7 @@ insert into app.settings (key, value) values
   ('cutoff', '"16:00"'), ('coilPct', '3'), ('coilTons', '0.5'), ('digestTimes', '["07:00","16:00"]'),
   ('requirePicking', 'true'), ('shipRemindHours', '6'), ('shipAdminDays', '2'),
   ('chatOn', 'true'), ('chatRoles', '["cs","sales","logistics","admin"]'), ('chatDaily', '150'),
-  ('chatDailyRole', '{"cs":150,"sales":150,"logistics":150,"admin":150,"customer":30}'), ('chatDailyTotal', '2000')
+  ('chatDailyRole', '{"cs":150,"sales":150,"logistics":150,"admin":150,"customer":30}'), ('chatDailyTotal', '2000'), ('transitDays', '{}')
 on conflict (key) do nothing;
 
 insert into app.warehouses (code, name, full_name) values

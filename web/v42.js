@@ -14,7 +14,7 @@ if(typeof cAllCell==='function'){const c0=cAllCell;cAllCell=function(date){retur
 const isCust42=()=>role()==='customer';
 function cmClose(){const m=document.getElementById('cellMenu');if(m)m.remove();}
 function cmItems(date,wh){const past=date<TODAY;const it=[];const whs=wh?[wh]:(V.whAll||isCust42()&&V.whAll?WH.map(w=>w.id):[V.wh]);const one=wh||(!V.whAll?V.wh:null);
- if(!past&&rqCanNew())it.push({ic:RQ_IC,l:'Yêu cầu đặt hàng ngày này',a:'rqNew',d:{d:date,w:one||''},k:'Y'});
+ if(!past&&rqCanNew())it.push({ic:RQ_IC,l:'Yêu cầu giao ngày này',a:'rqNew',d:{d:date,w:one||''},k:'Y'});
  if(!past&&!isCust42()&&can('booking.create')&&!(S&&S.custView))it.push({ic:'＋',l:'Đặt hàng'+(one?' · '+one:''),a:'cmNewBk',d:{d:date,w:one||''},k:'N'});
  const nr=rqOf(date,one).length;if(nr)it.push({ic:RQ_IC,l:`Xem yêu cầu (${nr})`,a:'rqList',d:{d:date,w:one||''}});
  if(isCust42()){const mine=cMine().filter(b=>b.date===date&&(!one||b.wh===one));if(mine.length)it.push({ic:'📦',l:`Xem đơn của tôi (${mine.length})`,a:'custDay',d:{d:date,w:one||''}});}

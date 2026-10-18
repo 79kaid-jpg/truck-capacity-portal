@@ -240,9 +240,10 @@
 <section id="req" data-g="CS" data-t="Yêu cầu đặt hàng (💬)">
 <h2>Yêu cầu đặt hàng 💬</h2>
 <p>Khách hoặc Sales ghi nhanh nhu cầu dạng tự do (ví dụ <i>"Anh Ánh đặt 20 MT HC 0.5 Xanh dương, 30 MT Titan"</i>). Yêu cầu <b>chưa giữ chỗ</b>; CS chuyển thành đơn.</p>
-<ul><li><b>Gửi</b>: Sales / CS bấm <b>+ Yêu cầu đặt hàng</b> trên thanh lịch, chọn khách (Sales chỉ thấy khách mình phụ trách), kho, ngày, ghi nội dung, tổng MT nếu biết. Khách cũng gửi được từ cổng của họ.</li>
+<ul><li><b>Gửi</b>: Sales / CS bấm <b>+ Yêu cầu đặt hàng</b> trên thanh lịch, chọn khách (Sales chỉ thấy khách mình phụ trách), kho, <b>ngày giao</b> (ngày hàng đến khách), ghi nội dung, tổng MT nếu biết. Khách cũng gửi được từ cổng của họ.</li>
 <li><b>Nhận</b>: CS phụ trách khách (nghỉ → người nhận thay; không có → mọi CS) và Sales phụ trách nhận thông báo 🔔. Ô ngày hiện chip tím <b>💬 số yêu cầu · MT</b>; nút <b>💬 Yêu cầu</b> trên thanh lịch ghi số đang chờ.</li></ul>
 <img src="guide/yeu-cau-cs.jpg" alt="Danh sách yêu cầu">
+<p><b>Ngày giao → ngày bốc</b>: hệ thống tự tính ngày bốc dự kiến = ngày giao − số ngày vận chuyển của kho (Admin cài ở <b>Cấu hình → Chung → Số ngày vận chuyển</b>, mặc định 1). Chip 💬 hiện ở ngày bốc dự kiến; trong danh sách yêu cầu CS đổi được ngày bốc (không sau ngày giao).</p>
 <ol><li><b>Tạo đơn từ yêu cầu</b>: mở lưới đặt hàng điền sẵn khách, kho, ngày, MT, nội dung yêu cầu hiện ở đầu lưới. Đặt xong đóng lưới → hệ thống hỏi <b>Xác nhận đã tạo đơn</b> (mã booking tự điền nếu tìm thấy).</li>
 <li><b>Đã tạo đơn</b>: đánh dấu khi đã đặt bằng cách khác (ghi mã booking nếu có).</li>
 <li><b>Không nhận</b>: bắt buộc ghi lý do; người gửi, khách và Sales nhận thông báo.</li>

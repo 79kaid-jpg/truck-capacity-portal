@@ -17,8 +17,13 @@
 @keyframes chb{0%,80%,100%{opacity:.3}40%{opacity:1}}
 @media (max-width:700px){#chatFab{bottom:76px}}
 @media (min-width:1100px){body.chat-open{padding-right:min(420px,100vw)}}
+@media (min-width:700px){body.chat-open .scrim{right:min(420px,100vw)}}
+#chatFab.dot::after{content:'';position:absolute;top:4px;right:4px;width:12px;height:12px;border-radius:50%;background:#e5484d;border:2px solid var(--surface)}
+#chatFab .fabtip{position:absolute;right:62px;bottom:8px;white-space:nowrap;background:var(--ink);color:var(--surface);font-size:12px;padding:5px 9px;border-radius:8px;pointer-events:none}
 `;document.head.appendChild(st);})();
-const CHAT={open:false,msgs:[],busy:false,left:null,api:'/api/chat'};
+const CHAT={open:false,msgs:[],busy:false,left:null,api:'/api/chat',dot:false,watch:null};
+// v3.23: trợ lý mở form / chuyển màn hình → tự thu gọn để không che; form đóng → mở lại kèm kết quả
+function chatAway(watch){CHAT.open=false;CHAT.dot=true;if(watch)CHAT.watch=watch;chatRender();}
 const chatOn=()=>!!S&&!!S.me&&S.me.chat===true&&!S.custView&&!S.imp;
 const isInt=()=>role()!=='customer';
 // ---------- tiện ích ----------
@@ -64,12 +69,14 @@ const TOOLS={
   const doc=new DOMParser().parseFromString(html,'text/html');const ws=fz(a.q).split(/\s+/).filter(w=>w.length>1);
   const secs=[...doc.querySelectorAll('section[id]')].map(s=>{const t=fz(s.textContent);const sc=ws.reduce((n,w)=>n+(t.split(w).length-1)+(fz(s.dataset.t).includes(w)?5:0),0);return {id:s.id,tieu_de:s.dataset.t,sc,noi_dung:s.textContent.replace(/\s+/g,' ').trim().slice(0,1400)};});
   return secs.sort((x,y)=>y.sc-x.sc).slice(0,2).filter(x=>x.sc>0).map(({sc,...x})=>x);}},
- fill_request:{d:'Mở form Yêu cầu đặt hàng điền sẵn (người dùng tự bấm Gửi). args: customer (nội bộ: tên/mã khách), wh, date, tons, body (nội dung: sản phẩm, màu, độ dày, MT, nơi giao…)',ok:()=>rqCanNew(),run:async a=>{
-  const d=dateArg(a.date)||addDays(TODAY,1);const w=whArg(a.wh)||(V.whAll?WH[0].id:V.wh);let c=null;
+ fill_request:{d:'Mở form Yêu cầu đặt hàng điền sẵn (người dùng tự bấm Gửi). args: customer (nội bộ: tên/mã khách), wh, date (NGÀY GIAO = ngày hàng đến khách, KHÔNG phải ngày bốc; "giao 20/10" → date "20/10"), tons, body (CHÉP NGUYÊN VĂN câu người dùng gõ, không rút gọn)',ok:()=>rqCanNew(),run:async a=>{
+  const d=dateArg(a.date||a.deliver)||addDays(TODAY,2);const w=whArg(a.wh)||(V.whAll?WH[0].id:V.wh);let c=null;
   if(role()!=='customer'){const cs=custFind(a.customer);if(cs.length!==1)return {loi:cs.length?'Có nhiều khách khớp, hỏi lại người dùng chọn: '+cs.map(c=>c.code+' '+c.name).join('; '):'Không tìm thấy khách "'+(a.customer||'')+'" trong phạm vi của bạn.'};c=cs[0];}
-  A.rqNew({d,w});const f=V.modal.f;if(c){f.cid=c.id;f.q=c.code+' – '+c.name;}f.day=d;f.wh=w;f.tons=a.tons?String(a.tons):'';f.body=String(a.body||'').slice(0,2000);render();
-  return {da_mo_form:true,khach:c?c.name:cust(me().customerId).name,kho:w,ngay:d,ghi_chu:'Người dùng kiểm tra rồi bấm Gửi yêu cầu.'};}},
- open:{d:'Mở màn hình. args: kind ("day" | "booking" | "truck" | "guide" | "calendar"), id, date, wh, code',run:async a=>{chatGo(String(a.kind||'')+':'+(a.id||a.code||a.date||'')+(a.wh?':'+a.wh:''));return {da_mo:true};}},
+  const lastU=[...CHAT.msgs].reverse().find(m=>m.role==='user');let body=String(a.body||'').trim();if(lastU&&(!body||body.length<lastU.content.length*0.6))body=lastU.content.trim();
+  A.rqNew({d,w});const f=V.modal.f;if(c){f.cid=c.id;f.q=c.code+' – '+c.name;}f.day=d;f.wh=w;f.tons=a.tons?String(a.tons):'';f.body=body.slice(0,2000);
+  chatAway({type:'rqNew',n:(S.reqs||[]).length,kh:c?c.name:cust(me().customerId).name});render();
+  return {da_mo_form:true,khach:c?c.name:cust(me().customerId).name,kho:w,ngay_giao:d,ngay_boc_du_kien:typeof rqLoadDay==='function'?rqLoadDay(w,d):'',ghi_chu:'Người dùng kiểm tra rồi bấm Gửi yêu cầu.'};}},
+ open:{d:'Mở màn hình. args: kind ("day" | "booking" | "truck" | "guide" | "calendar"), id, date, wh, code',run:async a=>{chatGo(String(a.kind||'')+':'+(a.id||a.code||a.date||'')+(a.wh?':'+a.wh:''));chatAway();return {da_mo:true};}},
  find_customer:{d:'Tìm khách hàng theo tên/mã. args: q',ok:isInt,run:async a=>custFind(a.q).slice(0,8).map(c=>({ma:c.code,ten:c.name,segment:c.segment,sales:user(c.salesId)?.name}))},
  find_trucks:{d:'Tìm xe trong ngày. args: date, wh (tùy chọn), min_free (MT trống tối thiểu), state ("empty" trống, "free" còn chỗ, "locked" đã chạy/đóng, "transit" đang giao, "late" đã qua ngày mà chưa xác nhận giao)',ok:isInt,run:async a=>{
   const d=dateArg(a.date)||TODAY;await ensureRange(d);const ws=a.wh?[whArg(a.wh)].filter(Boolean):WH.map(w=>w.id);const out=[];
@@ -89,16 +96,16 @@ const TOOLS={
   const pref=bkTotal(b)>S.cfg.split?'DK':'XT';
   const why=s.rows.map(r=>{const t=truckByCode(r.code);const rs=truckRegions(t.code,b.id);const l0=loadOf(t.code,b.id);const rel=!rs.length?'xe đang trống':rs.includes(b.region)?'cùng khu vực '+regName(b.region):rs.some(x=>relation(x,b.region)==='nb')?'khu vực lân cận ('+rs.map(regName).join(', ')+')':'khác khu vực';
    return {xe:t.short,tan:t2(r.tons),day_sau_khi_xep:pct((l0+r.tons)/t.cap),loai:t.type+(t.type===pref?' (đúng loại)':' (khác loại khuyến nghị '+pref+')'),ly_do:rel+(l0>0.001?', ghép chuyến đang có '+t2(l0)+' MT':'')};});
-  V.wh=b.wh;V.whAll=false;V.day=b.date;V.view='day';V.dayTab='pending';V.modal=null;render();if(typeof A.dndSuggest==='function')A.dndSuggest({id:b.id});
+  V.wh=b.wh;V.whAll=false;V.day=b.date;V.view='day';V.dayTab='pending';V.modal=null;chatAway();render();if(typeof A.dndSuggest==='function')A.dndSuggest({id:b.id});
   return {booking:b.id,khach:cust(b.customerId).name,can_xep_MT:t2(bkTotal(b)),khu_vuc:regName(b.region),goi_y:why,con_thieu_MT:s.left>0.001?t2(s.left):0,ghi_chu:'Đã mở màn đội xe, xe được gợi ý có viền chạy quanh; bấm ✓ Đồng ý trên booking để xếp, hoặc kéo sang xe khác.'};}},
  suggest_all:{d:'Gợi ý xếp xe cho tất cả booking chờ của một ngày/kho, mở màn đội xe để Logistics Đồng ý tất cả. args: date, wh',ok:()=>isInt()&&can('alloc.assign'),run:async a=>{
-  const d=dateArg(a.date)||TODAY;await ensureRange(d);const w=whArg(a.wh)||V.wh;V.wh=w;V.whAll=false;V.day=d;V.view='day';V.dayTab='pending';V.modal=null;render();
+  const d=dateArg(a.date)||TODAY;await ensureRange(d);const w=whArg(a.wh)||V.wh;V.wh=w;V.whAll=false;V.day=d;V.view='day';V.dayTab='pending';V.modal=null;chatAway();render();
   if(typeof A.dndSuggestAll!=='function')return {loi:'Chưa có tính năng gợi ý'};A.dndSuggestAll();const all=(typeof DND!=='undefined'&&DND.all)||[];const holds=dayM(w,d).holds.length;
   return {ngay:d,kho:w,booking_cho:holds,xep_duoc:all.length,chi_tiet:all.map(s=>({booking:s.bk,khach:cust(bkById(s.bk).customerId).name,xe:s.rows.map(r=>truckByCode(r.code).short+' '+t2(r.tons)+' MT').join(' + ')})),ghi_chu:'Bấm "Đồng ý tất cả" trên màn đội xe để xếp.'};}},
  fill_order:{d:'CS: mở lưới Đặt hàng điền sẵn (người dùng tự lưu). args: customer, wh, date, tons, note',ok:()=>isInt()&&can('booking.create'),run:async a=>{
   const cs=custFind(a.customer);if(cs.length!==1)return {loi:cs.length?'Nhiều khách khớp: '+cs.map(c=>c.code+' '+c.name).join('; '):'Không tìm thấy khách.'};const c=cs[0];
   const d=dateArg(a.date)||addDays(TODAY,1);const w=whArg(a.wh)||c.defWh||V.wh;const keep=V.wh;V.wh=w;openGrid30(d);V.wh=keep;const M=V.modal;M.wh=w;M.rows.forEach(r=>{r.wh=w;r.day=d;});
-  const r0=M.rows[0];r0.cid=c.id;r0.q=c.code;r0.tons=a.tons?String(a.tons).replace('.',','):'';r0.note=String(a.note||'').slice(0,500);render();
+  const r0=M.rows[0];r0.cid=c.id;r0.q=c.code;r0.tons=a.tons?String(a.tons).replace('.',','):'';r0.note=String(a.note||'').slice(0,500);chatAway({type:'grid',n:S.bookings.length,kh:c.name});render();
   return {da_mo_luoi:true,khach:c.name,kho:w,ngay:d,ghi_chu:'Người dùng chọn địa chỉ giao, sản phẩm rồi bấm Lưu / Gửi Logistics.'};}},
 };
 const toolList=()=>Object.entries(TOOLS).filter(([k,t])=>!t.ok||t.ok());
@@ -115,6 +122,7 @@ CÁCH TRẢ LỜI: mỗi lượt chỉ in ra ĐÚNG MỘT đối tượng JSON, 
 Trong "answer" có thể dùng **đậm**, xuống dòng, gạch đầu dòng "- ", và link: [BK-…](#bk:MÃ), [ngày 25/10 JM2](#day:2026-10-25:JM2), [DK-03](#truck:MÃ_XE_ĐẦY_ĐỦ), [mục hướng dẫn](#guide:ID).
 SỐ LIỆU TỔNG HỢP (tổng đã đặt, đã có xe, đã giao, còn phải giao, số đơn, theo khách / Sales / segment / kho trong một kỳ): LUÔN dùng công cụ "stats" – cùng cách tính với Bảng thống kê. TUYỆT ĐỐI KHÔNG tự cộng / đếm từ danh sách đơn; chỉ chép đúng số công cụ trả về, nêu rõ kỳ (từ ngày – đến ngày) và kèm link [Xem trên Bảng thống kê](#dash:...) mà công cụ đưa.
 "tháng này" = period "month"; "tuần này" = "week"; "hôm nay" = "day"; quý / năm tương tự. Tên người (vd "anh Ánh") có thể là người liên hệ chứ không phải công ty: nếu không chắc, hỏi lại.
+NGÀY: "ngày bốc" = ngày xe bốc hàng tại kho (lịch, năng lực, xe đều theo ngày bốc); "ngày giao" = ngày hàng đến khách. Khách / Sales nói "giao 20/10" là NGÀY GIAO. Yêu cầu đặt hàng luôn ghi theo ngày giao, hệ thống tự tính ngày bốc dự kiến.
 Quy tắc: ngày dạng YYYY-MM-DD; thiếu thông tin bắt buộc (khách, ngày, kho) thì hỏi lại thay vì đoán; với điền form chỉ nói "đã mở form, bạn kiểm tra và bấm Gửi" – không bao giờ nói đã gửi/đã lưu; câu hỏi ngoài phạm vi công việc thì lịch sự từ chối.`;}
 // ---------- vòng hỏi – công cụ – trả lời ----------
 function parseReply(t){if(t&&typeof t==='object')return normReply(t);t=String(t||'').trim();const i=t.indexOf('{'),j=t.lastIndexOf('}');
@@ -150,14 +158,16 @@ function chatGo(k){const [kind,id,wh]=String(k).split(':');
  else if(kind==='truck'){const t=truckByCode(id);if(!t)return;V.wh=t.wh;V.whAll=false;V.day=t.date;V.view='day';V.modal={type:'truck',code:t.code};afterNav(goMonth(t.date));}
  else if(kind==='guide'){if(typeof A.guide==='function')A.guide({s:id});}
  else if(kind==='calendar'){V.view='calendar';render();}}
-A.chatGo=d=>chatGo(d.k);
+A.chatGo=d=>{chatGo(d.k);if(innerWidth<1100||V.modal)chatAway();};
 const SUGG=()=>role()==='customer'?['Tuần này kho nào còn chỗ?','Đơn của tôi tuần này','Gửi yêu cầu đặt hàng']
  :role()==='logistics'?['Hôm nay còn bao nhiêu đơn chờ xếp xe?','Xe nào ngày mai còn trống trên 10 MT?','Gợi ý xếp xe tất cả đơn ngày mai','Xe nào đang giao chưa xác nhận?']
  :role()==='sales'?['Còn chỗ ngày mai không?','Đơn chờ xếp xe của khách tôi','Ghi yêu cầu đặt hàng cho khách']
  :['Đơn chờ xếp xe lâu nhất','Còn chỗ 3 ngày tới?','Đơn bị từ chối tuần này','Cách xác nhận giao hàng?'];
 function chatRender(){let fab=document.getElementById('chatFab');
  if(!chatOn()){if(fab)fab.remove();const p=document.getElementById('chatPanel');if(p)p.remove();document.body.classList.remove('chat-open');return;}
- if(!fab){fab=document.createElement('button');fab.id='chatFab';fab.title='Trợ lý Đặt Xe (G Q)';fab.setAttribute('aria-label','Mở trợ lý');fab.textContent='💬';fab.onclick=()=>chatToggle(true);document.body.appendChild(fab);}
+ if(!fab){fab=document.createElement('button');fab.id='chatFab';fab.title='Trợ lý Đặt Xe (G Q)';fab.setAttribute('aria-label','Mở trợ lý');fab.onclick=()=>chatToggle(true);document.body.appendChild(fab);}
+ fab.classList.toggle('dot',CHAT.dot&&!CHAT.open);const tip=CHAT.dot&&!CHAT.open&&CHAT.msgs.length?(CHAT.busy?'Trợ lý đang trả lời…':'Bấm để quay lại trợ lý'):'';
+ if(fab.dataset.tip!==tip||!fab.firstChild){fab.dataset.tip=tip;fab.innerHTML='💬'+(tip?`<span class="fabtip">${esc(tip)}</span>`:'');}
  let p=document.getElementById('chatPanel');document.body.classList.toggle('chat-open',CHAT.open);if(!CHAT.open){if(p)p.remove();return;}
  const keep=p&&p.querySelector('textarea')?p.querySelector('textarea').value:'';
  if(!p){p=document.createElement('aside');p.id='chatPanel';p.setAttribute('aria-label','Trợ lý Đặt Xe');document.body.appendChild(p);}
@@ -169,14 +179,19 @@ function chatRender(){let fab=document.getElementById('chatFab');
  <div class="cf"><textarea class="inp" placeholder="Hỏi về lịch, đơn, xe… (Enter để gửi)" ${CHAT.busy?'disabled':''}>${esc(keep)}</textarea><button class="btn" data-chat="send" ${CHAT.busy?'disabled':''}>Gửi</button></div>
  <div class="cl">${CHAT.left!=null?'Còn '+CHAT.left+' lượt hôm nay · ':''}Trợ lý có thể sai, hãy kiểm tra trước khi thao tác.</div>`;
  const cm=p.querySelector('.cm');cm.scrollTop=cm.scrollHeight;const ta=p.querySelector('textarea');if(!CHAT.busy)ta.focus();}
-function chatToggle(on){CHAT.open=on==null?!CHAT.open:on;chatRender();}
+function chatToggle(on){CHAT.open=on==null?!CHAT.open:on;if(CHAT.open)CHAT.dot=false;else CHAT.watch=null;chatRender();}
 A.chatOpen=()=>chatOn()&&chatToggle(true);
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-chat]');if(!b)return;const k=b.dataset.chat;
  if(k==='x')chatToggle(false);else if(k==='clear'){CHAT.msgs=[];chatRender();}else if(k==='s')chatAsk(b.textContent);
  else if(k==='send'){const ta=document.querySelector('#chatPanel textarea');const v=ta.value;ta.value='';chatAsk(v);}});
 document.addEventListener('keydown',e=>{const ta=e.target.closest&&e.target.closest('#chatPanel textarea');if(ta&&e.key==='Enter'&&!e.shiftKey){e.preventDefault();e.stopPropagation();const v=ta.value;ta.value='';chatAsk(v);}
  else if(e.key==='Escape'&&CHAT.open&&e.target.closest&&e.target.closest('#chatPanel')){chatToggle(false);}},true);
-{const r0=render;render=function(){r0();chatRender();};}
+{const r0=render;render=function(){r0();
+ const W=CHAT.watch;if(W&&S&&!(V.modal&&V.modal.type===W.type)){CHAT.watch=null;let t;
+  if(W.type==='rqNew'){const nw=(S.reqs||[]).length>W.n?S.reqs.reduce((a,r)=>r.id>a.id?r:a):null;t=nw?`✓ Đã gửi yêu cầu cho **${nw?rqCustName(nw.customerId):W.kh}** – giao ${dm(rqDl(nw))}, kho ${nw.wh} (bốc dự kiến ${dm(nw.date)}). CS sẽ xử lý và báo lại.`:'Bạn đã đóng form, yêu cầu **chưa gửi**.';}
+  else t=S.bookings.length>W.n?`✓ Đã lưu đơn cho **${W.kh}**.`:'Bạn đã đóng lưới đặt hàng, **chưa lưu** đơn mới.';
+  CHAT.msgs.push({role:'assistant',content:t});CHAT.open=true;CHAT.dot=false;}
+ chatRender();};}
 // ---------- cấu hình (Admin) + bật cho từng khách ----------
 const CHAT_ROLES=[['cs','CS'],['sales','Sales'],['logistics','Logistics'],['admin','Admin'],['customer','Khách hàng']];
 const chatLim=k=>{const R=S.cfg.chatDailyRole||{};return R[k]!=null?R[k]:(k==='customer'?30:(S.cfg.chatDaily||150));};
