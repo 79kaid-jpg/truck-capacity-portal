@@ -10,5 +10,5 @@ for t in run gs past mfa rebook offday truckedit blfilter salesstats v29 v31 log
   if [ $t = blfilter ]; then psql -h /tmp -U postgres -d t -qc "update app.customers set cs_user_id='00000000-0000-0000-0000-0000000000c1' where code in ('KH0102','KH0201'); update app.bookings set day = date_trunc('month', app.today())::date - 10, status='ok' where id = (select id from app.bookings where status='ok' order by id desc limit 1)"; ARGS="$(psql -h /tmp -U postgres -d t -Atc "select id from app.bookings where day < date_trunc('month', app.today())::date limit 1")"; fi
   if [ $t = salesstats ]; then ARGS="$(bash test/e2e/salesstats_setup.sh)"; fi
   python3 test/e2e/server.py 8787 > /tmp/srv.log 2>&1 & SP=$!
-  sleep 1; echo "== $t"; timeout 400 node test/e2e/$t.mjs $ARGS || FAILED="$FAILED $t"; kill $SP; sleep 1
+  sleep 1; echo "== $t"; timeout 400 node test/e2e/$t.mjs $ARGS 2>&1 | tee /tmp/e2e-$t.log; if [ "${PIPESTATUS[0]}" != 0 ]; then FAILED="$FAILED $t"; [ -n "$GITHUB_ACTIONS" ] && echo "::error title=e2e $t::$(grep -E "^FAIL|Error|lỗi" /tmp/e2e-$t.log | grep -v " 0 lỗi" | head -8 | tr "\n" " " | cut -c1-900)"; fi; kill $SP; sleep 1
 done; echo ALLDONE; if [ -n "$FAILED" ]; then echo "FAILED:$FAILED"; exit 1; fi; echo "ALL E2E PASSED"
