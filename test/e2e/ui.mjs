@@ -64,5 +64,35 @@ await session('kh@demo.vn', async p => {
   ok(r >= 4.5, 'dải Xem như khách: chữ trắng đọc được', r.toFixed(2));
 });
 
+/* ---------- v3.35: điện thoại ---------- */
+await session('cs@demo.vn', async p => {
+  S('m-header'); const hh = await p.locator('.top').evaluate(e => e.getBoundingClientRect().height); ok(hh <= 64, 'điện thoại: header một dòng', hh);
+  ok(await p.locator('.top .logo').evaluate(e => getComputedStyle(e).fontSize === '0px' && !!e.getAttribute('aria-label')), 'logo chỉ còn biểu tượng, có nhãn đọc màn hình');
+  ok(await p.locator('.top .h52 svg').count() === 1 && (await p.locator('.top .h52').getAttribute('aria-label')) === 'Hướng dẫn sử dụng', 'nút Hướng dẫn là biểu tượng có nhãn');
+  S('m-targets'); const small = await p.evaluate(() => [...document.querySelectorAll('.main button, .top button')].filter(b => { const r = b.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.height < 40 && !b.closest('.cell'); }).map(b => (b.textContent || b.getAttribute('aria-label') || '').trim().slice(0, 20)));
+  ok(small.length === 0, 'nút ngoài ô lịch cao ≥ 40px', small.join(' | '));
+  S('m-filter'); ok(!(await p.locator('.cal36bar [data-a="calF"]').first().isVisible()) && await p.locator('.f52').isVisible(), 'bộ lọc gom vào nút Lọc');
+  await p.click('.f52'); await p.waitForTimeout(200); ok(await p.locator('.cal36bar [data-a="calF"][data-v="hold"]').isVisible(), 'bấm Lọc → hiện các lựa chọn');
+  await p.click('.cal36bar [data-a="calF"][data-v="hold"]'); await p.waitForTimeout(300); ok(/lọc: có đơn chờ xếp xe/i.test(await p.locator('.f52').innerText()), 'nút Lọc ghi rõ bộ lọc đang chọn');
+  S('m-past'); const firstVisible = () => p.evaluate(() => { const c = [...document.querySelectorAll('.cal .cell:not(.pad):not(.wk)')].find(e => e.getBoundingClientRect().height > 0); return c && (c.classList.contains('today') || !c.classList.contains('past')); });
+  ok(await firstVisible(), 'lịch CS mở từ hôm nay'); ok(/Xem \d+ ngày đã qua/.test(await p.locator('.past52').innerText()), 'có nút Xem ngày đã qua');
+  await p.click('.past52'); await p.waitForTimeout(300); ok(!(await firstVisible()), 'bấm → hiện lại ngày đã qua');
+  S('m-grid'); await p.click('.past52'); await p.locator('[data-a="newBk"]').first().click(); await p.waitForSelector('.modal');
+  const g = await p.evaluate(() => { const m = document.querySelector('.modal').getBoundingClientRect(); const tr = document.querySelector('.g30 tbody tr'); const f = document.querySelector('.g30 .mfoot [data-m="hold"]').getBoundingClientRect();
+    return { l: m.left, r: m.right, tr: getComputedStyle(tr).display, foot: f.bottom <= innerHeight && f.right <= innerWidth, th: getComputedStyle(document.querySelector('.g30 thead')).display, sw: document.querySelector('.modal').scrollWidth <= innerWidth }; });
+  ok(g.l >= 0 && g.r <= 390, 'lưới Đặt hàng nằm gọn trong màn hình', JSON.stringify(g)); ok(g.tr === 'grid' && g.th === 'none', 'mỗi dòng đơn là một thẻ'); ok(g.foot, 'nút Đặt & gửi Logistics luôn thấy ở đáy'); ok(g.sw, 'không cuộn ngang trong lưới');
+  await p.fill('[data-g="code"][data-i="0"]', 'KH0101'); await p.keyboard.press('Enter'); await p.fill('[data-g="tons"][data-i="0"]', '20'); await p.waitForTimeout(300);
+  ok(/20,00 MT/.test(await p.locator('#g30foot').innerText()), 'nhập trên thẻ vẫn cộng vào tổng'); await p.screenshot({ path: `${OUT}/m-grid.png` });
+}, phone);
+await session('kh@demo.vn', async p => {
+  S('m-kh'); const v = await p.evaluate(() => { const c = [...document.querySelectorAll('.cal .cell:not(.pad)')].find(e => e.getBoundingClientRect().height > 0); return c && c.classList.contains('today'); });
+  ok(v, 'lịch khách trên điện thoại mở từ hôm nay'); ok(await p.locator('.past52').isVisible(), 'khách cũng có nút Xem ngày đã qua');
+}, phone);
+await session('cs@demo.vn', async p => {
+  S('desk'); ok(!(await p.locator('.past52').isVisible()) && !(await p.locator('.f52').isVisible()), 'máy tính: không đổi (không nút Lọc / ngày đã qua)');
+  ok(await p.locator('.cal36bar [data-a="calF"]').first().isVisible(), 'máy tính: các nút lọc hiện như cũ');
+  await p.locator('[data-a="newBk"]').first().click(); await p.waitForSelector('.modal'); ok(await p.locator('.g30 thead').isVisible(), 'máy tính: lưới vẫn là bảng');
+});
+
 console.log(`\n${pass} đạt, ${errors.length} lỗi`); if (errors.length) { console.log(errors.join('\n')); process.exitCode = 1; }
 await browser.close();
