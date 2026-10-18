@@ -172,6 +172,9 @@ create table if not exists app.order_requests (
   booking_id  text
 );
 create index if not exists order_requests_day on app.order_requests (day, status);
+-- v3.23: khách / Sales ghi NGÀY GIAO; day = ngày bốc dự kiến (ngày giao − số ngày vận chuyển của kho), CS sửa được
+alter table app.order_requests add column if not exists deliver_on date;
+update app.order_requests set deliver_on = day where deliver_on is null;
 
 -- v3.8: Admin "Xem như khách hàng" (chỉ xem) – không cần khách có tài khoản
 create table if not exists app.cust_views (
@@ -1551,7 +1554,7 @@ begin
   me := app.require_perm('config.general');
   for k in select jsonb_object_keys(p) loop
     if k not in ('near','capDK','capCN','split','sla','maxStops','fillMin','suggestOn','sundayOff','holidays','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours',
-                 'shipRemindHours','shipAdminDays','requirePicking','chatOn','chatRoles','chatDaily','chatDailyRole','chatDailyTotal') then
+                 'shipRemindHours','shipAdminDays','requirePicking','chatOn','chatRoles','chatDaily','chatDailyRole','chatDailyTotal','transitDays') then
       raise exception 'Cấu hình % không hợp lệ.', k;
     end if;
     -- v3.15: bật/tắt bắt buộc picking list – chỉ Admin
@@ -1563,6 +1566,11 @@ begin
     end if;
     if k in ('near','capDK','capCN','split','sla','maxStops','fillMin','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours','shipRemindHours','shipAdminDays','chatDaily','chatDailyTotal') and not ((p->>k)::numeric > 0) then
       raise exception 'Giá trị % phải lớn hơn 0.', k;
+    end if;
+    if k = 'transitDays' and (jsonb_typeof(p->k) <> 'object' or exists (select 1 from jsonb_each(p->k) e
+        where not exists (select 1 from app.warehouses w where w.code = e.key) or jsonb_typeof(e.value) <> 'number'
+           or (e.value #>> '{}')::numeric not between 0 and 15 or (e.value #>> '{}')::numeric <> round((e.value #>> '{}')::numeric))) then
+      raise exception 'Số ngày vận chuyển phải là số nguyên từ 0 đến 15 cho từng kho.';
     end if;
     if k = 'chatDailyRole' and (jsonb_typeof(p->k) <> 'object' or exists (select 1 from jsonb_each(p->k) e
         where e.key not in ('cs','sales','logistics','admin','customer') or jsonb_typeof(e.value) <> 'number' or (e.value #>> '{}')::numeric < 0)) then
@@ -3193,9 +3201,15 @@ end $$;
 
 
 -- v3.13: Yêu cầu đặt hàng ----------------------------------------------------
+-- số ngày vận chuyển kho → khách (Cấu hình → Chung), mặc định 1
+create or replace function app.transit_days(p_wh text) returns int
+language sql stable security definer set search_path = '' as $$
+  select coalesce((app.setting('transitDays') ->> p_wh)::int, 1)
+$$;
+
 create or replace function app.req_json(r app.order_requests) returns jsonb
 language sql stable security definer set search_path = '' as $$
-  select jsonb_build_object('id', r.id, 'customerId', r.customer_id, 'wh', r.wh, 'date', r.day, 'tons', r.tons, 'body', r.body,
+  select jsonb_build_object('id', r.id, 'customerId', r.customer_id, 'wh', r.wh, 'date', r.day, 'deliver', coalesce(r.deliver_on, r.day), 'tons', r.tons, 'body', r.body,
     'status', r.status, 'by', r.created_by, 'byName', app.uname(r.created_by),
     'byCust', (select role = 'customer' from app.profiles where user_id = r.created_by),
     'at', extract(epoch from r.created_at), 'handledBy', app.uname(r.handled_by),
@@ -3204,7 +3218,7 @@ $$;
 
 create or replace function public.req_create(p jsonb) returns jsonb
 language plpgsql volatile security definer set search_path = '' as $$
-declare m app.profiles; v_cust uuid; v_day date := (p->>'day')::date; v_wh text := p->>'wh'; v_t numeric := nullif(p->>'tons', '')::numeric;
+declare m app.profiles; v_cust uuid; v_day date; v_dl date := coalesce(nullif(p->>'deliver', ''), nullif(p->>'day', ''))::date; v_wh text := p->>'wh'; v_t numeric := nullif(p->>'tons', '')::numeric;
         v_body text := trim(coalesce(p->>'body', '')); r app.order_requests; c app.customers; v_txt text;
 begin
   select * into m from app.profiles where user_id = app.uid() and active;
@@ -3220,13 +3234,14 @@ begin
   end if;
   select * into c from app.customers where id = v_cust;
   if not found then raise exception 'Chọn khách hàng.'; end if;
-  if v_day is null or v_day < app.today() then raise exception 'Chọn ngày bốc từ hôm nay trở đi.'; end if;
   if not exists (select 1 from app.warehouses where code = v_wh and active) then raise exception 'Chọn kho.'; end if;
+  if v_dl is null or v_dl < app.today() then raise exception 'Chọn ngày giao từ hôm nay trở đi.'; end if;
+  v_day := greatest(app.today(), v_dl - app.transit_days(v_wh));
   if length(v_body) < 3 then raise exception 'Ghi nội dung yêu cầu (sản phẩm, màu, độ dày, số MT…).'; end if;
   if length(v_body) > 2000 then raise exception 'Nội dung quá dài (tối đa 2000 ký tự).'; end if;
   if v_t is not null and (v_t <= 0 or v_t > 5000) then raise exception 'Số MT không hợp lệ.'; end if;
-  insert into app.order_requests (customer_id, wh, day, tons, body, created_by) values (v_cust, v_wh, v_day, v_t, v_body, m.user_id) returning * into r;
-  v_txt := 'Yêu cầu đặt hàng · ' || c.name || ' · ' || v_wh || ' ' || app.dm(v_day) || coalesce(' · ' || trim(to_char(v_t, 'FM999G990D00')) || ' MT', '') || ': ' || left(v_body, 120);
+  insert into app.order_requests (customer_id, wh, day, deliver_on, tons, body, created_by) values (v_cust, v_wh, v_day, v_dl, v_t, v_body, m.user_id) returning * into r;
+  v_txt := 'Yêu cầu đặt hàng · ' || c.name || ' · ' || v_wh || ' giao ' || app.dm(v_dl) || ' (bốc dự kiến ' || app.dm(v_day) || ')' || coalesce(' · ' || trim(to_char(v_t, 'FM999G990D00')) || ' MT', '') || ': ' || left(v_body, 120);
   -- CS phụ trách (nghỉ → người nhận thay; không có → mọi CS) + Sales phụ trách; không gửi lại cho người gửi
   perform app.notify(array(select x from unnest(
       case when c.cs_user_id is not null and exists (select 1 from app.profiles where user_id = c.cs_user_id and active and not app.is_away(user_id))
@@ -3264,13 +3279,33 @@ begin
          booking_id = nullif(p_booking, '') where id = p_id returning * into r;
   select * into c from app.customers where id = r.customer_id;
   v_txt := case p_status when 'done' then 'Đã nhận yêu cầu đặt hàng' when 'declined' then 'Không nhận yêu cầu đặt hàng' else 'Đã hủy yêu cầu đặt hàng' end
-           || ' · ' || c.name || ' · ' || r.wh || ' ' || app.dm(r.day) || coalesce(' · booking ' || r.booking_id, '') || coalesce(': ' || r.reply, '');
+           || ' · ' || c.name || ' · ' || r.wh || ' giao ' || app.dm(coalesce(r.deliver_on, r.day)) || coalesce(' · booking ' || r.booking_id, '') || coalesce(': ' || r.reply, '');
   if r.created_by <> m.user_id then perform app.notify(array[r.created_by], 'Yêu cầu', v_txt, jsonb_build_object('req', r.id, 'day', r.day, 'wh', r.wh)); end if;
   if p_status <> 'cancelled' then
     perform app.notify(array(select x from unnest(app.customer_users(r.customer_id) || array[c.sales_user_id]) x where x is not null and x <> m.user_id and x <> r.created_by),
                        'Yêu cầu', v_txt, jsonb_build_object('req', r.id, 'day', r.day, 'wh', r.wh));
   end if;
   insert into app.audit_log (entity_id, detail, actor) values ('REQ-' || r.id, m.full_name || ': ' || v_txt, m.user_id);
+  return app.req_json(r);
+end $$;
+
+-- v3.23: CS đổi ngày bốc dự kiến của yêu cầu (ngày giao giữ nguyên)
+create or replace function public.req_set_day(p_id bigint, p_day date) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare m app.profiles; r app.order_requests; v_old date;
+begin
+  m := app.require_perm('req.handle');
+  if exists (select 1 from app.cust_views v where v.admin_id = app.real_uid() and v.expires_at > now()) then
+    raise exception 'Đang ở chế độ Xem như khách hàng (chỉ xem).' using errcode = '42501';
+  end if;
+  select * into r from app.order_requests where id = p_id for update;
+  if not found then raise exception 'Không tìm thấy yêu cầu.'; end if;
+  if r.status <> 'new' then raise exception 'Yêu cầu này đã được xử lý.'; end if;
+  if p_day is null or p_day < app.today() then raise exception 'Chọn ngày bốc từ hôm nay trở đi.'; end if;
+  if p_day > coalesce(r.deliver_on, r.day) then raise exception 'Ngày bốc không được sau ngày giao (%).', app.dm(coalesce(r.deliver_on, r.day)); end if;
+  v_old := r.day;
+  update app.order_requests set day = p_day where id = p_id returning * into r;
+  insert into app.audit_log (entity_id, detail, actor) values ('REQ-' || r.id, m.full_name || ' đổi ngày bốc dự kiến ' || app.dm(v_old) || ' → ' || app.dm(p_day), m.user_id);
   return app.req_json(r);
 end $$;
 
@@ -3496,7 +3531,7 @@ begin
        'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa','list_bookings','booking_stats',
        'bulk_create_bookings','suggest_days','set_urgent','confirm_delivery','get_coils','mark_loaded','resolve_short','mark_transit',
        'mark_delivered','mark_failed','close_truck','set_email_prefs','send_to_logistics','save_warehouse','change_booking_wh',
-       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop','req_create','req_update','admin_create_user','admin_reset_password','my_pw_changed','admin_user_refs','admin_delete_user','chat_use','set_customer_chat','chat_stats')
+       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop','req_create','req_update','admin_create_user','admin_reset_password','my_pw_changed','admin_user_refs','admin_delete_user','chat_use','set_customer_chat','chat_stats','req_set_day')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);
