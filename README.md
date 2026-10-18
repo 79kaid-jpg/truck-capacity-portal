@@ -374,6 +374,11 @@ Không cần chạy SQL.
 - "Đóng xe" đổi thành **Chốt xe – ngừng nhận đơn** (không phải xe đã chạy); xe đã chốt bỏ nhãn "Đầy" trùng ý.
 - Hộp xe → **Bốc / giao theo xe**: Bốc xong cả xe (danh sách kiểm tra: đơn trên nhiều xe, thiếu danh sách cuộn, bốc thiếu), Xe xuất phát (giờ dự kiến tới), Đã giao / Không thành công từng điểm. Bên trong vẫn gọi từng đơn nên đủ quy tắc, thông báo, nhật ký.
 
+## v3.27 — Mở lại đơn Đã load · khóa xe đã chạy
+**Chạy `supabase/setup_all.sql` trước khi gộp** (hàm `unload_booking`, khóa tải trọng xe đã chạy trong `set_truck_info`).
+- Đơn Đã load, xe chưa xuất phát: ↩ Mở lại (từng đơn / cả xe / chi tiết booking), bắt buộc lý do, nhật ký, báo CS + Sales, không báo khách.
+- Xe đã chạy: ẩn Sửa phần hàng đơn đã đi, khóa tải trọng (máy chủ chặn), ẩn Chốt xe, nhãn "Trống x MT · không nhận thêm".
+
 
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.

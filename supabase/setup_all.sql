@@ -1567,6 +1567,10 @@ begin
     raise exception 'Xe % đã đóng: mở lại xe trước khi đổi tải trọng.', app.short_code(p_code);
   end if;
   v_def := app.setn(case when t.type = 'DK' then 'capDK' else 'capCN' end);
+  -- v3.27: xe đã chạy (có đơn Đang giao / Đã giao) → khóa tải trọng; biển số / tài xế / SĐT vẫn sửa được
+  if app.truck_departed(p_code) and abs(coalesce(p_cap, v_def) - t.cap) >= 0.005 then
+    raise exception 'Xe % đã chạy: không đổi tải trọng được (biển số, tài xế, SĐT vẫn sửa được).', app.short_code(p_code);
+  end if;
   v_min := coalesce(app.setn(case when t.type = 'DK' then 'capDKMin' else 'capCNMin' end), case when t.type = 'DK' then 15 else 5 end);
   v_max := coalesce(app.setn(case when t.type = 'DK' then 'capDKMax' else 'capCNMax' end), case when t.type = 'DK' then 35 else 20 end);
   v_cap := case when p_cap is null or abs(p_cap - v_def) < 0.005 then null else round(p_cap, 2) end;
@@ -2703,6 +2707,28 @@ begin
   perform app.notify(app.customer_users(c.id), 'Đã load', 'Đơn ' || coalesce(nullif(b.ref, ''), p_id) || ' ngày ' || app.dm(b.day) || ' đã load lên xe',
                      jsonb_build_object('bk', p_id, 'day', b.day));
   return jsonb_build_object('short', v_short, 'shortCoils', v_n, 'needAction', v_short > app.coil_tol(v_tons));
+end $$;
+
+-- v3.27: Đã load nhưng xe chưa xuất phát → Logistics mở lại để điều chỉnh (đơn về Đã xếp xe, sửa / chuyển xe rồi bốc lại).
+-- Bắt buộc lý do, ghi nhật ký, báo CS + Sales; không báo khách (điều chỉnh nội bộ).
+create or replace function public.unload_booking(p_id text, p_reason text) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; b app.bookings; c app.customers; v_trk text;
+begin
+  me := app.require_perm('delivery.ship');
+  if length(trim(coalesce(p_reason, ''))) < 3 then raise exception 'Nhập lý do mở lại (ví dụ: xếp lại hàng cho cân xe).'; end if;
+  select * into b from app.bookings where id = p_id for update;
+  if not found or b.status <> 'loaded' then raise exception 'Chỉ mở lại được đơn Đã load (chưa Đang giao).'; end if;
+  perform app.check_scope(me, b.customer_id);
+  select string_agg(distinct app.short_code(a.truck_code), ', ') into v_trk from app.allocations a where a.booking_id = p_id and app.truck_departed(a.truck_code);
+  if v_trk is not null then raise exception 'Xe % đã xuất phát (có đơn Đang giao): không mở lại được. Dùng Giao không thành công nếu cần.', v_trk; end if;
+  select * into c from app.customers where id = b.customer_id;
+  update app.delivery_items set loaded = true where booking_id = p_id;
+  update app.bookings set status = 'ok', loaded_at = null, load_note = '', short_tons = null, ship_remind_on = null, updated_at = now() where id = p_id;
+  perform app.status_change(p_id, 'loaded', 'ok', null, 'Mở lại để điều chỉnh: ' || trim(p_reason));
+  perform app.audit(p_id, 'Mở lại để điều chỉnh (Đã load → Đã xếp xe): ' || trim(p_reason));
+  perform app.notify_bk(c.id, null, array[c.sales_user_id], 'Nhắc việc',
+    p_id || ' · ' || c.name || ': Logistics ' || me.full_name || ' mở lại đơn đã load để điều chỉnh xếp xe. Lý do: ' || trim(p_reason), jsonb_build_object('bk', p_id));
 end $$;
 
 -- CS xử lý load thiếu: tách đơn phần còn lại hoặc không giao (BR-44, BR-46)
@@ -3918,7 +3944,7 @@ begin
        'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa','list_bookings','booking_stats',
        'bulk_create_bookings','suggest_days','set_urgent','confirm_delivery','get_coils','mark_loaded','resolve_short','mark_transit',
        'mark_delivered','mark_failed','close_truck','set_email_prefs','send_to_logistics','save_warehouse','change_booking_wh',
-       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop','req_create','req_update','admin_create_user','admin_reset_password','my_pw_changed','admin_user_refs','admin_delete_user','chat_use','set_customer_chat','chat_stats','req_set_day','talk_get','talk_post','talk_edit','talk_react','talk_set','talk_upload','talk_file','my_new_notifs')
+       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop','req_create','req_update','admin_create_user','admin_reset_password','my_pw_changed','admin_user_refs','admin_delete_user','chat_use','set_customer_chat','chat_stats','req_set_day','unload_booking','talk_get','talk_post','talk_edit','talk_react','talk_set','talk_upload','talk_file','my_new_notifs')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);

@@ -57,3 +57,38 @@ A.trkRun=async()=>{const M=V.modal,T=M&&M.trk;if(!T||T.busy||!T.sel.length)retur
 A.trkOne=d=>{const code=V.modal&&V.modal.code;V.trkBack=code;A.v9Ship({k:d.k==='delivered'?'delivered':d.k==='failed'?'failed':'load',id:d.id});};
 {const r0=render;render=function(){if(V.trkBack&&!V.modal&&S){const c=V.trkBack;V.trkBack=null;if(truckByCode(c))V.modal={type:'truck',code:c};}
  else if(V.trkBack&&V.modal&&!['ship','truck'].includes(V.modal.type))V.trkBack=null;r0();};}
+// ---------- v3.27: Mở lại đơn Đã load (xe chưa xuất phát); xe đã chạy: khóa sửa / tải trọng / chốt ----------
+const trkGone=code=>truckDeparted(code);
+const canReopen=b=>trkCan()&&b&&b.status==='loaded'&&!allocsOf(b.id).some(a=>trkGone(a.truck));
+{const m1=mTruck;mTruck=function(){let h=m1();const t=V.modal&&truckByCode(V.modal.code);if(!t)return h;const gone=trkGone(t.code);
+ // nút Sửa trên phần hàng: chỉ đơn Chờ xếp / Đã xếp; đơn Đã load (xe chưa chạy) → ↩ Mở lại
+ h=h.replace(/<button class="ed" data-a="editAl" data-id="([^"]+)">Sửa<\/button>/g,(m,id)=>{const a=S.allocs.find(x=>String(x.id)===id);const b=a&&bkById(a.bk);if(!b)return m;
+  if(['hold','ok'].includes(b.status))return m;if(canReopen(b))return `<button class="ed" data-a="trkReopen" data-id="${b.id}" title="Đã load: mở lại để điều chỉnh">↩ Mở lại</button>`;return '';});
+ if(gone){const l=loadOf(t.code);const s=truckState(t,l);const p=tsPill(s,t.cap-l);const free=r2(t.cap-l);
+  h=h.replace(p,free>0.004?`<span class="pill" style="background:var(--ground);color:var(--muted)" title="Xe đã chạy: phần trống không nhận thêm"><i></i>Trống ${tnum(free)} MT · không nhận thêm</span>`:'');
+  h=h.replace('id="ti-c" class="inp num"','id="ti-c" disabled title="Xe đã chạy: không đổi tải trọng" class="inp num"');}
+ return h;};}
+if(typeof truckClose29==='function'){const c0=truckClose29;truckClose29=function(t,l,past){if(!t.closed&&trkGone(t.code))return '';return c0(t,l,past);};}
+// khung Bốc / giao theo xe: thêm Mở lại cả xe + hộp lý do
+{const b0=trkBlock;trkBlock=function(t){const T=V.modal.trk&&V.modal.trk.code===t.code?V.modal.trk:null;
+ if(T&&T.k==='reopen'){const L=trkBks(t.code).filter(x=>canReopen(x.b));
+  return `<div class="trk"><h4>↩ MỞ LẠI ĐỂ ĐIỀU CHỈNH</h4><div class="small">Đơn về <b>Đã xếp xe</b> để sửa / chuyển xe, rồi bốc lại. Ghi nhật ký, báo CS + Sales; <b>không báo khách</b>.</div>
+   <table>${L.map(x=>`<tr><td style="width:28px"><input type="checkbox" data-trk="${x.b.id}" ${T.sel.includes(x.b.id)?'checked':''} aria-label="Chọn ${x.b.id}"></td><td><b>${esc(cust(x.b.customerId).name)}</b> <span class="muted small">${x.b.id}</span> · <span class="num">${t2(x.tons)} MT</span></td></tr>`).join('')}</table>
+   <div class="row" style="margin-top:8px"><div class="field grow"><label for="trk-rs">Lý do <span class="req">*</span></label><input id="trk-rs" class="inp" data-trkrs="1" value="${esc(T.reason||'')}" placeholder="VD: xếp lại hàng cho cân xe, đổi sang xe khác"></div>
+    <button class="btn sm" data-a="trkRun" ${T.sel.length&&!T.busy?'':'disabled'}>${T.busy?'Đang xử lý…':`↩ Mở lại ${T.sel.length} đơn`}</button><button class="btn ghost sm" data-a="trkCancel">Thôi</button></div>${T.err?`<div class="err small">${esc(T.err)}</div>`:''}</div>`;}
+ let h=b0(t);if(T||!trkCan())return h;const n=trkBks(t.code).filter(x=>canReopen(x.b)).length;
+ if(n&&h)h=h.replace('<div class="row">',`<div class="row"><button class="btn ghost sm" data-a="trkStart" data-k="reopen" data-c="${t.code}" title="Xe chưa xuất phát: đưa đơn đã bốc về Đã xếp xe để điều chỉnh">↩ Mở lại cả xe (${n} đơn)</button>`);
+ return h;};}
+{const s0=A.trkStart;A.trkStart=d=>{if(d.k!=='reopen')return s0(d);const t=truckByCode(d.c);if(!t)return;
+ V.modal.trk={code:t.code,k:'reopen',sel:trkBks(t.code).filter(x=>canReopen(x.b)).map(x=>x.b.id),reason:'',busy:false,err:''};V.modal.trkRes=null;render();};}
+A.trkReopen=d=>{const code=V.modal&&V.modal.code;if(!code)return;V.modal.trk={code,k:'reopen',sel:[d.id],reason:'',busy:false,err:''};V.modal.trkRes=null;render();setTimeout(()=>{const i=document.getElementById('trk-rs');if(i)i.focus();},30);};
+document.addEventListener('input',e=>{const T=V.modal&&V.modal.trk;if(T&&e.target.dataset&&e.target.dataset.trkrs){T.reason=e.target.value;if(T.err){T.err='';}}});
+{const r0=A.trkRun;A.trkRun=async()=>{const M=V.modal,T=M&&M.trk;if(!T||T.k!=='reopen')return r0();if(T.busy||!T.sel.length)return;
+ if((T.reason||'').trim().length<3){T.err='Nhập lý do mở lại.';return render();}T.busy=true;render();const lines=[];
+ for(const id of T.sel){const b=bkById(id);const nm=(b?cust(b.customerId).name+' · ':'')+id;try{await rpc('unload_booking',{p_id:id,p_reason:T.reason.trim()});lines.push({ok:true,t:nm+': đã mở lại, về Đã xếp xe'});}catch(e){lines.push({ok:false,t:nm+': '+e.message});}}
+ try{await reload();}catch(e){}if(V.modal&&V.modal.type==='truck'){V.modal.trk=null;V.modal.trkRes={code:T.code,lines};}
+ const n=lines.filter(l=>l.ok).length;toast(`Đã mở lại ${n}/${lines.length} đơn – sửa / chuyển xe rồi bốc lại`);render();};}
+// chi tiết booking: nút Mở lại cho đơn Đã load
+{const r0=render;render=function(){r0();if(!S||V.view!=='booking'||!V.bk)return;const b=bkById(V.bk);if(!canReopen(b))return;const h=document.querySelector('.main .pagehead');if(!h||h.querySelector('[data-a="bkReopen"]'))return;
+ const x=document.createElement('button');x.className='btn ghost';x.dataset.a='bkReopen';x.dataset.id=b.id;x.title='Xe chưa xuất phát: đưa đơn về Đã xếp xe để điều chỉnh';x.textContent='↩ Mở lại để điều chỉnh';h.appendChild(x);};}
+A.bkReopen=d=>{const b=bkById(d.id);const a=b&&allocsOf(b.id)[0];if(!a)return;V.modal={type:'truck',code:a.truck};render();A.trkReopen({id:b.id});};
