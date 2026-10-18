@@ -101,11 +101,11 @@ function bkInfo29(b){const rows=[];const root=b.parent||b.id;
 
 /* ---------- Popup xe: đóng / mở xe (BR-47) ---------- */
 function truckClose29(t,l,past){if(past||!(can('fleet.manage')||can('alloc.assign')))return '';const M=V.modal;M.cl=M.cl&&M.cl.code===t.code?M.cl:{code:t.code,reason:'',note:'',cap:''};const C=M.cl;
- if(t.closed)return `<div class="panel tinfo"><div class="row"><b class="grow">Xe đã đóng ở ${t2(t.cap)} MT</b><span class="small muted">Không xếp thêm, không gợi ý</span></div>
-  <div class="row" style="margin-top:8px;gap:8px;align-items:end"><div class="field"><label for="cl-cap">Tải trọng khi mở lại (tấn)</label><input id="cl-cap" class="inp num" style="width:110px" inputmode="decimal" data-f="v9c" data-k="cap" value="${esc(C.cap)}" placeholder="${t.defCap} (chuẩn)"></div><button class="btn sm" data-a="v9TruckOpen" data-c="${t.code}">🔓 Mở lại xe</button></div>${C.err?`<div class="err">${esc(C.err)}</div>`:''}</div>`;
- return `<div class="panel tinfo"><div class="row"><b class="grow">Đóng xe</b><span class="small muted">Tải trọng = số đã xếp (${t2(l)} MT), sức chứa ngày giảm ${t2(Math.max(0,t.cap-l))} MT</span></div>
+ if(t.closed)return `<div class="panel tinfo"><div class="row"><b class="grow">🔒 Đã chốt xe ở ${t2(t.cap)} MT</b><span class="small muted">Ngừng nhận đơn mới, không gợi ý. Bốc / giao vẫn làm bình thường.</span></div>
+  <div class="row" style="margin-top:8px;gap:8px;align-items:end"><div class="field"><label for="cl-cap">Tải trọng khi mở lại (tấn)</label><input id="cl-cap" class="inp num" style="width:110px" inputmode="decimal" data-f="v9c" data-k="cap" value="${esc(C.cap)}" placeholder="${t.defCap} (chuẩn)"></div><button class="btn sm" data-a="v9TruckOpen" data-c="${t.code}">🔓 Mở lại nhận đơn</button></div>${C.err?`<div class="err">${esc(C.err)}</div>`:''}</div>`;
+ return `<div class="panel tinfo"><div class="row"><b class="grow">Chốt xe – ngừng nhận đơn</b><span class="small muted">Tải trọng = số đã xếp (${t2(l)} MT), sức chứa ngày giảm ${t2(Math.max(0,t.cap-l))} MT</span></div>
   <div class="row" style="margin-top:8px;gap:8px;align-items:end;flex-wrap:wrap"><div class="field"><label for="cl-r">Lý do <span class="req">*</span></label><select id="cl-r" class="inp" data-f="v9c" data-k="reason">${rOpts29('close',C.reason)}</select></div>
-  <div class="field grow"><label for="cl-n">Ghi chú</label><input id="cl-n" class="inp" data-f="v9c" data-k="note" value="${esc(C.note)}"></div><button class="btn ghost sm" data-a="v9TruckClose" data-c="${t.code}">🔒 Đóng xe</button></div>${C.err?`<div class="err">${esc(C.err)}</div>`:''}</div>`;}
+  <div class="field grow"><label for="cl-n">Ghi chú</label><input id="cl-n" class="inp" data-f="v9c" data-k="note" value="${esc(C.note)}"></div><button class="btn ghost sm" data-a="v9TruckClose" data-c="${t.code}">🔒 Chốt xe</button></div>${C.err?`<div class="err">${esc(C.err)}</div>`:''}</div>`;}
 
 /* ---------- Hồ sơ: mức nhận email (BR-49) ---------- */
 function emailPrefs29(u){if(S.imp)return '';V.ep=V.ep||{level:S.me.emailLevel||'all',alt:S.me.altEmail||''};const E=V.ep;
@@ -317,7 +317,7 @@ Object.assign(A,{
   mutate('set_urgent',{p_id:M.id,p_mode:M.mode,p_note:M.note||''},{err:m=>M.err=m,ok:()=>{V.modal=null;toast('Đã cập nhật cờ khẩn');}});},
  v9TruckClose:d=>{const C=V.modal.cl;C.err='';if(!C.reason){C.err='Chọn lý do đóng xe.';return render();}
   const name=R29('close').find(r=>r.code===C.reason)?.name||C.reason;
-  mutate('close_truck',{p_code:d.c,p_close:true,p_reason:name+(C.note?': '+C.note:''),p_cap:null},{err:m=>C.err=m,ok:()=>{C.reason='';C.note='';toast('Đã đóng xe');render();}});},
+  mutate('close_truck',{p_code:d.c,p_close:true,p_reason:name+(C.note?': '+C.note:''),p_cap:null},{err:m=>C.err=m,ok:()=>{C.reason='';C.note='';toast('Đã chốt xe');render();}});},
  v9TruckOpen:d=>{const C=V.modal.cl;C.err='';const cap=String(C.cap||'').trim()===''?null:num(C.cap);if(cap!==null&&!(cap>0)){C.err='Tải trọng không hợp lệ.';return render();}
   mutate('close_truck',{p_code:d.c,p_close:false,p_reason:'Mở lại xe',p_cap:cap},{err:m=>C.err=m,ok:()=>{C.cap='';toast('Đã mở lại xe');render();}});},
  v9EmailSave:()=>{const E=V.ep;E.err='';mutate('set_email_prefs',{p_level:E.level,p_alt:E.alt||''},{err:m=>E.err=m,ok:()=>{V.ep=null;toast('Đã lưu cài đặt email');}});},

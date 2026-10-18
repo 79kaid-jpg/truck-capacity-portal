@@ -171,7 +171,8 @@ const PILL={ok:'Còn chỗ',near:'Gần đầy',full:'Đã đầy',none:'Chưa m
 const pill=s=>`<span class="pill p-${s}"><i></i>${PILL[s]}</span>`;
 const truckState=(t,l)=>l<=0.001?'empty':l>=t.cap-0.001?(l>t.cap+0.001?'over':'full'):'part';
 const TS_LABEL={empty:'Trống',part:'Còn chỗ',full:'Đầy',over:'Quá tải'};
-const tsPill=(s,free)=>`<span class="pill ${s==='empty'?'p-ok':s==='part'?'p-near':'p-full'}"><i></i>${s==='part'&&free>0?'Còn '+t2(free)+' MT':TS_LABEL[s]}</span>`;
+const tnum=v=>Math.abs(v-Math.round(v))<0.005?String(Math.round(v)):t2(v);
+const tsPill=(s,free)=>`<span class="pill ${s==='empty'?'p-ok':s==='part'?'p-near':'p-full'}" ${s==='part'&&free>0?`title="Còn ${t2(free)} MT"`:''}><i></i>${s==='part'&&free>0?'Còn '+tnum(free)+' MT':TS_LABEL[s]}</span>`;
 
 /* suggestion: assign one booking (BR-04, BR-20, 5.3) */
 function suggestFor(b){
@@ -441,7 +442,7 @@ function truckCard(t,past){
  const hl=V.hl&&V.hl.includes(t.code)?'hl':'';const dim=V.dayFilter.region!=='all'&&regs.length&&!regs.includes(V.dayFilter.region)?'dim':'';
  const lk=truckLocked(t);const trip=tripOf(t.code);
  return `<div class="tcard ${hl} ${dim} ${lk?'locked':''}" style="--tc:${TCOL[tLoadState(l,t.cap,lk)]}" data-a="truck" data-c="${t.code}" tabindex="0" role="button" aria-label="Xe ${t.short}">
-  <div class="tc-top">${TICON(t.type,l,t.cap,lk)}${trip&&trip.k==='done'?'<span class="tdone" title="Chuyến đã giao xong">✓</span>':''}<span class="grow"></span>${lk?`<span class="pill p-full" title="${t.closed?'Logistics đã đóng xe':'Xe đã rời kho'}"><i></i>🔒 ${t.closed?'Đã đóng':'Đã chạy'}</span>`:tsPill(s,t.cap-l)}</div>${trip?`<div style="margin:2px 0">${tripPill(t.code)}</div>`:''}<div style="min-width:0"><div class="tc-code">${t.short}</div><div class="tc-full muted">${t.code}</div>${t.cap!==t.defCap?`<div class="capchip" title="${esc(t.info&&t.info.reason||'')}">Tải trọng hôm nay ${t2(t.cap)} MT · chuẩn ${t.defCap} MT</div>`:''}${t.info&&t.info.plate?`<div class="small muted">${esc(t.info.plate)}${t.info.driver?' · '+esc(t.info.driver):''}</div>`:''}</div>
+  <div class="tc-top">${TICON(t.type,l,t.cap,lk)}${trip&&trip.k==='done'?'<span class="tdone" title="Chuyến đã giao xong">✓</span>':''}<span class="grow"></span>${lk?`<span class="pill p-full" title="${t.closed?'Logistics đã chốt xe: ngừng nhận đơn mới; bốc / giao vẫn làm bình thường':'Xe đã rời kho'}"><i></i>🔒 ${t.closed?'Đã chốt':'Đã chạy'}</span>`:tsPill(s,t.cap-l)}</div>${trip?`<div style="margin:2px 0">${tripPill(t.code)}</div>`:''}<div style="min-width:0"><div class="tc-code">${t.short}</div><div class="tc-full muted">${t.code}</div>${t.cap!==t.defCap?`<div class="capchip" title="${esc(t.info&&t.info.reason||'')}">Tải trọng hôm nay ${t2(t.cap)} MT · chuẩn ${t.defCap} MT</div>`:''}${t.info&&t.info.plate?`<div class="small muted">${esc(t.info.plate)}${t.info.driver?' · '+esc(t.info.driver):''}</div>`:''}</div>
   <div class="small num">${pct(l/t.cap)} (${t2(l)}/${t.cap} MT)</div><div class="bar">${segs}</div>
   ${regs.length?`<div class="row" style="gap:4px">${regs.map(r=>`<span class="rtag ${badRegion?'warn':''}">${esc(regName(r))}</span>`).join('')}${badRegion?'<span class="small" title="Khác khu vực" style="color:var(--bad)">⚠</span>':''}</div>`:''}
   ${al.length?`<div class="tc-lines">${lines}</div>`:''}
@@ -866,7 +867,7 @@ function modalView(){const M=V.modal;switch(M.type){case'truck':return mTruck();
 function mTruck(){const t=truckByCode(V.modal.code);const al=liveAllocsOnTruck(t.code);const l=r2(al.reduce((s,a)=>s+a.tons,0));const s=truckState(t,l);const past=t.date<TODAY;const isLog=can('alloc.assign');
  const byBk={};al.forEach(a=>{(byBk[a.bk]=byBk[a.bk]||{bk:a.bk,tons:0,ids:[]});byBk[a.bk].tons+=a.tons;byBk[a.bk].ids.push(a.id);});const segs=Object.values(byBk);
  return `<div class="mhead"><span class="meta">${WHALL.find(w=>w.id===t.wh).full.toUpperCase()}</span><span class="meta">Ngày: ${dmy(t.date)}</span></div>
- <div class="truckbig">${TICON(t.type,l,t.cap,truckLocked(t))}<div><div class="row"><span class="code">${t.short}</span>${tsPill(s,t.cap-l)}${tripPill(t.code)}${t.closed?`<span class="pill p-full"><i></i>🔒 Đã đóng</span>`:truckDeparted(t.code)?`<span class="pill p-full" title="Có đơn Đang giao / Đã giao: không xếp thêm"><i></i>🔒 Đã chạy</span>`:''}</div><div class="small muted">${t.code}${t.closed&&t.info.closedReason?' · Đóng xe: '+esc(t.info.closedReason):''}</div>
+ <div class="truckbig">${TICON(t.type,l,t.cap,truckLocked(t))}<div><div class="row"><span class="code">${t.short}</span>${tsPill(s,t.cap-l)}${tripPill(t.code)}${t.closed?`<span class="pill p-full" title="Logistics đã chốt xe: ngừng nhận đơn mới. Việc bốc / giao vẫn làm bình thường."><i></i>🔒 Đã chốt</span>`:truckDeparted(t.code)?`<span class="pill p-full" title="Có đơn Đang giao / Đã giao: không xếp thêm"><i></i>🔒 Đã chạy</span>`:''}</div><div class="small muted">${t.code}${t.closed&&t.info.closedReason?' · Chốt xe: '+esc(t.info.closedReason):''}</div>
  <div style="font-family:var(--f-display);font-weight:800;font-size:24px;margin-top:6px" class="num">${pct(l/t.cap)} (${t2(l)} tấn)</div>
  <div class="small">Loại: ${t.type==='DK'?'Đầu kéo':'Xe thùng'} · Tải trọng: ${t2(t.cap)} MT${t.cap!==t.defCap?` (chuẩn ${t.defCap} MT)`:''} · Còn trống: ${t2(Math.max(0,t.cap-l))} MT${truckRegions(t.code).length?' · Khu vực: '+truckRegions(t.code).map(regName).map(esc).join(', '):''} · Điểm giao: ${truckStops(t.code).size}/${S.cfg.maxStops}</div></div></div>
  ${truckInfoBlock(t,l,past)}

@@ -153,13 +153,13 @@
 <li>Điện thoại / máy tính bảng: giữ ngón tay trên booking ~0,3 giây rồi kéo. Nút <b>Xếp xe</b> cũ vẫn dùng được.</li></ul>
 </section>
 
-<section id="log-ship" data-g="Logistics" data-t="Bốc hàng, giao hàng, đóng xe">
+<section id="log-ship" data-g="Logistics" data-t="Bốc hàng, giao hàng, chốt xe">
 <h2>Bốc hàng và giao hàng</h2>
-<ul><li><b>Đã bốc hàng</b>: tick các cuộn đã lên xe; cuộn không lên phải ghi chú → CS xử lý phần bốc thiếu.</li><li><b>Đang giao</b>: nhập giờ dự kiến tới. <b>Đã giao</b> / <b>Giao lỗi</b> (có lý do).</li><li><b>Đóng xe</b>: khóa không xếp thêm (ghi tải thực tế, lý do); mở lại nếu cần.</li></ul>
+<ul><li><b>Đã bốc hàng</b>: tick các cuộn đã lên xe; cuộn không lên phải ghi chú → CS xử lý phần bốc thiếu.</li><li><b>Đang giao</b>: nhập giờ dự kiến tới. <b>Đã giao</b> / <b>Giao lỗi</b> (có lý do).</li><li><b>Đóng xe</b>: khóa không xếp thêm (ghi tải thực tế, lý do); mở lại nếu cần.</li><li><b>Theo xe</b> (hộp chi tiết xe → <b>Bốc / giao theo xe</b>): <b>✓ Bốc xong cả xe</b> mở danh sách các đơn (mặc định đã chọn; ⚠ đơn còn hàng trên xe khác không tự chọn; ⛔ đơn chưa có danh sách cuộn không chọn được; đơn bốc thiếu bấm <b>Bốc từng đơn</b>). <b>🚚 Xe xuất phát</b> chuyển các đơn đã bốc sang Đang giao, nhập giờ dự kiến tới (không bắt buộc). <b>✓ Đã giao / ✗ Không thành công</b> làm theo từng điểm giao, xong quay lại đúng hộp xe. Mỗi đơn vẫn qua đủ kiểm tra, thông báo và nhật ký như làm từng đơn.</li></ul>
 <h3>Trạng thái chuyến trên thẻ xe</h3>
 <ul><li><b>Mức lấp đầy</b>: Trống / Còn chỗ x MT / Đầy / Quá tải.</li>
 <li><b>Chuyến</b> (theo các đơn trên xe): Chờ bốc → Đang bốc 1/3 đơn → Đã bốc xong → Đang giao → Đã giao xong (✓); Giao lỗi nếu có đơn giao không thành công. Xe bốc nhiều đơn vẫn xếp thêm được khi đang bốc.</li>
-<li><b>🔒 Đã chạy</b>: có đơn trên xe Đang giao / Đã giao / Giao lỗi → không xếp thêm, phần còn trống không tính vào "Còn đặt được". <b>🔒 Đã đóng</b>: Logistics đóng xe. Bộ lọc "Trạng thái xe" có thêm các mục Chuyến; dòng tổng cuối trang đếm theo chuyến.</li></ul>
+<li><b>🔒 Đã chạy</b>: có đơn trên xe Đang giao / Đã giao / Giao lỗi → không xếp thêm, phần còn trống không tính vào "Còn đặt được". <b>🔒 Đã chốt</b>: Logistics chốt xe – ngừng nhận đơn mới (không phải xe đã chạy; vẫn Chờ bốc / Đang bốc bình thường). Bộ lọc "Trạng thái xe" có thêm các mục Chuyến; dòng tổng cuối trang đếm theo chuyến.</li></ul>
 <h3>Nhắc "Chưa xác nhận giao"</h3>
 <ul><li>Đơn <b>Đã load / Đang giao</b> đã qua ngày bốc (hoặc quá giờ dự kiến đến 6 tiếng) mà chưa bấm <b>Đã giao</b> / <b>Giao không thành công</b>: Logistics kho đó nhận <b>Nhắc việc</b> mỗi ngày một lần (7h–20h); quá 2 ngày báo thêm Admin. Mốc chỉnh trong Cấu hình → Ngưỡng & tải trọng.</li>
 <li>Các đơn này nằm trong <b>Cần xử lý</b> của Logistics và tab <b>Ngoại lệ → Chưa xác nhận giao</b> của Bảng thống kê.</li>

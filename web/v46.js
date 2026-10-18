@@ -83,7 +83,7 @@ const TOOLS={
   for(const w of ws)for(const t of trucksOf(w,d)){const l=loadOf(t.code),free=r2(t.cap-l),lk=truckLocked(t),tr=tripOf(t.code);
    if(a.min_free&&(lk||free<+a.min_free))continue;if(a.state==='empty'&&l>0.001)continue;if(a.state==='free'&&(lk||free<=0.001))continue;if(a.state==='locked'&&!lk)continue;
    if(a.state==='transit'&&!(tr&&tr.k==='transit'))continue;if(a.state==='late'&&!(d<TODAY&&tr&&['loaded','loading','transit'].includes(tr.k)))continue;
-   out.push({xe:t.short,ma:t.code,kho:w,loai:t.type,tai_trong:t.cap,da_xep:t2(l),con_trong:t2(Math.max(0,free)),khoa:lk?(t.closed?'đã đóng':'đã chạy'):'',chuyen:tr?tr.l:'',khu_vuc:truckRegions(t.code).map(regName).join(', '),diem_giao:truckStops(t.code).size});}
+   out.push({xe:t.short,ma:t.code,kho:w,loai:t.type,tai_trong:t.cap,da_xep:t2(l),con_trong:t2(Math.max(0,free)),khoa:lk?(t.closed?'đã chốt (ngừng nhận đơn)':'đã chạy'):'',chuyen:tr?tr.l:'',khu_vuc:truckRegions(t.code).map(regName).join(', '),diem_giao:truckStops(t.code).size});}
   return out.slice(0,40);}},
  truck_detail:{d:'Chi tiết một xe. args: code (mã đầy đủ) hoặc short (DK-03) + date + wh',ok:isInt,run:async a=>{let t=a.code?truckByCode(a.code):null;
   if(!t){const d=dateArg(a.date)||TODAY;await ensureRange(d);const w=whArg(a.wh)||V.wh;t=trucksOf(w,d).find(x=>fz(x.short)===fz(a.short||a.code));}

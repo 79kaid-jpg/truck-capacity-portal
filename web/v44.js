@@ -29,7 +29,7 @@ const dndPref=b=>bkTotal(b)>S.cfg.split?'DK':'XT';
 const reduceMotion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
 // ---------- đánh giá thả 1 booking vào 1 xe ----------
 function dndEval(b,t){const need=dndNeed(b);if(need<=0.001)return{k:'no',why:'Booking đã xếp đủ tấn'};
- if(truckLocked(t))return{k:'no',why:t.closed?'Xe đã đóng':'Xe đã chạy'};
+ if(truckLocked(t))return{k:'no',why:t.closed?'Xe đã chốt':'Xe đã chạy'};
  const cur=allocsOf(b.id).filter(a=>a.truck===t.code).reduce((s,a)=>s+a.tons,0);
  const room=r2(t.cap-loadOf(t.code,b.id)-cur);const warns=[];
  if(t.type!==dndPref(b))warns.push('khác loại xe gợi ý ('+dndPref(b)+')');
