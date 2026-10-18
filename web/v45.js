@@ -1,7 +1,7 @@
 // v3.18: Quản lý người dùng – bộ lọc, tạo tài khoản (đơn lẻ / hàng loạt), đặt lại mật khẩu, xóa tài khoản (có chuyển giao)
 (()=>{const st=document.createElement('style');st.textContent=`
 .ufbar{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:6px 0 10px}.ufbar .field{min-width:140px}.ufbar .grow{flex:1}
-.ufcnt{font-size:12.5px;color:var(--muted);margin-left:auto}.ufsel{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:#fff4e0;margin-bottom:8px}
+.ufcnt{font-size:12.5px;color:var(--muted);margin-left:auto}.ufsel{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:var(--warn-bg);margin-bottom:8px}
 .pwbox{display:flex;gap:6px;align-items:center}.pwbox code{font-size:18px;letter-spacing:.06em;background:var(--ground);padding:6px 10px;border-radius:8px;user-select:all}
 .ubulk textarea{width:100%;min-height:140px;font-family:ui-monospace,monospace;font-size:12.5px}.ubulk td.bad{color:var(--bad)}
 .udel ul{margin:6px 0 10px 18px}.udel .warn{background:var(--warn-bg);border-radius:8px;padding:8px 10px}

@@ -1,7 +1,7 @@
 /* v3.8 – Admin "Xem như khách hàng" (chỉ xem) + Hướng dẫn sử dụng (khung bên phải, tìm kiếm, theo vai trò, ảnh minh họa). */
 (()=>{const st=document.createElement('style');st.textContent=`
-.cvbar{position:sticky;top:0;z-index:40;display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#e0861a;color:#fff;padding:8px 16px;font-size:13.5px}
-.cvbar .btn{background:#fff;color:#7a4300;border-color:#fff}
+.cvbar{position:sticky;top:0;z-index:40;display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--alert);color:#fff;padding:8px 16px;font-size:13.5px}
+.cvbar .btn{background:#fff;color:var(--alert);border-color:#fff}
 #guide{position:fixed;top:0;right:0;bottom:0;width:min(560px,100vw);background:var(--surface);border-left:1.5px solid var(--ink);box-shadow:var(--shadow);z-index:65;display:flex;flex-direction:column}
 #guide .gh{display:flex;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line)}
 #guide .gb{display:grid;grid-template-columns:230px 1fr;min-height:0;flex:1}
@@ -13,7 +13,7 @@
 #guide article img{max-width:100%;border:1px solid var(--line);border-radius:8px;margin:8px 0}
 #guide article .tip{background:var(--blue-bg);border-radius:8px;padding:8px 10px;margin:8px 0}
 #guide article .warn{background:var(--bad-bg);border-radius:8px;padding:8px 10px;margin:8px 0}
-#guide article mark{background:#ffe9a8}
+#guide article mark{background:var(--note-bg)}
 #guide .grip{position:absolute;left:-5px;top:0;bottom:0;width:10px;cursor:ew-resize;z-index:2}#guide .grip:hover,#guide.drag .grip{background:color-mix(in srgb,var(--blue) 35%,transparent)}
 #guide.drag{user-select:none}#guide.max{left:0;width:auto!important;border-left:0}#guide .gsel{display:none;margin:8px 14px 0}
 #guide.narrow .gb{grid-template-columns:1fr}#guide.narrow nav{display:none}#guide.narrow .gsel{display:block}

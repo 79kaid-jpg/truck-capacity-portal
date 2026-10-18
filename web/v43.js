@@ -1,8 +1,8 @@
 // v3.15: công tắc bắt buộc picking list (Admin), nhắc xác nhận giao, nhóm "Chưa xác nhận giao"
 (()=>{const st=document.createElement('style');st.textContent=`
-.pkoff{display:inline-flex;align-items:center;gap:4px;margin-right:8px;padding:3px 9px;border-radius:999px;background:#fff4e0;color:#8a5200;border:1px solid #f0c27a;font-size:11.5px;font-weight:700;white-space:nowrap}
+.pkoff{display:inline-flex;align-items:center;gap:4px;margin-right:8px;padding:3px 9px;border-radius:999px;background:var(--warn-bg);color:var(--note-ink);border:1px solid var(--note-line);font-size:11.5px;font-weight:700;white-space:nowrap}
 .pkcard{border:1.5px solid var(--ink);border-radius:12px;padding:12px 14px;margin:0 0 14px;background:var(--surface)}
-.pkcard.off{border-color:#e0861a;background:#fffaf0}.pkcard h4{margin:0 0 6px;font-size:14px}
+.pkcard.off{border-color:#e0861a;background:var(--warn-bg)}.pkcard h4{margin:0 0 6px;font-size:14px}
 `;document.head.appendChild(st);})();
 const pickOff=()=>!!S&&S.cfg.requirePicking===false;
 // Đơn đã load / đang giao chưa xác nhận giao
@@ -18,7 +18,7 @@ if(typeof EXC==='object')EXC.ship=['🚚 Chưa xác nhận giao',r=>['loaded','t
   const C=S.cfg;const isAd=role()==='admin';const off=pickOff();const card=document.createElement('div');card.className='pkcard pkmain'+(off?' off':'');
   card.innerHTML=`<h4>Danh sách cuộn (picking list) & xác nhận giao</h4>
    <label class="row" style="gap:8px;align-items:flex-start"><input type="checkbox" data-f="cfgb" data-k="requirePicking" ${off?'':'checked'} ${isAd?'':'disabled'}>
-    <span><b>CS phải nhập danh sách cuộn trước khi Logistics load hàng</b><br><span class="small muted">${off?'<b style="color:#8a5200">Đang TẮT</b>: Logistics bấm Đã bốc hàng được ngay, không cần CS Xác nhận giao hàng. CS vẫn nhập được nếu có thời gian.':'Đang BẬT: như quy trình chuẩn.'} ${isAd?'':'Chỉ Admin bật/tắt được.'} Mọi lần đổi được ghi nhật ký.</span></span></label>
+    <span><b>CS phải nhập danh sách cuộn trước khi Logistics load hàng</b><br><span class="small muted">${off?'<b style="color:var(--note-ink)">Đang TẮT</b>: Logistics bấm Đã bốc hàng được ngay, không cần CS Xác nhận giao hàng. CS vẫn nhập được nếu có thời gian.':'Đang BẬT: như quy trình chuẩn.'} ${isAd?'':'Chỉ Admin bật/tắt được.'} Mọi lần đổi được ghi nhật ký.</span></span></label>
    <div class="fgrid" style="margin-top:10px">
     <div class="field"><label for="cf-shipRemindHours">Nhắc Logistics xác nhận giao sau giờ dự kiến đến</label><div class="row" style="flex-wrap:nowrap"><input id="cf-shipRemindHours" class="inp num" inputmode="decimal" data-f="cfg" data-k="shipRemindHours" value="${C.shipRemindHours||6}"><span class="muted small">giờ</span></div></div>
     <div class="field"><label for="cf-shipAdminDays">Báo Admin nếu quá ngày bốc mà chưa xác nhận giao</label><div class="row" style="flex-wrap:nowrap"><input id="cf-shipAdminDays" class="inp num" inputmode="decimal" data-f="cfg" data-k="shipAdminDays" value="${C.shipAdminDays||2}"><span class="muted small">ngày</span></div></div></div>

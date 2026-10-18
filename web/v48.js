@@ -7,7 +7,7 @@
 .trk{margin:12px 0;padding:12px 14px;border:1.5px solid var(--ink);border-radius:12px;background:var(--surface)}
 .trk h4{margin:0 0 8px;font-size:13px;letter-spacing:.04em}.trk .row{gap:8px;flex-wrap:wrap;align-items:center}
 .trk table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}.trk td{padding:5px 6px;border-top:1px solid var(--line);vertical-align:middle}
-.trk .warn{color:#9a5b00;font-size:12px}.trk .bad{color:var(--bad);font-size:12px}
+.trk .warn{color:var(--note-ink);font-size:12px}.trk .bad{color:var(--bad);font-size:12px}
 .trkres{margin-top:8px;font-size:12.5px}.trkres div{padding:2px 0}
 `;document.head.appendChild(st);})();
 const trkCan=()=>!!S&&!S.custView&&can('delivery.ship');
@@ -104,7 +104,7 @@ const WHY_L={same:'ghép xe đang chở cùng khu vực',nb:'ghép xe đang ch�
 // thẻ đơn chờ xếp xe chưa có khu vực: hiện khu vực đoán + nút Gán
 {const r0=render;render=function(){r0();if(!S||V.view!=='day'||!can('booking.region'))return;
  document.querySelectorAll('.main .pitem').forEach(pi=>{if(pi.querySelector('.rgguess'))return;const m=pi.textContent.match(/\b(BK-[A-Z0-9-]+)\b/);const b=m&&bkById(m[1]);if(!b||(b.region&&b.region!=='NONE'))return;
-  const g=regionGuess(b);const el=document.createElement('div');el.className='rgguess small';el.style.cssText='margin:4px 0;padding:4px 8px;border-radius:8px;background:#fff4c2;border:1px solid #f0d77a';
+  const g=regionGuess(b);const el=document.createElement('div');el.className='rgguess small';el.style.cssText='margin:4px 0;padding:4px 8px;border-radius:8px;background:var(--note-bg);border:1px solid var(--note-line)';
   el.innerHTML=g?`📍 Chưa có khu vực · đoán từ địa chỉ: <b>${esc(regName(g))}</b> <button class="btn sm" data-a="rgSet" data-id="${b.id}" data-r="${g}" style="margin-left:4px">Gán khu vực</button>`:`📍 Chưa có khu vực – mở booking để chọn`;
   const row=pi.querySelector('.small.muted');(row||pi.firstChild).after(el);});};}
 A.rgSet=d=>mutate('set_region',{p_id:d.id,p_region:d.r,p_save_addr:true},{ok:()=>toast('Đã gán khu vực '+regName(d.r)+' cho đơn và lưu cho địa chỉ này')});
