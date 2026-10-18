@@ -395,6 +395,14 @@ Không cần chạy SQL.
 - Lần đầu mở trên điện thoại: dải nhắc phía dưới (Cài / Để sau – 14 ngày không nhắc).
 - File: `web/v51.js`; test `test/e2e/v51.mjs`.
 
+## v3.34 — Dễ đọc hơn (màu, dark mode, nút chat)
+Không đổi CSDL. Theo báo cáo rà soát UI/UX 18/10/2026 (mục 1.1, 1.2, 1.4, 3.4, 3.6).
+- Màu chữ trạng thái ở chế độ sáng đậm hơn (`--ok`, `--warn`, `--pend`, `--bad`): nhãn Đang xếp / Trống / Đầy, Chờ xếp xe, ô "x đơn chờ xếp xe" đều đạt tương phản ≥ 4,5 (trước 3,2–4,4). Nhãn trạng thái từ 10,5px lên 12px.
+- Dark mode: khung Trao đổi, tin ghim, tin của mình, yêu cầu CS, gợi ý xếp xe, picking list… trước dùng nền sáng viết cứng nên chữ gần như không đọc được (tương phản ~1,1). Nay dùng token mới `--note-*`, `--req-*`, `--mine-*`, `--chat-bg` có giá trị riêng cho nền tối.
+- Nút trợ lý / trao đổi nổi tự ẩn khi đang mở cửa sổ (không che đáy lưới Đặt hàng).
+- Viền ô nhập đậm hơn (`--inp-line`, tương phản ≥ 3). Dải "Xem như khách" đổi sang cam đậm (chữ trắng đọc được).
+- Test: `test/e2e/ui.mjs` đo tương phản thực tế ở cả chế độ sáng và tối.
+
 ## v3.30 – v3.31 — Hiệu năng và trải nghiệm
 **Chạy `supabase/setup_all.sql` trước khi gộp** (get_delta, theo dõi thay đổi đơn, sức khỏe hệ thống, link tài xế, ảnh giao hàng, tổng quan khách, email tuần + lịch `weekly-summary`).
 - **Tải phần thay đổi**: thay vì tải lại toàn bộ (~1 KB/đơn × mọi đơn) mỗi khi có người sửa, app chỉ nhận các đơn vừa đổi (vài KB). Đổi khai báo xe / cấu hình / người dùng / Login as thì tải toàn bộ. Cứ 10 phút tải toàn bộ một lần cho chắc.

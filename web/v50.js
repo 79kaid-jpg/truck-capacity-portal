@@ -3,7 +3,7 @@
 .mw{display:grid;gap:8px}.mwrow{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;background:var(--surface);cursor:pointer}
 .mwrow:hover{border-color:var(--ink)}.mwrow.late{border-left-color:var(--bad)}.mwrow.soon{border-left-color:#e59a00}.mwrow.ok{border-left-color:var(--ok)}
 .mwrow .ic{font-size:18px;line-height:1.2;flex:none}.mwrow .grow{min-width:0}.mwrow .l{font-size:13px;color:var(--muted)}.mwrow .age{font-size:12px;font-weight:700;white-space:nowrap}
-.mwrow.late .age{color:var(--bad)}.mwrow.soon .age{color:#9a5b00}
+.mwrow.late .age{color:var(--bad)}.mwrow.soon .age{color:var(--note-ink)}
 .mwsum{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}.mwsum button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;cursor:pointer}.mwsum button.on{background:var(--navy);color:var(--on-navy);border-color:var(--navy)}
 .yard{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
 .ycard{border:1.5px solid var(--line);border-left:6px solid var(--tc,var(--line));border-radius:14px;background:var(--surface);padding:14px;display:grid;gap:8px}

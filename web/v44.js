@@ -4,7 +4,7 @@
 @keyframes dndSpin{to{--ang:360deg}}
 @keyframes dndBump{0%{transform:scale(1)}35%{transform:scale(1.06)}100%{transform:scale(1)}}
 .pitem.dnd{cursor:grab;touch-action:pan-y;transition:opacity .15s}.pitem.dnd:focus{outline:2px solid var(--blue);outline-offset:2px}
-.pitem.dnd.dragging{opacity:.35}.pitem.sugg{box-shadow:0 0 0 2px #7a4bd1 inset;background:#f6f0ff}
+.pitem.dnd.dragging{opacity:.35}.pitem.sugg{box-shadow:0 0 0 2px var(--req) inset;background:var(--req-bg)}
 .pitem .dndh{font-size:11px;color:var(--muted);margin-left:auto}
 .tcard{position:relative}
 .tcard.sugg::before,.tcard.dnd-ok::before,.tcard.dnd-warn::before,.tcard.dnd-over::before{content:'';position:absolute;inset:-4px;border-radius:13px;padding:3px;pointer-events:none;

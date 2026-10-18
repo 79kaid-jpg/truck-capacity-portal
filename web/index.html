@@ -17,8 +17,11 @@
   --ground:#E6E9EC; --surface:#FFFFFF; --sand:#F0EBE0; --sand-2:#E4DDCE;
   --ink:#17202B; --muted:#5B6674; --line:#D3D9DF;
   --navy:#1F2C3D; --on-navy:#F3F5F8; --primary:#1F2C3D; --on-primary:#FFFFFF;
-  --ok:#23804F; --ok-bg:#E2F2E8; --warn:#B57A0C; --warn-bg:#FBEFD3; --bad:#BE3A31; --bad-bg:#F8E1DF;
-  --blue:#2459C4; --blue-bg:#DCE7FB; --pend:#C86A1E; --pend-bg:#FCEBDD;
+  --ok:#1B6B40; --ok-bg:#E2F2E8; --warn:#8A5A00; --warn-bg:#FBEFD3; --bad:#A8322A; --bad-bg:#F8E1DF;
+  --blue:#2459C4; --blue-bg:#DCE7FB; --pend:#9A4A0B; --pend-bg:#FCEBDD;
+  /* v3.34: khối ghi chú (vàng), yêu cầu/gợi ý (tím), tin của mình, nền chat, viền ô nhập – có bản dark riêng */
+  --note-bg:#FFF4C2; --note-line:#F0D77A; --note-ink:#7A5B00; --req:#7A4BD1; --req-bg:#F1EAFF; --req-line:#C9B3F3; --req-ink:#5B2FB0;
+  --mine-bg:#E8F0FB; --mine-line:#C6D7F1; --chat-bg:#FFFDF3; --inp-line:#8B95A1; --alert:#A04E0E;
   --c1:#3E5C8A; --c2:#8A6A3E; --c3:#4F8A7A; --c4:#8A4F6E; --c5:#6E7F3E; --c6:#5E5A8F; --mask:#A8B0BA;
   --shadow:0 10px 30px rgba(18,28,40,.18); --on-c:#FFFFFF; --s1:#2a78d6; --s2:#eb6834;
   --f-display:"Archivo","Arial Narrow",Arial,sans-serif;
@@ -30,6 +33,8 @@
   --navy:#0A0F16; --on-navy:#E9EDF2; --primary:#7FA2D6; --on-primary:#0B1220;
   --ok:#5BC48A; --ok-bg:#16301F; --warn:#E3B34F; --warn-bg:#33280F; --bad:#EF7A70; --bad-bg:#3A1A18;
   --blue:#7EA6F2; --blue-bg:#16264A; --pend:#F0A066; --pend-bg:#3A2412;
+  --note-bg:#33280F; --note-line:#6B5317; --note-ink:#E3C56A; --req:#9B97D1; --req-bg:#241D38; --req-line:#4A3D73; --req-ink:#C3B6F2;
+  --mine-bg:#16264A; --mine-line:#2D4478; --chat-bg:#121922; --inp-line:#66768A; --alert:#A04E0E;
   --c1:#7D9BC9; --c2:#C9A574; --c3:#7CC2AF; --c4:#C98AAE; --c5:#AABB72; --c6:#9B97D1; --mask:#4D5866;
   --shadow:0 10px 30px rgba(0,0,0,.5); --on-c:#0B1220; --s1:#3987e5; --s2:#d95926; color-scheme:dark}}
 :root[data-theme="dark"]{
@@ -38,9 +43,13 @@
   --navy:#0A0F16; --on-navy:#E9EDF2; --primary:#7FA2D6; --on-primary:#0B1220;
   --ok:#5BC48A; --ok-bg:#16301F; --warn:#E3B34F; --warn-bg:#33280F; --bad:#EF7A70; --bad-bg:#3A1A18;
   --blue:#7EA6F2; --blue-bg:#16264A; --pend:#F0A066; --pend-bg:#3A2412;
+  --note-bg:#33280F; --note-line:#6B5317; --note-ink:#E3C56A; --req:#9B97D1; --req-bg:#241D38; --req-line:#4A3D73; --req-ink:#C3B6F2;
+  --mine-bg:#16264A; --mine-line:#2D4478; --chat-bg:#121922; --inp-line:#66768A; --alert:#A04E0E;
   --c1:#7D9BC9; --c2:#C9A574; --c3:#7CC2AF; --c4:#C98AAE; --c5:#AABB72; --c6:#9B97D1; --mask:#4D5866;
   --shadow:0 10px 30px rgba(0,0,0,.5); --on-c:#0B1220; --s1:#3987e5; --s2:#d95926; color-scheme:dark}
 *{box-sizing:border-box}
+/* v3.34: nút chat nổi không che cửa sổ đang mở (đáy lưới Đặt hàng, nút Lưu/Đóng) */
+body:has(.scrim) #chatFab{display:none}
 html,body{height:100%}
 body{background:var(--ground);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -85,11 +94,11 @@ h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance}
 .field{display:flex;flex-direction:column;gap:4px;min-width:0}
 .field label{font-size:12px;font-weight:600;color:var(--muted)}
 .field .req{color:var(--bad)}
-.inp{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;min-width:0;width:100%}
+.inp{border:1px solid var(--inp-line);background:var(--surface);border-radius:8px;padding:8px 10px;min-width:0;width:100%}
 .inp:focus{border-color:var(--blue)}
 textarea.inp{min-height:64px;resize:vertical}
 .chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:600;background:var(--sand);border:1px solid var(--line);white-space:nowrap}
-.chip.warn{background:#FDF1DC;border-color:#E8C27A;color:#7A4B00}
+.chip.warn{background:var(--note-bg);border-color:var(--note-line);color:var(--note-ink)}
 .mfaqr{display:flex;justify-content:center;padding:8px;background:#fff;border:1px solid var(--line);border-radius:8px;min-height:196px;align-items:center}
 .mfaqr img{display:block}
 .mfasecret{font-size:12.5px;letter-spacing:.04em;word-break:break-all}
@@ -101,13 +110,13 @@ textarea.inp{min-height:64px;resize:vertical}
 .grow{flex:1}
 
 /* status pills */
-.pill{display:inline-flex;align-items:center;gap:5px;font-family:var(--f-display);font-weight:800;font-size:10.5px;letter-spacing:.06em;padding:3px 8px;border-radius:999px;text-transform:uppercase;white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:5px;font-family:var(--f-display);font-weight:800;font-size:12px;letter-spacing:.05em;padding:3px 9px;border-radius:999px;text-transform:uppercase;white-space:nowrap}
 .pill i{width:12px;height:12px;border-radius:50%;display:inline-block;background:repeating-linear-gradient(-45deg,currentColor 0 2px,transparent 2px 4px)}
 .p-ok{color:var(--ok);background:var(--ok-bg)}
 .p-near{color:var(--warn);background:var(--warn-bg)}
 .p-full{color:var(--bad);background:var(--bad-bg)}
 .p-none,.p-off{color:var(--muted);background:var(--sand)}
-.st{font-weight:700;font-size:11.5px;padding:2px 8px;border-radius:6px;white-space:nowrap}
+.st{font-weight:700;font-size:12.5px;padding:2px 8px;border-radius:6px;white-space:nowrap}
 .st-hold{color:var(--pend);background:var(--pend-bg)}
 .st-ok{color:var(--ok);background:var(--ok-bg)}
 .st-draft{color:var(--muted);background:var(--sand)}
@@ -150,7 +159,7 @@ textarea.inp{min-height:64px;resize:vertical}
 .blsum{margin:2px 0 8px;color:var(--muted)}
 .blsum b{color:var(--ink)}
 .draftbox{margin-top:4px;font-size:12px;font-weight:600;color:var(--muted);border:1px dashed var(--line);border-radius:6px;padding:2px 6px}
-.pendbox{background:var(--pend-bg);color:var(--pend);border-radius:6px;padding:3px 6px;font-size:11.5px;font-weight:600}
+.pendbox{background:var(--pend-bg);color:var(--pend);border-radius:6px;padding:3px 6px;font-size:12.5px;font-weight:600}
 .minebox{color:var(--blue);font-weight:700;font-size:12.5px}
 .cell .cacts{margin-top:auto;display:flex;gap:5px;flex-wrap:wrap}
 .cdot{width:10px;height:10px;border-radius:50%;display:inline-block}
@@ -398,30 +407,30 @@ body.busy .btn{opacity:.6}
 <body>
 <div id="app"><div style="padding:40px;font-family:sans-serif">Đang tải…</div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-<script>window.APP_V="3.33"</script>
+<script>window.APP_V="3.34"</script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
-<script src="app.js?v=3.33"></script>
-<script src="v29.js?v=3.33"></script>
-<script src="v30.js?v=3.33"></script>
-<script src="v31.js?v=3.33"></script>
-<script src="v35.js?v=3.33"></script>
-<script src="v36.js?v=3.33"></script>
-<script src="v37.js?v=3.33"></script>
-<script src="v38.js?v=3.33"></script>
-<script src="v39.js?v=3.33"></script>
-<script src="v40.js?v=3.33"></script>
-<script src="v41.js?v=3.33"></script>
-<script src="v42.js?v=3.33"></script>
-<script src="v43.js?v=3.33"></script>
-<script src="v44.js?v=3.33"></script>
-<script src="v45.js?v=3.33"></script>
-<script src="v46.js?v=3.33"></script>
-<script src="v47.js?v=3.33"></script>
-<script src="v48.js?v=3.33"></script>
-<script src="v49.js?v=3.33"></script>
-<script src="v50.js?v=3.33"></script>
-<script src="v51.js?v=3.33"></script>
-<script src="pwa.js?v=3.33"></script>
+<script src="app.js?v=3.34"></script>
+<script src="v29.js?v=3.34"></script>
+<script src="v30.js?v=3.34"></script>
+<script src="v31.js?v=3.34"></script>
+<script src="v35.js?v=3.34"></script>
+<script src="v36.js?v=3.34"></script>
+<script src="v37.js?v=3.34"></script>
+<script src="v38.js?v=3.34"></script>
+<script src="v39.js?v=3.34"></script>
+<script src="v40.js?v=3.34"></script>
+<script src="v41.js?v=3.34"></script>
+<script src="v42.js?v=3.34"></script>
+<script src="v43.js?v=3.34"></script>
+<script src="v44.js?v=3.34"></script>
+<script src="v45.js?v=3.34"></script>
+<script src="v46.js?v=3.34"></script>
+<script src="v47.js?v=3.34"></script>
+<script src="v48.js?v=3.34"></script>
+<script src="v49.js?v=3.34"></script>
+<script src="v50.js?v=3.34"></script>
+<script src="v51.js?v=3.34"></script>
+<script src="pwa.js?v=3.34"></script>
 </body>
 </html>

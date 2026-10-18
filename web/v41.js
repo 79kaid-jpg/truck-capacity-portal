@@ -1,17 +1,17 @@
 // v3.13: Yêu cầu đặt hàng — khách / Sales ghi nhanh "20 MT HC 0.5 xanh dương…", CS xử lý thành đơn
 (()=>{const st=document.createElement('style');st.textContent=`
-.rqchip{display:inline-flex;align-items:center;gap:3px;margin-top:4px;padding:1px 7px;border-radius:999px;border:1.5px solid #7a4bd1;background:#f1eaff;color:#5b2fb0;font:inherit;font-size:11px;font-weight:700;cursor:pointer}
+.rqchip{display:inline-flex;align-items:center;gap:3px;margin-top:4px;padding:1px 7px;border-radius:999px;border:1.5px solid var(--req);background:var(--req-bg);color:var(--req-ink);font:inherit;font-size:11px;font-weight:700;cursor:pointer}
 .rqchip.done{border-color:var(--line);background:var(--surface);color:var(--muted);font-weight:600}
-.rqbtn{border-color:#7a4bd1!important;color:#5b2fb0!important}.rqbtn b{background:#7a4bd1;color:#fff;border-radius:999px;padding:0 6px;margin-left:4px;font-size:11px}
-.rq{border:1px solid var(--line);border-left:4px solid #7a4bd1;border-radius:10px;padding:10px 12px;margin:8px 0;background:var(--surface)}
+.rqbtn{border-color:var(--req)!important;color:var(--req-ink)!important}.rqbtn b{background:#7a4bd1;color:#fff;border-radius:999px;padding:0 6px;margin-left:4px;font-size:11px}
+.rq{border:1px solid var(--line);border-left:4px solid var(--req);border-radius:10px;padding:10px 12px;margin:8px 0;background:var(--surface)}
 .rq.st-done{border-left-color:var(--ok)}.rq.st-declined{border-left-color:var(--bad)}.rq.st-cancelled{border-left-color:var(--muted);opacity:.75}
 .rq .rqh{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.rq .rqh b{font-size:14px}.rq .rqb{white-space:pre-wrap;margin:6px 0;font-size:14px;background:var(--ground);border-radius:8px;padding:6px 9px}
 .rq .rqm{font-size:12px;color:var(--muted)}.rq .rqa{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.rq .rqr{font-size:12.5px;margin-top:4px}
-.rqtag{font-size:10.5px;font-weight:700;border-radius:6px;padding:1px 6px;background:var(--blue-bg);color:var(--blue)}.rqtag.k{background:#f1eaff;color:#5b2fb0}
+.rqtag{font-size:10.5px;font-weight:700;border-radius:6px;padding:1px 6px;background:var(--blue-bg);color:var(--blue)}.rqtag.k{background:var(--req-bg);color:var(--req-ink)}
 .rqform{display:grid;grid-template-columns:1fr 1fr;gap:10px}.rqform .span2{grid-column:span 2}.rqform textarea{min-height:110px}
 @media (max-width:700px){.rqform{grid-template-columns:1fr}.rqform .span2{grid-column:auto}}
 .rqic{vertical-align:-2px;flex:none}.rqbtn .rqic{margin-right:4px}
-.g30req{margin:6px 0 8px;padding:8px 10px;border-radius:8px;background:#f1eaff;border:1px solid #c9b3f3;font-size:13px;white-space:pre-wrap}
+.g30req{margin:6px 0 8px;padding:8px 10px;border-radius:8px;background:var(--req-bg);border:1px solid var(--req-line);font-size:13px;white-space:pre-wrap}
 `;document.head.appendChild(st);})();
 const RQ_IC='<svg class="rqic" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v6a1.5 1.5 0 0 1-1.5 1.5H7l-3 3v-3h-.5A1.5 1.5 0 0 1 2 9.5z" fill="currentColor"/></svg>';
 {const a0=adopt;adopt=function(st){const s=a0(st);s.reqs=(st.reqs||[]).map(r=>({...r,at:Math.floor(r.at/60),handledAt:r.handledAt?Math.floor(r.handledAt/60):null}));return s;};}
