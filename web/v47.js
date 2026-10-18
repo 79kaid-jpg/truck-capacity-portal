@@ -191,7 +191,7 @@ function vTalk(){const all=tkList();const tabs=[['need','Cần tôi trả lời'
  const nperm=typeof Notification!=='undefined'?Notification.permission:'unsupported';
  return `<div class="panel"><div class="pagehead"><h2>💬 TRAO ĐỔI NỘI BỘ</h2><span class="tklock" style="margin:0">🔒 Khách hàng không thấy</span><span class="grow"></span>
   ${nperm==='unsupported'?'':nperm==='granted'&&tkNotifOn()?'<button class="btn ghost sm" data-a="tkNotif" data-v="0" title="Đang hiện thông báo trên máy khi ứng dụng chạy nền">🔔 Thông báo trên máy: Bật</button>':'<button class="btn ghost sm" data-a="tkNotif" data-v="1">🔔 Bật thông báo trên máy</button>'}</div>
- <p class="small muted" style="margin:0 0 8px">Hỏi đáp gắn với đơn, xe hoặc ngày-kho. Mở chi tiết booking / xe / ngày rồi bấm <b>💬 Trao đổi</b> để bắt đầu. Phím tắt <b>G H</b>.</p>
+ <p class="small muted" style="margin:0 0 8px">Hỏi đáp gắn với đơn, xe hoặc ngày-kho. Mở chi tiết booking / xe / ngày rồi bấm <b>💬 Trao đổi</b> để bắt đầu. Phím tắt <b>G M</b>.</p>
  <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:6px">${tabs.map(([k,lb,x])=>`<button class="btn ghost sm ${cur[0]===k?'on':''}" data-a="tkTab" data-v="${k}">${lb}${x.length?` <b class="num">${x.length}</b>`:''}</button>`).join('')}
   <span class="grow"></span><select class="inp" style="width:auto" data-a="tkWhSel" aria-label="Kho"><option value="">Tất cả kho</option>${WH.map(w=>`<option value="${w.id}" ${TK.wh===w.id?'selected':''}>${esc(w.id)}</option>`).join('')}</select></div>
  ${l.length?l.map(t=>`<div class="tkrow ${tkUnread(t)||tkNeed(t)?'un':''}" data-a="tkOpen" data-k="${t.k}" data-r="${esc(t.ref)}" role="button" tabindex="0"><span class="ic">${tkIcon(t.k)}</span>
@@ -202,7 +202,7 @@ function vTalk(){const all=tkList();const tabs=[['need','Cần tôi trả lời'
 A.tkTab=d=>{TK.tab=d.v;render();};
 document.addEventListener('change',e=>{if(e.target.dataset&&e.target.dataset.a==='tkWhSel'){TK.wh=e.target.value;render();}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList&&e.target.classList.contains('tkrow')){e.preventDefault();A.tkOpen({k:e.target.dataset.k,r:e.target.dataset.r});}});
-if(typeof SC!=='undefined'){const x=['goTalk','global','Mở Trao đổi nội bộ','G H',()=>tkCan()&&go('talk')];SC.push(x);if(typeof SC_BY!=='undefined')SC_BY.goTalk=x;}
+if(typeof SC!=='undefined'){const x=['goTalk','global','Mở Trao đổi nội bộ','G M',()=>tkCan()&&go('talk')];SC.push(x);if(typeof SC_BY!=='undefined')SC_BY.goTalk=x;}
 // thông báo: mở thẳng trao đổi
 {const o0=A.openNotif;A.openNotif=d=>{const n=S.notifs.find(x=>String(x.id)===String(d.id));const L=n&&n.link||{};if(!L.talk)return o0(d);
  if(!n.read){n.read=true;rpc('mark_notifs_read',{p_ids:[n.id]}).catch(()=>{});}A.tkOpen({k:L.talk.k,r:L.talk.r});};}

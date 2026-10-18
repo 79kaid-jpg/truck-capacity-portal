@@ -361,7 +361,7 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 ## v3.24 — Trao đổi nội bộ
 **Chạy `supabase/setup_all.sql` trước khi gộp** (bảng talk_threads / talk_msgs / talk_reads / talk_files, hàm talk_*, nhắc trong escalate, mục câu hỏi trong email tóm tắt, cấu hình talkRemindHours).
-- Trao đổi theo đơn / xe / ngày-kho, chỉ nội bộ (database chặn khách và chế độ Xem như khách hàng). @nhóm / @người, câu mẫu, 3 trạng thái, nhắc khi chưa trả lời, hộp Trao đổi (G H), ghim ghi chú, ảnh (nén, lưu trong database), sửa / xóa 5 phút, cảm xúc, đã xem, theo dõi / tắt, thông báo trên máy, công cụ trợ lý.
+- Trao đổi theo đơn / xe / ngày-kho, chỉ nội bộ (database chặn khách và chế độ Xem như khách hàng). @nhóm / @người, câu mẫu, 3 trạng thái, nhắc khi chưa trả lời, hộp Trao đổi (G M), ghim ghi chú, ảnh (nén, lưu trong database), sửa / xóa 5 phút, cảm xúc, đã xem, theo dõi / tắt, thông báo trên máy, công cụ trợ lý.
 - Trợ lý tự thu gọn khi bấm ra ngoài.
 - Tin Trao đổi vào email tóm tắt (người chọn nhận email "tất cả").
 
