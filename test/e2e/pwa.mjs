@@ -38,7 +38,7 @@ await session('cs@demo.vn', async p => {
   await p.context().setOffline(true);
   await p.evaluate(() => reload().then(render)); await p.waitForTimeout(500);
   ok(await p.locator('#offbar').isVisible(), 'mất mạng: hiện thanh "đang xem dữ liệu lúc…"');
-  ok(await p.locator('.cal .cell').count() > 20, 'mất mạng: vẫn xem được lịch');
+  ok(await p.locator('.cal .cell').count() >= 14, 'mất mạng: vẫn xem được lịch'); // v3.38: tuần đã qua gom thành một dải
   await p.evaluate(() => mutate('req_create', { p: {} })); await p.waitForTimeout(300); ok(/mất kết nối/i.test(await toastTxt(p)), 'mất mạng: chặn thao tác');
   await shot(p, 'offline');
   await p.context().setOffline(false); await p.evaluate(() => dispatchEvent(new Event('online'))); await p.waitForTimeout(1500);
