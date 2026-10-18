@@ -98,7 +98,8 @@ function scCheck(id,c,map){if(!c)return{};const ctx=SC_BY[id][1];const first=c.s
 
 /* ---------- bộ xử lý phím ---------- */
 function scCtx(){if(V.modal)return V.modal.type==='grid'?['grid']:['modal'];const v={calendar:'cal',day:'day',booking:'bk',dash:'dash'}[V.view];return v?[v,'global']:['global'];}
-let scSeq=null;const seqHint=t=>{let el=document.getElementById('scSeq');if(!t){if(el)el.remove();return;}if(!el){el=document.createElement('div');el.id='scSeq';document.body.appendChild(el);}el.textContent=t;};
+let scSeq=null,scSeqT=0; // hẹn giờ cũ không được hủy chuỗi phím mới
+const seqHint=t=>{let el=document.getElementById('scSeq');if(!t){if(el)el.remove();return;}if(!el){el=document.createElement('div');el.id='scSeq';document.body.appendChild(el);}el.textContent=t;};
 document.addEventListener('keydown',e=>{if(!S||!scEnabled()||V.scRec||(typeof GS!=='undefined'&&GS.open))return;const t=e.target;
  const typing=t&&(['INPUT','TEXTAREA','SELECT'].includes(t.tagName)||t.isContentEditable);const c=comboOf(e);if(!c)return;
  // ô ngày đang chọn: mũi tên di chuyển giữa các ô, Enter mở
@@ -107,11 +108,11 @@ document.addEventListener('keydown',e=>{if(!S||!scEnabled()||V.scRec||(typeof GS
  if(!typing&&!V.modal&&t&&t.dataset&&t.dataset.tip&&c==='Enter'&&t.dataset.a){e.preventDefault();t.click();return;}
  const map=scMap();const ctxs=scCtx();
  const ok=id=>{const x=SC_BY[id];if(!x||!ctxs.includes(x[1]))return false;const k=map[id];if(!k)return false;if(typing&&!/^(Ctrl|Alt)\+/.test(k))return false;if(singleKey(k)&&!scSingle()&&k!=='Esc')return false;return true;};
- if(scSeq){const want=scSeq+' '+c;scSeq=null;seqHint('');const id=Object.keys(map).find(i=>ok(i)&&map[i]===want);if(id){e.preventDefault();SC_BY[id][4]();}return;}
+ if(scSeq){const want=scSeq+' '+c;scSeq=null;clearTimeout(scSeqT);seqHint('');const id=Object.keys(map).find(i=>ok(i)&&map[i]===want);if(id){e.preventDefault();SC_BY[id][4]();}return;}
  if(c==='Esc'&&(typing||V.modal))return; // Esc trong ô / hộp thoại: để mặc định (đóng hộp thoại)
  const id=Object.keys(map).find(i=>ok(i)&&map[i]===c);
  if(id){e.preventDefault();e.stopPropagation();SC_BY[id][4]();return;}
- if(!typing&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&Object.keys(map).some(i=>ok(i)&&map[i]&&map[i].startsWith(c+' '))){e.preventDefault();scSeq=c;seqHint(c+' …');setTimeout(()=>{if(scSeq===c){scSeq=null;seqHint('');}},1300);}
+ if(!typing&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&Object.keys(map).some(i=>ok(i)&&map[i]&&map[i].startsWith(c+' '))){e.preventDefault();scSeq=c;seqHint(c+' …');clearTimeout(scSeqT);scSeqT=setTimeout(()=>{scSeq=null;seqHint('');},1300);}
 },true);
 
 /* ---------- bảng "?" ---------- */
