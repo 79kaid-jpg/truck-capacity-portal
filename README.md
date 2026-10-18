@@ -401,6 +401,14 @@ Không cần chạy SQL.
 - Lần đầu mở trên điện thoại: dải nhắc phía dưới (Cài / Để sau – 14 ngày không nhắc).
 - File: `web/v51.js`; test `test/e2e/v51.mjs`.
 
+## v3.36 — Điện thoại
+Không đổi CSDL. File mới `web/v52.js` (mục 1.3, 2.1, 2.2, 2.4 của báo cáo rà soát UI/UX). Máy tính giữ nguyên.
+- **Lưới Đặt hàng** dưới 700px: toàn màn hình, mỗi dòng đơn là một thẻ (Kho, Ngày bốc, Khách hàng, Số tấn…), ô nhập cao 44px, chữ 16px (iPhone không tự phóng to). Nút Đóng / Lưu tạm / Đặt & gửi Logistics luôn ở đáy. Ẩn A−/A+/Toàn màn hình và đoạn hướng dẫn dán Excel.
+- **Lịch** (CS, Logistics, khách): mở từ hôm nay; ngày đã qua gom vào nút **Xem N ngày đã qua**.
+- **Header** một dòng: logo, Tìm kiếm, Hướng dẫn thành biểu tượng 44×44 (có nhãn cho trình đọc màn hình).
+- Thanh lọc lịch dùng bản icon + số của v3.35.
+- Nút bấm ngoài ô lịch cao ≥ 40px.
+
 ## v3.34 — Dễ đọc hơn (màu, dark mode, nút chat)
 Không đổi CSDL. Theo báo cáo rà soát UI/UX 18/10/2026 (mục 1.1, 1.2, 1.4, 3.4, 3.6).
 - Màu chữ trạng thái ở chế độ sáng đậm hơn (`--ok`, `--warn`, `--pend`, `--bad`): nhãn Đang xếp / Trống / Đầy, Chờ xếp xe, ô "x đơn chờ xếp xe" đều đạt tương phản ≥ 4,5 (trước 3,2–4,4). Nhãn trạng thái từ 10,5px lên 12px.
@@ -444,6 +452,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v44.js                  Kéo thả booking vào xe, gợi ý xe
   v45.js                  Tạo / lọc / xóa tài khoản
   v46.js                  Trợ lý (chatbot)
+  v52.js                  v3.35: giao diện điện thoại (lưới Đặt hàng dạng thẻ, nút Lọc, ngày đã qua)
 functions/api/chat.js     Cloudflare Function gọi Workers AI
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
