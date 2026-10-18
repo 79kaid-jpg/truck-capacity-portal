@@ -401,6 +401,13 @@ Không cần chạy SQL.
 - Lần đầu mở trên điện thoại: dải nhắc phía dưới (Cài / Để sau – 14 ngày không nhắc).
 - File: `web/v51.js`; test `test/e2e/v51.mjs`.
 
+## v3.39 — Trợ lý: hỏi "đơn đang giao"
+Không đổi CSDL. Sửa `web/v46.js`.
+- Hỏi "Tháng này có bao nhiêu đơn đang giao?" trước đây có thể trả lời "không có" vì: tìm xe đang giao chỉ xem xe bốc **hôm nay** (xe đang chạy thường bốc từ hôm trước); "tháng này", "Đang giao hàng", "đang vận chuyển"… không được hiểu; số liệu gộp Đang giao với Đã bốc.
+- Công cụ `stats` có thêm `dang_giao` và `da_boc_chua_xuat_phat`; `find_bookings` hiểu "tháng này / tuần này / tháng trước" và nhiều cách gọi trạng thái, khi không có đơn ở trạng thái hỏi thì kèm số đơn các trạng thái khác cùng khoảng; `find_trucks` với xe đang giao / trễ mà không ghi ngày thì quét 14 ngày gần nhất.
+- Hướng dẫn trợ lý: câu "đang giao" luôn nêu cả số Đã bốc chưa xuất phát và kỳ đã xem, không chỉ trả lời "không có".
+- Test: `test/e2e/v46.mjs` (bản cũ: lỗi).
+
 ## v3.38 — Màn Lịch dễ dùng hơn
 Không đổi CSDL. File mới `web/v54.js`; sửa `web/v36.js`, `web/v40.js`, `web/v52.js` (rà màn Lịch bằng skill ui-ux-pro-max, 18/10/2026).
 - **Tuần đã qua gom thành một dải** "Xem N tuần đã qua (01/10 – 17/10)" ở đầu lịch tháng (CS, Logistics, khách). Hàng đầu tiên là tuần hiện tại. Bấm dải để hiện lại; điện thoại dùng nút "Xem N ngày đã qua" như v3.36.

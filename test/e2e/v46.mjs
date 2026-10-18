@@ -124,5 +124,25 @@ await session('admin@demo.vn', async p => {
   await p.evaluate(() => { V.view = 'users'; V.uTab = 'customers'; render(); }); await p.waitForTimeout(300);
   ok(await p.locator('[data-a="custChat"]').count() >= 5, 'nút bật trợ lý cho từng khách');
 });
+// v3.39: "Tháng này có bao nhiêu đơn đang giao?" – công cụ phải thấy đơn Đang giao / Đã bốc
+q("with x as (select id, row_number() over (order by id) n from app.bookings where status='ok' and day=app.today()) update app.bookings b set status = case when x.n<=2 then 'transit' else 'loaded' end, loaded_at=now() from x where b.id=x.id and x.n<=3");
+await session('log@demo.vn', async p => {
+  S('transit');
+  const r = await p.evaluate(async () => {
+    const s = await TOOLS.stats.run({ period: 'month' });
+    const f1 = await TOOLS.find_bookings.run({ status: 'Đang giao hàng', date: 'tháng này' });
+    const f2 = await TOOLS.find_bookings.run({ status: 'giao lỗi', period: 'month' });
+    const t0 = (await TOOLS.find_trucks.run({ state: 'transit' })).length;
+    TODAY = addDays(TODAY, 1); // hôm sau: xe đã xuất phát từ ngày bốc hôm trước
+    const t1 = (await TOOLS.find_trucks.run({ state: 'transit' })).length;
+    const t2b = (await TOOLS.find_trucks.run({ state: 'transit', date: TODAY })).length;
+    return { dg: s.dang_giao.don, db: s.da_boc_chua_xuat_phat.don, f1: f1.tong_so_don, kd: f1.khoang_ngay, f2: f2.tong_so_don, khac: f2.cac_trang_thai_khac, note: f2.ghi_chu, t0, t1, t2b, sys: sysPrompt() };
+  });
+  ok(r.dg === 2 && r.db === 1, 'stats tách Đang giao (2) và Đã bốc chưa xuất phát (1)', JSON.stringify([r.dg, r.db]));
+  ok(r.f1 === 2 && /-01 → .*-3[01]$/.test(r.kd), '"Đang giao hàng" + "tháng này" → đúng trạng thái, cả tháng', JSON.stringify([r.f1, r.kd]));
+  ok(r.f2 === 0 && r.khac && Object.keys(r.khac).length > 0 && /Không có đơn/.test(r.note || ''), 'không có đơn ở trạng thái hỏi → kèm các trạng thái khác', JSON.stringify(r.khac));
+  ok(r.t0 === 2 && r.t1 === 2 && r.t2b === 0, 'xe đang giao: không ghi ngày thì quét cả các ngày bốc trước', JSON.stringify([r.t0, r.t1, r.t2b]));
+  ok(/dang_giao/.test(r.sys) && /KHÔNG chỉ trả lời "không có"/.test(r.sys), 'hướng dẫn trợ lý cách trả lời câu "đang giao"');
+});
 await browser.close();
 console.log(`${pass} OK, ${errors.length} lỗi`); if (errors.length) { console.log(errors.join('\n')); process.exit(1); }
