@@ -19,7 +19,12 @@
 .c36 .whl{display:grid;grid-template-columns:34px 1fr auto;gap:4px;align-items:center;font-size:11px;padding:1px 2px;border-radius:4px}.c36 .whl:hover{background:var(--blue-bg)}
 .c36 .bl{font-size:11px;display:flex;gap:4px;align-items:baseline;min-width:0}.c36 .bl span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .cell.wk{background:var(--sand);font-size:11.5px;cursor:default}.cell.wk b{font-size:14px}.cell.wk .lbl{font-weight:700;color:var(--muted);font-size:10.5px;letter-spacing:.05em}
-.cal36bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 10px}.cal36bar button.on{background:var(--navy);color:var(--on-navy)}
+.cal36bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px}.cal36bar button.on{background:var(--navy);color:var(--on-navy)}
+.seg36{display:inline-flex;border:1.5px solid var(--ink);border-radius:999px;overflow:hidden;background:var(--surface)}.seg36 button{display:inline-flex;align-items:center;gap:5px;border:0;border-radius:0;background:transparent;color:var(--ink);padding:5px 11px;font:700 12px var(--f-body);cursor:pointer;min-height:34px;white-space:nowrap}.seg36 button+button{border-left:1px solid var(--line)}
+.seg36 button svg,.icbtn svg,.rqbtn svg.rqic{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}.seg36 .cnt{font:700 11px var(--f-body);background:var(--blue-bg);color:var(--blue);border-radius:999px;padding:0 6px;min-width:18px;text-align:center}.seg36 button.on .cnt{background:#fff;color:var(--navy)}
+.icbtn{display:inline-flex;align-items:center;gap:5px}
+@media (max-width:700px){.cal36bar{gap:6px}.seg36 button{padding:5px 9px}.seg36 button .t:not(.keep){display:none}.seg36 button[data-a="calV"] .t{display:inline}.cal36bar .kbbtn .t{display:none}.cal36bar>[data-a="guide"]{display:none}.cal36bar .seg36[aria-label="Lọc lịch"]{order:3}}
+@media (hover:none) and (pointer:coarse){.cal36bar .kbbtn{display:none}}
 #calTip{position:fixed;z-index:70;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:10px 12px;font-size:12.5px;max-width:340px;pointer-events:none}
 #calTip h4{margin:0 0 6px;font-size:13px}#calTip .r{display:flex;gap:8px;justify-content:space-between}#calTip .m{color:var(--muted)}
 .cal36bar+.calwrap .legend svg,.calwrap .legend svg{width:34px;height:auto;vertical-align:middle}
@@ -85,9 +90,18 @@ vCalendar=function(){const[y,m]=V.ym;const isC=role()==='customer';const w2=!isC
  const cells=rows.map(r=>r.map(cell).join('')+(isC?'':weekCell(r))).join('');
  const title=w2?`${dm(start)} – ${dm(addDays(start,13))}/${addDays(start,13).slice(0,4)}`:`THÁNG ${pad(m)} ${y}`;
  const whSel=`<label class="whsel"><span>Kho:</span><select data-a36="wh" aria-label="Chọn kho">${isC?'':`<option value="__all" ${V.whAll?'selected':''}>Tất cả kho</option>`}${WH.map(w=>`<option value="${w.id}" ${!V.whAll&&w.id===V.wh?'selected':''}>${w.name}</option>`).join('')}</select></label>`;
- const F=[['all','Tất cả'],['hold','Có đơn chờ xếp xe'],['urg','Có đơn khẩn'],...(role()==='cs'||role()==='admin'?[['mine','Đơn của tôi']]:[])];
- const bar=isC?'':`<div class="cal36bar"><button class="btn ghost sm ${w2?'':'on'}" data-a="calV" data-v="m">Xem tháng</button><button class="btn ghost sm ${w2?'on':''}" data-a="calV" data-v="w2">Xem 2 tuần</button>
-  <span class="grow"></span>${F.map(([k,l])=>`<button class="btn ghost sm ${(V.calF||'all')===k?'on':''}" data-a="calF" data-v="${k}">${l}</button>`).join('')}<button class="btn ghost sm" data-a="scHelp" title="Bảng phím tắt (?)">⌨ Phím tắt</button></div>`;
+ const IC={m:'<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3"/></svg>',w2:'<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="4" width="12" height="3.5" rx="1"/><rect x="2" y="9" width="12" height="3.5" rx="1"/></svg>',
+ all:'<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>',
+ hold:'<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg>',
+ urg:'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 14.5 13h-13z"/><path d="M8 6v3.2M8 11.2v.1"/></svg>',
+ mine:'<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="5.5" r="2.8"/><path d="M2.5 14c.6-3 2.8-4.5 5.5-4.5s4.9 1.5 5.5 4.5"/></svg>',
+ key:'<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="4" width="13" height="8" rx="1.5"/><path d="M4 7h.1M6.5 7h.1M9 7h.1M11.5 7h.1M5 9.5h6"/></svg>'};
+const F=[['all','Tất cả','Tất cả ngày'],['hold','Chờ xếp xe','Ngày có đơn chờ xếp xe'],['urg','Khẩn','Ngày có đơn khẩn'],...(role()==='cs'||role()==='admin'?[['mine','Của tôi','Ngày có đơn của tôi']]:[])];
+const calCnt=k=>{if(k==='all'||isC)return 0;const f0=V.calF;V.calF=k;let n=0;try{rows.forEach(r=>r.forEach(d=>{if(d&&cellMatch(d,dayX(d))&&dayX(d).declared)n++;}));}catch(e){}V.calF=f0;return n;};
+const cf=V.calF||'all';
+const bar=isC?'':`<div class="cal36bar"><span class="seg36" role="group" aria-label="Kiểu xem lịch"><button class="${w2?'':'on'}" data-a="calV" data-v="m" title="Xem cả tháng" aria-pressed="${!w2}">${IC.m}<span class="t">Tháng</span></button><button class="${w2?'on':''}" data-a="calV" data-v="w2" title="Xem 2 tuần" aria-pressed="${w2}">${IC.w2}<span class="t">2 tuần</span></button></span>
+  <span class="seg36" role="group" aria-label="Lọc lịch">${F.map(([k,l,tt])=>{const n=calCnt(k);return `<button class="${cf===k?'on':''}" data-a="calF" data-v="${k}" title="${tt}" aria-label="${tt}${n?' ('+n+')':''}" aria-pressed="${cf===k}">${IC[k]}<span class="t${k==='all'?' keep':''}">${l}</span>${n?`<b class="cnt">${n}</b>`:''}</button>`;}).join('')}</span>
+  <span class="grow"></span><button class="btn ghost sm icbtn kbbtn" data-a="scHelp" title="Bảng phím tắt (?)" aria-label="Bảng phím tắt">${IC.key}<span class="t">Phím tắt</span></button></div>`;
  const side=V.sideOff?`<button class="sidebtn" data-a="sideT" title="Mở khung thống kê">« THỐNG KÊ</button>`:statsPanel();
  return `<div class="panel"><div class="calhead v36"><div class="illus">${DK_SVG()}</div>
   <div class="monthnav"><button class="navbtn" data-a="${w2?'w2nav':'month'}" data-d="-1" aria-label="Kỳ trước">‹</button><h1>${title}</h1><button class="navbtn" data-a="${w2?'w2nav':'month'}" data-d="1" aria-label="Kỳ sau">›</button></div>

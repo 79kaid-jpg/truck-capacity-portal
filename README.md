@@ -388,6 +388,12 @@ Không cần chạy SQL.
 **Chạy `supabase/setup_all.sql` trước khi gộp** (cấu hình `uatOn`).
 - Menu tên người dùng có **🧪 Kiểm thử UAT**: mở checklist UAT vòng 2 (https://claude.ai/artifact/2ZXnJ44xxMcaRcGaZpBQYv) đúng vai trò (#kh, #sales, #rsm, #cs, #log, #admin). Admin tắt ở Cấu hình → Chung khi go-live.
 
+## v3.35 — Thanh lọc lịch gọn (icon + số)
+
+- Xem tháng / 2 tuần gộp thành một nút chuyển; bộ lọc Chờ xếp xe, Khẩn, Của tôi dùng icon kèm số ngày khớp. Điện thoại chỉ hiện icon + số (có tên cho trình đọc màn hình, rê/chạm giữ xem tên).
+- Nút Yêu cầu đặt hàng và Yêu cầu thành icon trên điện thoại. Ẩn Phím tắt trên máy cảm ứng và "Hướng dẫn màn này" trên điện thoại (đã có nút Hướng dẫn ở thanh trên). Thanh lọc còn 2 dòng.
+- Sửa viên thuốc "tạm bỏ picking list" trống ở thanh trên điện thoại (nay hiện ⚠).
+
 ## v3.32 — Nút Cài lên điện thoại
 
 - Menu tên người dùng → **📲 Cài lên điện thoại**. Android / Chrome / Edge trên máy tính: bấm là hiện hộp cài của trình duyệt. iPhone: hướng dẫn 3 bước (Safari → Chia sẻ → Thêm vào MH chính); mở trong Zalo/Chrome iOS thì nhắc mở lại bằng Safari, có nút sao chép link.
