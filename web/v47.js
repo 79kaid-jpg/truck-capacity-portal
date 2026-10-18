@@ -202,7 +202,7 @@ function vTalk(){const all=tkList();const tabs=[['need','Cần tôi trả lời'
 A.tkTab=d=>{TK.tab=d.v;render();};
 document.addEventListener('change',e=>{if(e.target.dataset&&e.target.dataset.a==='tkWhSel'){TK.wh=e.target.value;render();}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList&&e.target.classList.contains('tkrow')){e.preventDefault();A.tkOpen({k:e.target.dataset.k,r:e.target.dataset.r});}});
-if(typeof SC!=='undefined')SC.push(['goTalk','global','Mở Trao đổi nội bộ','G H',()=>tkCan()&&go('talk')]);
+if(typeof SC!=='undefined'){const x=['goTalk','global','Mở Trao đổi nội bộ','G H',()=>tkCan()&&go('talk')];SC.push(x);if(typeof SC_BY!=='undefined')SC_BY.goTalk=x;}
 // thông báo: mở thẳng trao đổi
 {const o0=A.openNotif;A.openNotif=d=>{const n=S.notifs.find(x=>String(x.id)===String(d.id));const L=n&&n.link||{};if(!L.talk)return o0(d);
  if(!n.read){n.read=true;rpc('mark_notifs_read',{p_ids:[n.id]}).catch(()=>{});}A.tkOpen({k:L.talk.k,r:L.talk.r});};}
