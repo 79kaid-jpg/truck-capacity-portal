@@ -48,6 +48,7 @@ await session('log@demo.vn', async p => {
   ok(await p.locator('.ycard').count() >= 1, 'Chế độ kho: thẻ xe có hàng', await p.locator('.main').innerText().then(x => x.slice(0, 200)));
   await p.setViewportSize({ width: 390, height: 844 }); await p.waitForTimeout(200); await shot(p, 'yard-mobile');
   const wide = await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1); ok(wide, 'Chế độ kho trên điện thoại không kéo ngang');
+  ok(await p.evaluate(() => { const t = document.querySelector('.top'); return t.scrollWidth <= t.clientWidth; }), 'thanh trên cùng không tràn (có nhãn tạm bỏ picking list)');
   await p.setViewportSize({ width: 1440, height: 1000 });
   await p.locator(`.ycard [data-a="ydGo"][data-c="${code}"][data-k="load"]`).click(); await p.waitForTimeout(300);
   ok(await p.locator('.modal .trk input[data-trk]').count() >= 1, 'Bốc xong → hộp xe với danh sách kiểm tra');

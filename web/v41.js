@@ -10,7 +10,7 @@
 .rqtag{font-size:10.5px;font-weight:700;border-radius:6px;padding:1px 6px;background:var(--blue-bg);color:var(--blue)}.rqtag.k{background:var(--req-bg);color:var(--req-ink)}
 .rqform{display:grid;grid-template-columns:1fr 1fr;gap:10px}.rqform .span2{grid-column:span 2}.rqform textarea{min-height:110px}
 @media (max-width:700px){.rqform{grid-template-columns:1fr}.rqform .span2{grid-column:auto}}
-.rqic{vertical-align:-2px;flex:none}.rqbtn .rqic{margin-right:4px}
+.rqic{vertical-align:-2px;flex:none}.rqbtn{display:inline-flex;align-items:center;gap:5px}.rqbtn .rqic{margin-right:0}@media (max-width:700px){.cal36bar .rqbtn .t{display:none}.cal36bar .rqbtn{padding:5px 9px;min-height:34px}}
 .g30req{margin:6px 0 8px;padding:8px 10px;border-radius:8px;background:var(--req-bg);border:1px solid var(--req-line);font-size:13px;white-space:pre-wrap}
 `;document.head.appendChild(st);})();
 const RQ_IC='<svg class="rqic" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v6a1.5 1.5 0 0 1-1.5 1.5H7l-3 3v-3h-.5A1.5 1.5 0 0 1 2 9.5z" fill="currentColor"/></svg>';
@@ -112,7 +112,7 @@ A.rqMake=d=>{const r=S.reqs.find(x=>x.id===+d.id);if(!r)return;if(typeof openGri
  if(g&&M&&M.type==='grid'&&M.req&&!g.querySelector('.g30req')){const el=document.createElement('div');el.className='g30req';el.textContent='💬 Yêu cầu của '+rqCustName(M.req.customerId)+' ('+(M.req.byName||'')+'): '+M.req.body;const h=g.querySelector('.mhead');if(h)h.after(el);}
  if(!S||V.view!=='calendar')return;const bar=document.querySelector('.main .cal36bar');if(!bar||bar.querySelector('[data-a="rqList"]'))return;
  const n=rqOpen().length;const wrap=document.createElement('span');wrap.className='row';wrap.style.gap='6px';
- wrap.innerHTML=`${rqCanNew()?`<button class="btn ghost sm rqbtn" data-a="rqNew" title="Ghi nhanh yêu cầu để CS tạo đơn">+ Yêu cầu đặt hàng</button>`:''}<button class="btn ghost sm rqbtn" data-a="rqList" title="Yêu cầu đặt hàng">${RQ_IC}Yêu cầu${n?`<b>${n}</b>`:''}</button>`;
+ wrap.innerHTML=`${rqCanNew()?`<button class="btn ghost sm rqbtn" data-a="rqNew" title="Ghi nhanh yêu cầu để CS tạo đơn" aria-label="Yêu cầu đặt hàng mới"><svg class="rqic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg><span class="t">Yêu cầu đặt hàng</span></button>`:''}<button class="btn ghost sm rqbtn" data-a="rqList" title="Danh sách yêu cầu đặt hàng" aria-label="Yêu cầu đặt hàng${n?' ('+n+' chờ)':''}">${RQ_IC}<span class="t">Yêu cầu</span>${n?`<b>${n}</b>`:''}</button>`;
  const kb=bar.querySelector('[data-a="scHelp"]');if(kb)bar.insertBefore(wrap,kb);else{const gd=bar.querySelector('[data-a="guide"]');if(gd)bar.insertBefore(wrap,gd);else bar.appendChild(wrap);}};}
 // Thông báo yêu cầu: mở thẳng danh sách yêu cầu của ngày
 {const o0=A.openNotif;A.openNotif=d=>{const n=S.notifs.find(x=>String(x.id)===String(d.id));const L=n&&n.link||{};if(!L.req)return o0(d);

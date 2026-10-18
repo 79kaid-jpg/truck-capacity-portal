@@ -12,7 +12,7 @@ if(typeof EXC==='object')EXC.ship=['🚚 Chưa xác nhận giao',r=>['loaded','t
 {const r0=render;render=function(){r0();if(!S)return;
  // nhãn nhắc trên thanh trên cùng cho Admin / Logistics
  const tb=document.querySelector('.top .userbtn');const has=document.querySelector('.top .pkoff');
- if(pickOff()&&(role()==='admin'||role()==='logistics')){if(tb&&!has){const el=document.createElement('span');el.className='pkoff';el.title='Admin đang tắt bắt buộc CS nhập danh sách cuộn (picking list). Bật lại trong Cấu hình → Chung.';el.textContent='⚠ Tạm bỏ bắt buộc picking list';const g=document.querySelector('.top [data-a="guide"]');tb.parentNode.insertBefore(el,g||tb);}}else if(has)has.remove();
+ if(pickOff()&&(role()==='admin'||role()==='logistics')){if(tb&&!has){const el=document.createElement('span');el.className='pkoff';el.title='Admin đang tắt bắt buộc CS nhập danh sách cuộn (picking list). Bật lại trong Cấu hình → Chung.';el.innerHTML='<span class="pki" aria-hidden="true">⚠</span><span class="pkt"> Tạm bỏ bắt buộc picking list</span>';el.setAttribute('role','status');const g=document.querySelector('.top [data-a="guide"]');tb.parentNode.insertBefore(el,g||tb);}}else if(has)has.remove();
  // Cấu hình → Chung
  if(V.view==='config'&&(V.cfgTab||'general')==='general'){const host=document.querySelector('.main .panel .fgrid');if(host&&!document.querySelector('.pkmain')){
   const C=S.cfg;const isAd=role()==='admin';const off=pickOff();const card=document.createElement('div');card.className='pkcard pkmain'+(off?' off':'');

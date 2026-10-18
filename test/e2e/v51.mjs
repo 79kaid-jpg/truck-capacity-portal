@@ -59,5 +59,24 @@ await session('cs@demo.vn', async p => {
   S('standalone'); await menu(p); ok(await p.locator('.top .menu .instlink').count() === 0, 'mở từ màn hình chính → không hiện nút');
   await p.waitForTimeout(4600); ok(await p.locator('#instbar').count() === 0, 'không hiện dải nhắc');
 }, { ...phone(IOS), init: () => { Object.defineProperty(navigator, 'standalone', { get: () => true }); } });
+await session('cs@demo.vn', async p => {
+  S('bar-phone'); const bar = '.cal36bar';
+  ok(await p.locator(`${bar} .seg36`).count() === 2, 'thanh lọc: 2 nhóm nút gọn (kiểu xem, bộ lọc)');
+  ok(await p.locator(`${bar} [data-a="calF"] svg`).count() >= 3, 'bộ lọc dùng icon');
+  ok(await p.locator(`${bar} [data-a="calF"][data-v="hold"] .cnt`).count() === 1, 'lọc Chờ xếp xe có số đếm');
+  ok(await p.locator(`${bar} [data-a="calF"][data-v="hold"] .t`).isHidden(), 'điện thoại: ẩn chữ, chỉ icon + số');
+  ok(await p.locator(`${bar} [data-a="calF"][data-v="hold"]`).getAttribute('aria-label').then(x => /chờ xếp xe/i.test(x)), 'icon có tên cho trình đọc màn hình');
+  ok(await p.locator(`${bar} [data-a="scHelp"]`).isHidden(), 'điện thoại cảm ứng: ẩn nút Phím tắt');
+  ok(await p.evaluate(() => document.querySelector('.cal36bar').getBoundingClientRect().height < 100), 'thanh lọc không quá 2 dòng');
+  ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'không tràn ngang');
+  await p.click(`${bar} [data-a="calF"][data-v="hold"]`); await p.waitForTimeout(200);
+  ok(await p.evaluate(() => V.calF === 'hold') && await p.locator(`${bar} [data-a="calF"][data-v="hold"].on`).count() === 1, 'bấm icon → lọc và sáng lên');
+  await p.click(`${bar} [data-a="calV"][data-v="w2"]`); await p.waitForTimeout(200); ok(await p.evaluate(() => V.calV === 'w2'), 'chuyển 2 tuần');
+}, phone(IOS));
+await session('log@demo.vn', async p => {
+  S('pkoff'); await p.evaluate(() => { S.cfg.pickReq = false; });
+  const el = await p.evaluate(() => { const e = document.createElement('span'); e.className = 'pkoff'; e.innerHTML = '<span class="pki">⚠</span><span class="pkt"> Tạm bỏ</span>'; document.querySelector('.top').insertBefore(e, document.querySelector('.top .userbtn')); const r = e.getBoundingClientRect(); return [r.width, getComputedStyle(e.querySelector('.pkt')).display, e.querySelector('.pki').getBoundingClientRect().width]; });
+  ok(el[1] === 'none' && el[2] > 5, 'viên thuốc trên điện thoại hiện dấu ⚠ (không trống)', JSON.stringify(el));
+}, phone(IOS));
 await browser.close();
 console.log(`\n${pass} OK, ${errors.length} lỗi`); if (errors.length) { console.log(errors.join('\n')); process.exit(1); }
