@@ -6,19 +6,19 @@
 .cal.v36{grid-template-columns:minmax(64px,.42fr) repeat(6,minmax(0,1fr)) minmax(96px,.62fr)}
 .cal.v36>div:nth-child(7n){border-right:1px solid var(--line)}.cal.v36>div:nth-child(8n){border-right:0}
 .cal.v36 .cell{min-height:118px;padding:6px 7px;gap:3px}
-.cal.v36 .cell.sun{background:var(--sand);padding:6px 4px}.cal.v36 .cell.sun .kv{font-size:11px}
+.cal.v36 .cell.sun{background:var(--sand);padding:6px 4px}.cal.v36 .cell.sun .kv{font-size:12px}
 .cal.v36 .cell.past{opacity:.62;min-height:0}.cal.v36 .cell.undecl{min-height:0}
 .cal.v36 .cell.c36{cursor:pointer}.cal.v36 .cell.c36:focus-visible{outline:3px solid var(--blue);outline-offset:-3px}
 .cal.v36 .cell.dim{opacity:.28}
 .c36 .avail{font-size:12px;color:var(--muted);line-height:1.1}.c36 .avail b{display:block;font-family:var(--f-display);font-size:19px;color:var(--ink);font-weight:900}
 .capbar{height:6px;border-radius:3px;background:var(--sand-2);overflow:hidden}.capbar i{display:block;height:100%}
-.c36 .sub{font-size:11px;color:var(--muted)}
-.c36 .tk{gap:8px;font-size:11px}.c36 .tk svg{width:28px}
+.c36 .sub{font-size:12px;color:var(--muted)}
+.c36 .tk{gap:8px;font-size:12px}.c36 .tk svg{width:28px}
 .c36 .qadd{position:absolute;right:6px;bottom:6px;width:26px;height:26px;border-radius:50%;border:0;background:var(--navy);color:var(--on-navy);font-size:17px;line-height:1;cursor:pointer;opacity:0;transition:opacity .12s}
 .c36:hover .qadd,.c36:focus-within .qadd{opacity:1}@media (hover:none){.c36 .qadd{opacity:1}}
-.c36 .whl{display:grid;grid-template-columns:34px 1fr auto;gap:4px;align-items:center;font-size:11px;padding:1px 2px;border-radius:4px}.c36 .whl:hover{background:var(--blue-bg)}
-.c36 .bl{font-size:11px;display:flex;gap:4px;align-items:baseline;min-width:0}.c36 .bl span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
-.cell.wk{background:var(--sand);font-size:11.5px;cursor:default}.cell.wk b{font-size:14px}.cell.wk .lbl{font-weight:700;color:var(--muted);font-size:10.5px;letter-spacing:.05em}
+.c36 .whl{display:grid;grid-template-columns:34px 1fr auto;gap:4px;align-items:center;font-size:12px;padding:1px 2px;border-radius:4px}.c36 .whl:hover{background:var(--blue-bg)}
+.c36 .bl{font-size:12px;display:flex;gap:4px;align-items:baseline;min-width:0}.c36 .bl span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.cell.wk{background:var(--sand);font-size:12px;cursor:default}.cell.wk b{font-size:14px}.cell.wk .lbl{font-weight:700;color:var(--muted);font-size:12px;letter-spacing:.05em}
 .cal36bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 10px}.cal36bar button.on{background:var(--navy);color:var(--on-navy)}
 #calTip{position:fixed;z-index:70;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:10px 12px;font-size:12.5px;max-width:340px;pointer-events:none}
 #calTip h4{margin:0 0 6px;font-size:13px}#calTip .r{display:flex;gap:8px;justify-content:space-between}#calTip .m{color:var(--muted)}
@@ -28,8 +28,8 @@
 .stats .clk{cursor:pointer;border-radius:6px}.stats .clk:hover{background:var(--blue-bg)}
 .ts36 .bar2{height:7px;border-radius:4px;background:var(--sand-2);overflow:hidden;margin-top:3px}.ts36 .bar2 i{display:block;height:100%}
 .ts36 .kpi{display:flex;justify-content:space-between;align-items:baseline;gap:6px}.ts36 .kpi b{font-family:var(--f-display);font-size:20px}
-.ts36 .chips{display:flex;flex-wrap:wrap;gap:4px}.ts36 .chips button{font-size:11.5px;padding:2px 7px;border-radius:10px;border:1px solid var(--line);background:var(--surface);cursor:pointer}
-.ts36 .wkbars{display:flex;gap:6px;align-items:flex-end;height:64px}.ts36 .wkbars div{flex:1;text-align:center;font-size:10px;color:var(--muted)}.ts36 .wkbars i{display:block;border-radius:3px 3px 0 0;margin:0 auto 2px;width:70%}
+.ts36 .chips{display:flex;flex-wrap:wrap;gap:4px}.ts36 .chips button{font-size:12px;padding:2px 7px;border-radius:10px;border:1px solid var(--line);background:var(--surface);cursor:pointer}
+.ts36 .wkbars{display:flex;gap:6px;align-items:flex-end;height:64px}.ts36 .wkbars div{flex:1;text-align:center;font-size:12px;color:var(--muted)}.ts36 .wkbars i{display:block;border-radius:3px 3px 0 0;margin:0 auto 2px;width:70%}
 @media (max-width:760px){.cal.v36{grid-template-columns:1fr}.cal.v36 .cell.wk{display:none}.cal.v36 .cell.past{display:none}}
 `;document.head.appendChild(st);})();
 
@@ -76,7 +76,7 @@ function weekCell(days){const ds=days.filter(Boolean);if(role()==='customer'||!d
 function gridDays(start,n){const out=[];let row=[];const first=dow(start);for(let i=0;i<first;i++)row.push(null);
  for(let i=0;i<n;i++){row.push(addDays(start,i));if(row.length===7){out.push(row);row=[];}}if(row.length){while(row.length<7)row.push(null);out.push(row);}return out;}
 function w2Cell(date){const c=dayCell(date);const l=bkOfDay(date).sort((a,b)=>bkTotal(b)-bkTotal(a));if(!l.length||role()==='customer')return c;
- const lines=l.slice(0,7).map(b=>`<div class="bl"><span>${esc(cust(b.customerId).name)}</span><b class="num">${t2(bkTotal(b))}</b><span class="st st-${stKey(b)}" style="font-size:9.5px;padding:0 4px">${(ST_LABEL[stKey(b)]||'').split(' ')[0]}</span></div>`).join('')+(l.length>7?`<div class="small muted">+${l.length-7} đơn</div>`:'');
+ const lines=l.slice(0,7).map(b=>`<div class="bl"><span>${esc(cust(b.customerId).name)}</span><b class="num">${t2(bkTotal(b))}</b><span class="st st-${stKey(b)}" style="font-size:12px;padding:0 4px">${(ST_LABEL[stKey(b)]||'').split(' ')[0]}</span></div>`).join('')+(l.length>7?`<div class="small muted">+${l.length-7} đơn</div>`:'');
  const i=c.lastIndexOf('<button class="qadd"');return i>0?c.slice(0,i)+lines+c.slice(i):c.replace(/<\/div>$/,lines+'</div>');}
 
 vCalendar=function(){const[y,m]=V.ym;const isC=role()==='customer';const w2=!isC&&V.calV==='w2';

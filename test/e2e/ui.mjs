@@ -94,5 +94,33 @@ await session('cs@demo.vn', async p => {
   await p.locator('[data-a="newBk"]').first().click(); await p.waitForSelector('.modal'); ok(await p.locator('.g30 thead').isVisible(), 'máy tính: lưới vẫn là bảng');
 });
 
+/* ---------- v3.36: đồng bộ ---------- */
+await session('log@demo.vn', async p => {
+  S('emoji'); await p.locator('[data-a="openDay"]').nth(4).click(); await p.waitForTimeout(500);
+  const em = await p.evaluate(() => (document.getElementById('app').innerText.match(/[⏳🚨📦💬🔒📌🗑❓⌨👁📲🚚🔔📋📷⛔🧪💡]/gu) || []).join(''));
+  ok(em === '', 'không còn emoji làm biểu tượng trong giao diện', em); ok(await p.locator('.ic53 svg').count() > 0, 'biểu tượng SVG thay thế');
+  S('case'); ok(await p.locator('.btn').first().evaluate(e => getComputedStyle(e).textTransform) === 'none', 'nút không còn viết hoa toàn bộ');
+  S('font'); const sm = await p.evaluate(() => [...document.querySelectorAll('#app *')].filter(e => { const r = e.getBoundingClientRect(); return r.width && r.height && [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()) && parseFloat(getComputedStyle(e).fontSize) < 12 && !e.closest('.dot,svg'); }).map(e => e.className + ':' + getComputedStyle(e).fontSize).slice(0, 5));
+  ok(sm.length === 0, 'chữ trên giao diện ≥ 12px', sm.join(' | '));
+  S('pressed'); await p.click('[data-a="go"][data-v="calendar"]'); await p.waitForTimeout(400);
+  ok(await p.locator('.cal36bar [data-a="calV"][aria-pressed="true"]').count() === 1, 'nút Xem tháng / 2 tuần báo đang chọn');
+  S('focus'); await p.locator('.cal36bar [data-a="calV"][data-v="w2"]').focus(); await p.keyboard.press('Enter'); await p.waitForTimeout(400);
+  ok(await p.evaluate(() => document.activeElement && document.activeElement.dataset.v === 'w2'), 'vẽ lại giữ con trỏ bàn phím ở nút vừa bấm');
+  S('modal'); await p.click('.cal36bar [data-a="scHelp"]'); await p.waitForSelector('.modal');
+  ok(await p.evaluate(() => { const m = document.querySelector('.modal'); const id = m.getAttribute('aria-labelledby'); return !!id && document.getElementById(id).textContent.trim().length > 0 && m.contains(document.activeElement); }), 'cửa sổ có tên và nhận con trỏ khi mở');
+  S('err'); await p.keyboard.press('Escape'); await p.evaluate(() => toastErr('Lỗi thử: không lưu được')); await p.waitForTimeout(4000);
+  ok(await p.locator('.toast.err[role="alert"]').isVisible(), 'lỗi hiện đỏ và còn sau 4 giây');
+  await p.click('.toast [data-a="toastX"]'); await p.waitForTimeout(200); ok(await p.locator('.toast').count() === 0, 'bấm ✕ đóng thông báo lỗi');
+  await p.evaluate(() => toast('Đã lưu')); ok(!(await p.locator('.toast').getAttribute('class')).includes('err') && (await p.locator('.toast').getAttribute('role')) === 'status', 'thông báo thường vẫn như cũ');
+});
+await session('admin@demo.vn', async p => {
+  S('cust'); await p.click('[data-a="go"][data-v="users"]'); await p.waitForTimeout(300);
+  const t = p.locator('[data-a="uTab"][data-t="customers"], [data-a="usersTab"][data-v="customers"], button:has-text("Khách hàng")').first(); if (await t.count()) await t.click(); await p.waitForTimeout(400);
+  ok(/TÀI KHOẢN & KHÁCH HÀNG/i.test(await p.locator('.pagehead h2').innerText()), 'tiêu đề tiếng Việt');
+  const tg = p.locator('[data-a="custToggle"].danger-ghost').first(); ok(await tg.count() === 1, 'nút Ngừng dùng có kiểu cảnh báo');
+  let asked = ''; p.once('dialog', d => { asked = d.message(); d.dismiss(); }); await tg.click(); await p.waitForTimeout(400);
+  ok(/Ngừng dùng khách/.test(asked), 'Ngừng dùng hỏi xác nhận trước'); ok(await p.locator('[data-a="custToggle"].danger-ghost').count() >= 1, 'bấm Hủy → không ngừng dùng');
+});
+
 console.log(`\n${pass} đạt, ${errors.length} lỗi`); if (errors.length) { console.log(errors.join('\n')); process.exitCode = 1; }
 await browser.close();

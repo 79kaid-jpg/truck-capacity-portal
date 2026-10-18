@@ -8,11 +8,11 @@
 .cmsg{max-width:92%;padding:8px 11px;border-radius:12px;white-space:normal;word-wrap:break-word}
 .cmsg.u{align-self:flex-end;background:var(--navy);color:var(--on-navy);border-bottom-right-radius:4px}
 .cmsg.a{align-self:flex-start;background:var(--ground);border-bottom-left-radius:4px}.cmsg.a a{color:var(--blue);cursor:pointer;text-decoration:underline}
-.cmsg.err{background:var(--bad-bg);color:var(--bad)}.cstep{align-self:flex-start;font-size:11.5px;color:var(--muted)}
+.cmsg.err{background:var(--bad-bg);color:var(--bad)}.cstep{align-self:flex-start;font-size:12px;color:var(--muted)}
 .cmsg table{border-collapse:collapse;font-size:12px;margin:4px 0}.cmsg td,.cmsg th{border:1px solid var(--line);padding:2px 6px}
 #chatPanel .cs{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 8px}#chatPanel .cs button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer}
 #chatPanel .cf{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line)}#chatPanel .cf textarea{flex:1;min-height:42px;max-height:120px;resize:vertical}
-#chatPanel .cl{font-size:11px;color:var(--muted);padding:0 14px 8px}
+#chatPanel .cl{font-size:12px;color:var(--muted);padding:0 14px 8px}
 .typing i{display:inline-block;width:6px;height:6px;margin:0 2px;border-radius:50%;background:var(--muted);animation:chb 1s infinite}.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
 @keyframes chb{0%,80%,100%{opacity:.3}40%{opacity:1}}
 @media (max-width:700px){#chatFab{bottom:76px}}

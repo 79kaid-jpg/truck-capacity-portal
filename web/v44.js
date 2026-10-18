@@ -5,14 +5,14 @@
 @keyframes dndBump{0%{transform:scale(1)}35%{transform:scale(1.06)}100%{transform:scale(1)}}
 .pitem.dnd{cursor:grab;touch-action:pan-y;transition:opacity .15s}.pitem.dnd:focus{outline:2px solid var(--blue);outline-offset:2px}
 .pitem.dnd.dragging{opacity:.35}.pitem.sugg{box-shadow:0 0 0 2px var(--req) inset;background:var(--req-bg)}
-.pitem .dndh{font-size:11px;color:var(--muted);margin-left:auto}
+.pitem .dndh{font-size:12px;color:var(--muted);margin-left:auto}
 .tcard{position:relative}
 .tcard.sugg::before,.tcard.dnd-ok::before,.tcard.dnd-warn::before,.tcard.dnd-over::before{content:'';position:absolute;inset:-4px;border-radius:13px;padding:3px;pointer-events:none;
  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
 .tcard.sugg::before{background:conic-gradient(from var(--ang),#7a4bd1,#4fb3ff,#2e8b57,#ffd166,#7a4bd1);animation:dndSpin 1.6s linear infinite}
 .tcard.dnd-ok::before{background:#2e8b57}.tcard.dnd-warn::before{background:#e0861a}.tcard.dnd-over::before{background:#d33a2c}
 .tcard.dnd-no{opacity:.45;filter:grayscale(.6)}
-.tcard .dndtag{position:absolute;top:-11px;right:10px;background:#7a4bd1;color:#fff;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700;white-space:nowrap;z-index:2}
+.tcard .dndtag{position:absolute;top:-11px;right:10px;background:#7a4bd1;color:#fff;border-radius:999px;padding:1px 8px;font-size:12px;font-weight:700;white-space:nowrap;z-index:2}
 .tcard.dnd-ok .dndtag{background:#2e8b57}.tcard.dnd-warn .dndtag{background:#e0861a}.tcard.dnd-over .dndtag{background:#d33a2c}.tcard.dnd-no .dndtag{background:#6b7280}
 .tcard .bar .prev{background:repeating-linear-gradient(45deg,#7a4bd1 0 5px,#b79cf0 5px 10px);opacity:.85}
 .tcard.bump{animation:dndBump .45s ease}

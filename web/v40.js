@@ -5,14 +5,14 @@
 .cwh button.on{background:var(--navy);color:var(--on-navy);border-color:var(--navy)}
 .cwh button small{font-weight:600;opacity:.75;margin-left:4px}
 .cal36bar.cbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.cal36bar.cbar .cwh{flex:1;min-width:0}
-.cell.call{cursor:pointer}.cwl{display:grid;grid-template-columns:auto 1fr;gap:2px 6px;font-size:11.5px;margin-top:4px;align-items:center}
-.cwl b{font-size:11px}.cwl .v{text-align:right}.cwl .full{color:var(--muted);text-decoration:line-through}
+.cell.call{cursor:pointer}.cwl{display:grid;grid-template-columns:auto 1fr;gap:2px 6px;font-size:12px;margin-top:4px;align-items:center}
+.cwl b{font-size:12px}.cwl .v{text-align:right}.cwl .full{color:var(--muted);text-decoration:line-through}
 .cwl .dot{display:none;width:8px;height:8px;border-radius:50%}
-.cbadge{display:block;margin-top:4px;padding:2px 6px;border-radius:6px;font-size:11px;font-weight:600}
+.cbadge{display:block;margin-top:4px;padding:2px 6px;border-radius:6px;font-size:12px;font-weight:600}
 .cbadge.ok{background:var(--ok-bg);color:var(--ok)}.cbadge.hold{background:var(--blue-bg);color:var(--blue)}.cbadge.bad{background:var(--bad-bg);color:var(--bad)}.cbadge.warn{background:var(--warn-bg);color:var(--warn)}
 .cmy .kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.cmy .kpi div{border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center}
-.cmy .kpi b{display:block;font-size:18px}.cmy .kpi span{display:block;font-size:9.5px;line-height:1.2;color:var(--muted);letter-spacing:0;white-space:nowrap}
-.cmy .cbk{grid-template-columns:38px 1fr auto;white-space:nowrap;gap:6px}.cmy .cbk .st{font-size:10.5px;padding:1px 5px}
+.cmy .kpi b{display:block;font-size:18px}.cmy .kpi span{display:block;font-size:12px;line-height:1.2;color:var(--muted);letter-spacing:0;white-space:nowrap}
+.cmy .cbk{grid-template-columns:38px 1fr auto;white-space:nowrap;gap:6px}.cmy .cbk .st{font-size:12px;padding:1px 5px}
 @media (max-width:700px){.cal36bar.cbar .cwh{flex-basis:100%}.cwl{grid-template-columns:auto auto;justify-content:start;column-gap:14px}}
 `;document.head.appendChild(st);})();
 const CV_KEY='c-wh';

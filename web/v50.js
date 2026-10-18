@@ -67,7 +67,7 @@ A.ydDay=d=>{YD.day=d.v;afterNav(goMonth(d.v));};
 A.ydGo=d=>{V.modal={type:'truck',code:d.c};render();if(d.k)A.trkStart({k:d.k,c:d.c});setTimeout(()=>{const el=document.querySelector('.modal .trk');if(el)el.scrollIntoView({block:'center'});},50);};
 // ---------- Link cho tài xế ----------
 A.drvLink=async d=>{try{const r=await rpc('driver_link_create',{p_truck:d.c});const url=location.origin+location.pathname.replace(/[^/]*$/,'')+'driver.html#'+r.token;const t=truckByCode(d.c);
- V.modal={type:'drv',code:d.c,url,exp:r.expiresAt};render();}catch(e){toast(e.message);}};
+ V.modal={type:'drv',code:d.c,url,exp:r.expiresAt};render();}catch(e){toastErr(e.message);}};
 M29.drv=function(){const M=V.modal;const t=truckByCode(M.code);
  return `<div class="mhead"><h2>📱 LINK CHO TÀI XẾ · ${t?t.short:''}</h2></div><p class="small">Gửi link này cho tài xế qua Zalo / SMS. Tài xế <b>không cần tài khoản</b>: mở link, bấm <b>Bắt đầu chạy</b>, rồi <b>Đã giao</b> (chụp ảnh biên nhận) hoặc <b>Không giao được</b> ở từng điểm. CS, Sales, khách nhận thông báo ngay.</p>
  <div class="row" style="gap:6px;flex-wrap:nowrap"><input class="inp grow" id="drv-url" readonly value="${esc(M.url)}"><button class="btn sm" data-a="drvCopy">Sao chép</button></div>
@@ -86,9 +86,9 @@ function shareText(b){const c=cust(b.customerId);const al=allocsOf(b.id).map(a=>
   +(b.status==='transit'&&b.eta?`\n• Dự kiến tới: ${clockStr(b.eta)}`:'')+(b.status==='delivered'&&b.deliveredAt?`\n• Giao lúc: ${clockStr(b.deliveredAt)}`:'')+(b.addrText?`\n• Giao đến: ${b.addrText}`:'');}
 A.bkShare=async d=>{const b=bkById(d.id);if(!b)return;const t=shareText(b);try{await navigator.clipboard.writeText(t);toast('Đã sao chép – dán vào Zalo / SMS cho khách');}catch(e){V.modal={type:'shareTxt',t};render();}};
 M29.shareTxt=function(){return `<div class="mhead"><h2>TIN CHO KHÁCH</h2></div><textarea class="inp" id="share-t" style="width:100%;min-height:160px">${esc(V.modal.t)}</textarea><div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button></div>`;};
-A.bkPod=async d=>{try{const l=await rpc('pod_list',{p_booking:d.id});V.modal={type:'pod',id:d.id,l};render();}catch(e){toast(e.message);}};
+A.bkPod=async d=>{try{const l=await rpc('pod_list',{p_booking:d.id});V.modal={type:'pod',id:d.id,l};render();}catch(e){toastErr(e.message);}};
 M29.pod=function(){const M=V.modal;return `<div class="mhead"><h2>📷 ẢNH GIAO HÀNG · ${esc(M.id)}</h2></div>${M.l.map(p=>`<div class="small muted">${clockStr(p.at)} · ${esc(p.note||'')}</div><img class="podimg" alt="Ảnh giao hàng" src="data:image/jpeg;base64,${p.b64}">`).join('')||'<div class="empty">Chưa có ảnh.</div>'}<div class="mfoot"><button class="btn ghost" data-a="close">Đóng</button></div>`;};
-A.custOv=async d=>{const c=cust(d.id);if(!c)return;V.modal={type:'custOv',id:c.id,d:null,wide:true};render();try{V.modal.d=await rpc('cust_overview',{p_customer:c.id});render();}catch(e){V.modal=null;toast(e.message);}};
+A.custOv=async d=>{const c=cust(d.id);if(!c)return;V.modal={type:'custOv',id:c.id,d:null,wide:true};render();try{V.modal.d=await rpc('cust_overview',{p_customer:c.id});render();}catch(e){V.modal=null;toastErr(e.message);}};
 M29.custOv=function(){const M=V.modal;const c=cust(M.id);const D=M.d;
  if(!D)return `<div class="mhead"><h2>${esc(c.name)}</h2></div><div class="empty">Đang tải…</div>`;
  const mx=Math.max(1,...D.months.map(m=>+m.booked||0));const sales=user(c.salesId);

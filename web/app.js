@@ -236,9 +236,10 @@ function groupSuggest(wh,date){
 const app=document.getElementById('app');
 function render(){
  if(!S)return;const u=me();if(!u)return;
- app.innerHTML=`${topbar(u)}${S.imp?impBar(u):''}${S.custView&&typeof cvBar==='function'?cvBar():''}<div class="shell">${sidebar(u)}<main class="main" id="main">${mainView()}</main></div>${V.modal?`<div class="scrim" data-a="scrim"><div class="modal ${V.modal.wide?'wide':''}${V.modal.full?(V.modal.max?' xl max':' xl'):''}" ${V.modal.full&&!V.modal.max&&typeof gridSize34==='function'?gridSize34():''} role="dialog" aria-modal="true">${modalView()}</div></div>`:''}${V.toast?`<div class="toast" role="status">${esc(V.toast)}</div>`:''}`;
+ app.innerHTML=`${topbar(u)}${S.imp?impBar(u):''}${S.custView&&typeof cvBar==='function'?cvBar():''}<div class="shell">${sidebar(u)}<main class="main" id="main">${mainView()}</main></div>${V.modal?`<div class="scrim" data-a="scrim"><div class="modal ${V.modal.wide?'wide':''}${V.modal.full?(V.modal.max?' xl max':' xl'):''}" ${V.modal.full&&!V.modal.max&&typeof gridSize34==='function'?gridSize34():''} role="dialog" aria-modal="true">${modalView()}</div></div>`:''}${V.toast?`<div class="toast ${V.toastErr?'err':''}" role="${V.toastErr?'alert':'status'}">${esc(V.toast)}${V.toastErr?'<button type="button" class="tx" data-a="toastX" aria-label="Đóng thông báo">✕</button>':''}</div>`:''}`;
 }
-function toast(t){V.toast=t;render();clearTimeout(toast._t);toast._t=setTimeout(()=>{V.toast='';const el=document.querySelector('.toast');if(el)el.remove();},3200);}
+function toastErr(t){toast(t,true);}
+function toast(t,err){V.toast=t;V.toastErr=!!err;render();clearTimeout(toast._t);toast._t=setTimeout(()=>{V.toast='';V.toastErr=false;const el=document.querySelector('.toast');if(el)el.remove();},err?12000:3200);}
 
 function impBar(u){const left=Math.min(60,Math.max(0,Math.floor(S.imp.expiresAt/60-S.clock)));
  return `<div class="impbar" role="status"><span>Đang <b>Login as ${esc(u.name)}</b> · ${ROLE_LABEL[u.role]}${u.customerId&&cust(u.customerId)?' · '+esc(cust(u.customerId).name):''} — bạn thấy và thao tác đúng như người này. Mọi thao tác ghi nhật ký là ${esc(S.imp.by)} làm thay.</span><span class="small">Còn ${left} phút</span><button class="btn sm" data-a="impStop">Thoát Login as</button></div>`;}
@@ -619,7 +620,7 @@ function vConfig(){const C=S.cfg;
    <div class="field"><label for="re-d">Đi-về tham khảo (ngày)</label><input id="re-d" class="inp num" inputmode="numeric" data-f="regE" data-k="days" value="${esc(E.days)}"></div>
    <div class="field" style="grid-column:1/-1"><label>Khu vực lân cận (chỉ dùng để gợi ý gộp xe)</label><div class="chk">${rs.filter(x=>x.id!==r.id&&(x.active||E.nb.includes(x.id))).map(x=>`<label><input type="checkbox" data-f="regENb" value="${x.id}" ${E.nb.includes(x.id)?'checked':''}>${esc(x.name)}</label>`).join('')||'<span class="muted small">Kho chưa có khu vực khác.</span>'}</div></div></div>
    ${E.err?`<div class="err">${esc(E.err)}</div>`:''}<div class="mfoot"><span class="small muted grow" style="align-self:center">Mã ${r.code} giữ nguyên; booking và địa chỉ khách đang gắn khu vực này không bị ảnh hưởng.</span><button class="btn ghost sm" data-a="regEditOff">Hủy</button><button class="btn sm" data-a="regEditSave">Lưu khu vực</button></div></td></tr>`;
-  return `<tr><td>${r.code}</td><td><b>${esc(r.name)}</b></td><td>${esc(r.newProvince)}</td><td>${r.neighbors.map(x=>`<span class="chip">${esc(regName(x))}</span>`).join(' ')||'–'}</td><td class="r num">${r.days}</td><td class="r num">${act}</td><td style="white-space:nowrap"><button class="btn ghost sm" data-a="regEdit" data-id="${r.id}">Sửa</button> ${r.active?`<button class="btn ghost sm" data-a="regToggle" data-id="${r.id}">Ngừng dùng</button>`:`<button class="btn sm" data-a="regToggle" data-id="${r.id}">Bật lại</button>`}</td></tr>`;}).join('')}</tbody></table></div>
+  return `<tr><td>${r.code}</td><td><b>${esc(r.name)}</b></td><td>${esc(r.newProvince)}</td><td>${r.neighbors.map(x=>`<span class="chip">${esc(regName(x))}</span>`).join(' ')||'–'}</td><td class="r num">${r.days}</td><td class="r num">${act}</td><td style="white-space:nowrap"><button class="btn ghost sm" data-a="regEdit" data-id="${r.id}">Sửa</button> ${r.active?`<button class="btn ghost sm danger-ghost" data-a="regToggle" data-id="${r.id}">Ngừng dùng</button>`:`<button class="btn sm" data-a="regToggle" data-id="${r.id}">Bật lại</button>`}</td></tr>`;}).join('')}</tbody></table></div>
   <div class="panel" style="background:var(--sand);margin-top:12px"><b>Thêm khu vực cho ${WHALL.find(w=>w.id===V.wh).full}</b><div class="fgrid" style="margin-top:8px">
   <div class="field"><label for="nr-n">Tên khu vực (tỉnh) <span class="req">*</span></label><input id="nr-n" class="inp" data-f="newReg" data-k="name" value="${esc(NR.name||'')}" placeholder="Ví dụ: Bình Phước"></div>
   <div class="field"><label for="nr-p">Tỉnh mới tương ứng <span class="req">*</span></label><select id="nr-p" class="inp" data-f="newReg" data-k="np"><option value="">Chọn tỉnh</option>${PROVINCES.map(p=>`<option ${NR.np===p?'selected':''}>${p}</option>`).join('')}</select></div>
@@ -635,11 +636,11 @@ function vConfig(){const C=S.cfg;
 /* ---------- SCR-14/15 users & customers ---------- */
 function vUsers(){const UT=[['users','Người dùng','users.manage'],['customers','Khách hàng','customers.manage'],['perms','Phân quyền','perms.manage']].filter(t=>can(t[2]));
  if(!UT.some(t=>t[0]===V.uTab))V.uTab=UT[0][0];const T=V.uTab;
- return `<div class="panel"><div class="pagehead"><h2>SETTING USER ACCOUNT</h2>${T==='users'?'<button class="btn" data-a="userNew">Cấp quyền tài khoản</button>':T==='customers'?'<span class="row"><button class="btn ghost" data-a="impOpen">Nhập từ file</button><button class="btn" data-a="custNew">Thêm khách hàng</button></span>':''}</div>
+ return `<div class="panel"><div class="pagehead"><h2>TÀI KHOẢN &amp; KHÁCH HÀNG</h2>${T==='users'?'<button class="btn" data-a="userNew">Cấp quyền tài khoản</button>':T==='customers'?'<span class="row"><button class="btn ghost" data-a="impOpen">Nhập từ file</button><button class="btn" data-a="custNew">Thêm khách hàng</button></span>':''}</div>
  <div class="tabs">${UT.map(([k,l])=>`<button class="${T===k?'on':''}" data-a="uTab" data-t="${k}">${l}</button>`).join('')}</div>
  ${T==='perms'?vPerms():T==='users'?`<div class="tbl-wrap"><table><thead><tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Segment</th><th>Kho mặc định</th><th>Công ty</th><th>Trạng thái</th><th></th></tr></thead><tbody>${S.users.map(u=>`<tr><td><b>${esc(u.name)}</b></td><td>${esc(u.email)}</td><td>${ROLE_LABEL[u.role]}</td><td>${u.segment?SEG_LABEL[u.segment]:u.customerId?SEG_LABEL[cust(u.customerId).segment]:'–'}</td><td>${u.wh}</td><td>${u.customerId?esc(cust(u.customerId).name):'–'}</td><td>${u.active?'<span class="st st-ok">Hoạt động</span>':'<span class="st st-cancelled">Khóa</span>'}${awayTag(u)}${u.mfa?' <span class="chip" title="Đã bật xác thực 2 lớp">MFA</span>':u.mfaReq&&u.active?' <span class="chip warn" title="Vai trò bắt buộc MFA, người này chưa đăng ký thiết bị">Chưa đăng ký MFA</span>':''}</td><td class="r" style="white-space:nowrap">${u.mfa&&u.id!==V.me&&can('users.manage')?`<button class="btn ghost sm" data-a="mfaReset" data-id="${u.id}" title="Gỡ thiết bị xác thực (mất / đổi điện thoại)">${V.mfaResetAsk===u.id?'Bấm lần nữa để gỡ MFA':'Gỡ MFA'}</button> `:''}${can('users.impersonate')&&u.id!==V.me&&u.active?`<button class="btn ghost sm" data-a="loginAs" data-id="${u.id}" title="Xem và thao tác với tư cách ${esc(u.name)}">Login as</button> `:''}<button class="btn ghost sm" data-a="userEdit" data-id="${u.id}">Sửa</button> ${u.id!==V.me?`<button class="btn ghost sm" data-a="userToggle" data-id="${u.id}">${u.active?'Khóa':'Mở khóa'}</button>`:''}</td></tr>`).join('')}</tbody></table></div>${V.userErr?`<div class="err" style="margin-top:8px">${esc(V.userErr)}</div>`:''}`
  :`${custBar31()}<div class="tbl-wrap"><table><thead><tr><th>Mã KH</th><th>Tên công ty</th><th>Segment</th><th>Sales phụ trách</th><th>CS phụ trách</th><th>Địa chỉ giao · khu vực</th><th class="r">Tài khoản</th><th>Trạng thái</th><th></th></tr></thead><tbody>${custList31().map(c=>`<tr style="${c.active===false?'opacity:.6':''}"><td>${c.code}</td><td><b>${esc(c.name)}</b></td><td>${SEG_LABEL[c.segment]}</td><td>${esc(user(c.salesId).name)}</td><td>${c.csId?esc(user(c.csId).name)+awayTag(user(c.csId)):'<span class="muted small">Chưa gán</span>'}</td><td class="small">${c.addresses.map(a=>`${esc(a.label)}, ${esc(a.ward)}, ${esc(a.province)} · <b>${Object.values(a.regions).map(regName).map(esc).join(', ')||'Chưa phân khu vực'}</b>`).join('<br>')}</td><td class="r">${custAcc31(c.id)}</td><td>${c.active===false?'<span class="st st-cancelled">Ngừng dùng</span>':'<span class="st st-ok">Đang dùng</span>'}</td>
- <td class="r" style="white-space:nowrap">${can('users.impersonate')?`<button class="btn ghost sm" data-a="cvStart" data-id="${c.id}" title="Xem đúng giao diện của khách (chỉ xem)">👁 Xem như khách</button> `:''}<button class="btn ghost sm" data-a="custEdit" data-id="${c.id}">Sửa</button> <button class="btn ghost sm" data-a="custToggle" data-id="${c.id}">${c.active===false?'Dùng lại':'Ngừng dùng'}</button></td></tr>`).join('')}</tbody></table></div>`}</div>`;
+ <td class="r" style="white-space:nowrap">${can('users.impersonate')?`<button class="btn ghost sm" data-a="cvStart" data-id="${c.id}" title="Xem đúng giao diện của khách (chỉ xem)">👁 Xem như khách</button> `:''}<button class="btn ghost sm" data-a="custEdit" data-id="${c.id}">Sửa</button> <button class="btn ghost sm ${c.active===false?'':'danger-ghost'}" data-a="custToggle" data-id="${c.id}">${c.active===false?'Dùng lại':'Ngừng dùng'}</button></td></tr>`).join('')}</tbody></table></div>`}</div>`;
 }
 
 
@@ -773,7 +774,7 @@ function dashUtil(){
 function meter(label,used,limit,unit,note){const r=used/limit;const col=r>=.9?'var(--bad)':r>=.7?'var(--warn)':'var(--ok)';const st=r>=.9?'Sắp vượt':r>=.7?'Cần theo dõi':'An toàn';
  return `<div class="meter" data-tip="${label}: ${used.toLocaleString('vi-VN')} / ${limit.toLocaleString('vi-VN')} ${unit}"><div class="row"><b>${label}</b><span class="num">${used.toLocaleString('vi-VN',{maximumFractionDigits:2})} / ${limit.toLocaleString('vi-VN')} ${unit} · <span style="color:${col};font-weight:700">${st}</span></span></div><div class="trk"><div class="fil" style="width:${Math.min(100,r*100)}%;background:${col}"></div></div>${note?`<div class="small muted">${note}</div>`:''}</div>`;}
 function dashSystem(){
- if(!V.stats){if(!V.statsLoading){V.statsLoading=true;rpc('admin_stats').then(x=>{V.stats=x;V.statsLoading=false;render();}).catch(e=>{V.statsLoading=false;toast(e.message);});}return '<div class="empty">Đang tải số liệu…</div>';}
+ if(!V.stats){if(!V.statsLoading){V.statsLoading=true;rpc('admin_stats').then(x=>{V.stats=x;V.statsLoading=false;render();}).catch(e=>{V.statsLoading=false;toastErr(e.message);});}return '<div class="empty">Đang tải số liệu…</div>';}
  const X=V.stats;const E=X.email||{};const users=S.users.filter(u=>u.active);const recent=users.filter(u=>u.last&&u.last>=addDays(TODAY,-6));
  return `<div class="kpis"><div class="tile"><span class="lbl">Tài khoản được cấp</span><span class="val num">${users.length}</span><span class="sub">${users.filter(u=>u.role==='customer').length} khách hàng · ${users.length-users.filter(u=>u.role==='customer').length} nội bộ</span></div>
  <div class="tile"><span class="lbl">Đăng nhập trong 7 ngày</span><span class="val num">${recent.length}</span><span class="sub">Mức độ chấp nhận ${users.length?pct(recent.length/users.length):'0%'}</span></div>
@@ -1063,7 +1064,7 @@ function setBusy(on){V.busy=on;document.body.classList.toggle('busy',on);}
 async function mutate(fn,args,opts={}){
  if(V.busy)return;setBusy(true);
  try{const d=await rpc(fn,args);await reload();setBusy(false);if(opts.ok)opts.ok(d);else render();return d;}
- catch(e){setBusy(false);if(opts.err){opts.err(e.message);render();}else toast(e.message);}
+ catch(e){setBusy(false);if(opts.err){opts.err(e.message);render();}else toastErr(e.message);}
 }
 async function reload(){
  const[y,m]=V.ym;const ms=iso(y,m,1),me_=iso(y,m,dim(y,m));
@@ -1076,7 +1077,7 @@ async function reload(){
  TODAY=st.today;S=adopt(st);S.ver=(reload.n=(reload.n||0)+1);V.me=st.me.id;V.stats=null;RANGE.from=from;RANGE.to=to;
 }
 function goMonth(date){const[y,m]=parts(date);const changed=y!==V.ym[0]||m!==V.ym[1];V.ym=[y,m];return changed||date<RANGE.from||date>RANGE.to;}
-function afterNav(need){if(need){render();reload().then(render).catch(e=>toast(e.message));}else render();}
+function afterNav(need){if(need){render();reload().then(render).catch(e=>toastErr(e.message));}else render();}
 
 /* ===================== actions ===================== */
 const go=v=>{V.view=v;V.menu=false;V.modal=null;V.hl=null;render();window.scrollTo(0,0);};
@@ -1086,7 +1087,8 @@ const A={
  menu:()=>{V.menu=!V.menu;render();},
  gsOpen:()=>gsOpen(),
  logout:async()=>{ccClear();try{await sb.auth.signOut();}catch(e){}location.reload();},
- refresh:()=>{reload().then(()=>{render();toast('Đã cập nhật dữ liệu');}).catch(e=>toast(e.message));},
+ toastX:()=>{clearTimeout(toast._t);V.toast='';V.toastErr=false;render();},
+ refresh:()=>{reload().then(()=>{render();toast('Đã cập nhật dữ liệu');}).catch(e=>toastErr(e.message));},
  close:()=>{V.modal=null;render();},
  scrim:(d,el,e)=>{if(e.target===el){V.modal=null;render();}},
  month:d=>{let[y,m]=V.ym;m+=+d.d;if(m<1){m=12;y--;}if(m>12){m=1;y++;}V.fleetEdit={};afterNav(goMonth(iso(y,m,1)));},
@@ -1123,7 +1125,7 @@ const A={
  csSeg:d=>{V.csSeg=d.v;render();},
  goDb5:()=>{V.dashTab='DB-05';go('dash');},
  statMode:d=>{V.statMode=d.v;try{localStorage.setItem('dx-statMode',d.v);}catch(e){}render();},
- dbMonth:d=>{const[y,m]=V.ym;let nm=m+(+d.d),ny=y;if(nm<1){nm=12;ny--;}if(nm>12){nm=1;ny++;}V.ym=[ny,nm];reload().then(render).catch(e=>toast(e.message));},
+ dbMonth:d=>{const[y,m]=V.ym;let nm=m+(+d.d),ny=y;if(nm<1){nm=12;ny--;}if(nm>12){nm=1;ny++;}V.ym=[ny,nm];reload().then(render).catch(e=>toastErr(e.message));},
  db5Sort:d=>{V.db5Sort=d.k;render();},
  blReset:()=>{V.blF={wh:'all',region:'all',q:'',cust:'all',per:'month'};blSave();render();},
  openBkAny:d=>{if(bkById(d.id))return openBooking(d.id);gsOpenBooking({id:d.id,wh:d.w,date:d.d});},
@@ -1196,7 +1198,7 @@ const A={
   V.mfaNew=null;await reload().catch(()=>{});setBusy(false);render();toast('Đã bật xác thực 2 lớp');},
  mfaOff:async()=>{if(!V.mfaOffAsk){V.mfaOffAsk=true;return render();}V.mfaOffAsk=false;setBusy(true);
   try{const{data}=await sb.auth.mfa.listFactors();for(const x of((data&&data.all)||[])){const{error}=await sb.auth.mfa.unenroll({factorId:x.id});if(error)throw new Error(error.message);}
-   await sb.auth.refreshSession();await reload();toast('Đã tắt xác thực 2 lớp');}catch(e){toast(e.message);}setBusy(false);render();},
+   await sb.auth.refreshSession();await reload();toast('Đã tắt xác thực 2 lớp');}catch(e){toastErr(e.message);}setBusy(false);render();},
  mfaReset:d=>{if(V.mfaResetAsk!==d.id){V.mfaResetAsk=d.id;return render();}V.mfaResetAsk=null;mutate('admin_reset_mfa',{p_user:d.id},{ok:n=>toast(n?'Đã gỡ thiết bị. Lần đăng nhập sau người này đăng ký lại.':'Người này chưa có thiết bị nào.')});},
  pmSave:()=>mutate('save_role_permissions',{p:V.pm},{err:m=>V.pmErr=m,ok:n=>{V.pm=null;V.pmErr='';toast(n?`Đã lưu phân quyền cho ${n} vai trò`:'Không có thay đổi');}}),
  pmResetOn:()=>{V.pmReset=true;render();},pmResetOff:()=>{V.pmReset=false;render();},
@@ -1215,7 +1217,7 @@ const A={
  custEdit:d=>{const c=cust(d.id);V.modal={type:'custEdit',id:c.id,wide:true,err:'',addr:null,f:{code:c.code,name:c.name,segment:c.segment,salesId:c.salesId||'',csId:c.csId||'',defWh:c.defWh||''}};render();},
  ceSave:()=>{const M=V.modal;const f=M.f;if(!f.code.trim()||!f.name.trim()||!f.salesId){M.err='Điền đủ mã, tên công ty và Sales phụ trách.';return render();}
   mutate('admin_update_customer',{p:{id:M.id,code:f.code.trim(),name:f.name.trim(),segment:f.segment,sales_id:f.salesId,cs_id:f.csId||'',default_wh:f.defWh||''}},{err:m=>M.err=m,ok:()=>{V.modal=null;toast('Đã lưu khách hàng '+f.name.trim());}});},
- custToggle:d=>{const c=cust(d.id);mutate('admin_toggle_customer',{p_id:d.id},{ok:r=>toast(r.active?`Đã dùng lại ${c.name}`:`Đã ngừng dùng ${c.name}: không tạo booking mới được${r.openBookings?`; ${r.openBookings} booking đang mở vẫn được xử lý`:''}`)});},
+ custToggle:d=>{const c=cust(d.id);if(c.active!==false&&!confirm(`Ngừng dùng khách ${c.name}?\nKhách không tạo được booking mới; booking đang mở vẫn được xử lý.`))return;mutate('admin_toggle_customer',{p_id:d.id},{ok:r=>toast(r.active?`Đã dùng lại ${c.name}`:`Đã ngừng dùng ${c.name}: không tạo booking mới được${r.openBookings?`; ${r.openBookings} booking đang mở vẫn được xử lý`:''}`)});},
  addrNew:()=>{V.modal.addr={id:'',label:'',province:'',ward:'',regions:{}};V.modal.addrErr='';render();},
  addrEdit:d=>{const a=cust(V.modal.id).addresses.find(x=>x.id===d.id);V.modal.addr={id:a.id,label:a.label,province:a.province,ward:a.ward,regions:{...a.regions}};V.modal.addrErr='';render();},
  addrCancel:()=>{V.modal.addr=null;render();},
@@ -1313,9 +1315,9 @@ function gsStatus(){const holds=S.bookings.filter(b=>b.status==='hold'&&visibleB
  {k:['can xu ly','viec'],l:'Cần xử lý (CS)',ok:can('booking.create')||can('booking.edit'),run:()=>{V.blTab='todo';go('bookings');}},
 ].filter(x=>x.ok);}
 // Mở booking ở bất kỳ tháng nào (nạp lại dữ liệu nếu cần)
-async function gsOpenBooking(b,then){V.wh=b.wh;const need=goMonth(b.date);if(need){try{await reload();}catch(e){return toast(e.message);}}
+async function gsOpenBooking(b,then){V.wh=b.wh;const need=goMonth(b.date);if(need){try{await reload();}catch(e){return toastErr(e.message);}}
  if(internal()){openBooking(b.id);if(then)then();}else{V.view='calendar';V.modal={type:'custDay',date:b.date,wide:true};render();}}
-async function gsOpenDay(wh,date,truck){V.wh=wh;V.day=date;V.view=can('day.view')?'day':'calendar';V.dayFilter={st:'all',region:'all'};V.modal=null;const need=goMonth(date);if(need){try{await reload();}catch(e){return toast(e.message);}}
+async function gsOpenDay(wh,date,truck){V.wh=wh;V.day=date;V.view=can('day.view')?'day':'calendar';V.dayFilter={st:'all',region:'all'};V.modal=null;const need=goMonth(date);if(need){try{await reload();}catch(e){return toastErr(e.message);}}
  if(truck&&can('day.view')){const code=`${wh}-${ddmmyy(date)}-${truck}`;if(trucksOf(wh,date).some(t=>t.code===code))V.modal={type:'truck',code,wide:true};else toast(`Ngày ${dm(date)} kho ${wh} không có xe ${truck}`);}
  render();window.scrollTo(0,0);}
 function gsBookFor(custId,date,wh){V.modal=bfNew(date||TODAY);const F=V.modal.f;if(wh)F.wh=wh;if(custId){const c=cust(custId);F.customerId=custId;F.addrId=c&&c.addresses[0]?c.addresses[0].id:'new';F.province=c&&c.addresses[0]?c.addresses[0].province:'';const d=detectRegion(F);F.region=d.region;F.regionMode=d.mode;}render();}
@@ -1362,7 +1364,7 @@ function gsRenderList(){const box=document.getElementById('gs-res');if(!box)retu
 async function gsRun(){const P=gsParse(GS.q);const my=++GS.seq;GS.items=gsBuild(P,null);GS.sel=0;
  const needServer=P.text.length>=2||P.day||P.tons;GS.loading=!!needServer;gsRenderList();if(!needServer)return;
  try{const R=await rpc('search',{p_q:P.text.length>=2?P.text:'',p_day:P.day,p_tons:P.tons,p_wh:V.wh});if(my!==GS.seq)return;GS.loading=false;GS.items=gsBuild(P,R);GS.sel=0;gsRenderList();}
- catch(e){if(my!==GS.seq)return;GS.loading=false;gsRenderList();toast(e.message);}}
+ catch(e){if(my!==GS.seq)return;GS.loading=false;gsRenderList();toastErr(e.message);}}
 function gsPick(i,j){const it=GS.items[i];if(!it)return;const act=j==null?it.run:(it.acts[j]||{}).run;if(!act)return;if(!it.keep){gsRemember(it);gsClose();}act();}
 function gsOpen(){if(!S)return;let el=document.getElementById('gs');if(!el){el=document.createElement('div');el.id='gs';document.body.appendChild(el);
   el.addEventListener('click',e=>{if(e.target===el.firstElementChild){gsClose();return;}const b=e.target.closest('[data-gi]');if(!b)return;e.stopPropagation();gsPick(+b.dataset.gi,b.dataset.ga!=null?+b.dataset.ga:null);});}

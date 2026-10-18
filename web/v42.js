@@ -1,10 +1,10 @@
 // v3.14: Bấm 1 lần vào ô ngày → menu nhanh; bấm đúp → mở chi tiết ngày (đội xe); phím Y → yêu cầu đặt hàng
 (()=>{const st=document.createElement('style');st.textContent=`
 #cellMenu{position:fixed;z-index:80;min-width:230px;max-width:300px;background:var(--surface);border:1.5px solid var(--ink);border-radius:12px;box-shadow:var(--shadow);padding:6px;font-size:13.5px}
-#cellMenu .cmh{padding:6px 10px 4px;font-size:11.5px;font-weight:700;letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
+#cellMenu .cmh{padding:6px 10px 4px;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
 #cellMenu button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:transparent;border-radius:8px;padding:8px 10px;font:inherit;color:inherit;cursor:pointer}
 #cellMenu button:hover,#cellMenu button:focus{background:var(--blue-bg);outline:none}
-#cellMenu .ic{width:18px;text-align:center;flex:none}#cellMenu kbd{margin-left:auto;font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+#cellMenu .ic{width:18px;text-align:center;flex:none}#cellMenu kbd{margin-left:auto;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 4px}
 #cellMenu hr{border:0;border-top:1px solid var(--line);margin:4px 2px}
 .cal .cell[data-cd]{cursor:pointer}
 `;document.head.appendChild(st);})();
