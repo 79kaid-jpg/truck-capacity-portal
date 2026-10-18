@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tài xế · Đặt Xe</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@800;900&family=Be+Vietnam+Pro:wght@400;600;700&display=swap">
+<style>
+/* Trang cho tài xế: một cột, nút to, đọc được ngoài nắng */
+:root{--bg:#EEF1F4;--surface:#fff;--ink:#14202C;--muted:#5A6573;--line:#D3D9DF;--navy:#1F2C3D;--on-navy:#F3F5F8;--ok:#1F7A4A;--ok-bg:#E1F2E7;--bad:#B3362D;--bad-bg:#F8E1DF;--blue:#2459C4;--blue-bg:#E3ECFB;
+ --f-display:"Archivo","Arial Narrow",Arial,sans-serif;--f-body:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif}
+@media (prefers-color-scheme:dark){:root{--bg:#10151B;--surface:#1A2129;--ink:#E6EAEF;--muted:#9AA5B2;--line:#323C47;--navy:#0B1016;--ok:#5BC48A;--ok-bg:#183326;--bad:#F0837A;--bad-bg:#3A1F1D;--blue:#8FB2F7;--blue-bg:#1E2A40;color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--f-body)}
+header{background:var(--navy);color:var(--on-navy);padding:14px max(16px,env(safe-area-inset-left)) 14px;padding-top:calc(14px + env(safe-area-inset-top))}
+header h1{margin:0;font:900 28px/1 var(--f-display)}header div{opacity:.85;font-size:14px;margin-top:4px}
+main{padding:14px max(16px,env(safe-area-inset-left)) calc(24px + env(safe-area-inset-bottom));display:grid;gap:12px;max-width:640px;margin:0 auto}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:8px}
+.card h2{margin:0;font-size:18px}.addr{font-size:15px}.meta{font-size:14px;color:var(--muted)}
+.pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:13px;font-weight:700;background:var(--blue-bg);color:var(--blue)}.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.bad{background:var(--bad-bg);color:var(--bad)}
+button,.btn{font:700 17px var(--f-body);min-height:52px;border-radius:12px;border:2px solid var(--ink);background:var(--surface);color:var(--ink);padding:10px 14px;width:100%;cursor:pointer}
+button.main{background:var(--navy);color:var(--on-navy);border-color:var(--navy)}button.ok{background:var(--ok);border-color:var(--ok);color:#fff}button:disabled{opacity:.5}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}textarea{width:100%;min-height:70px;font:16px var(--f-body);border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface);color:var(--ink)}
+.msg{padding:12px;border-radius:12px;background:var(--bad-bg);color:var(--bad);font-weight:600}.done{padding:12px;border-radius:12px;background:var(--ok-bg);color:var(--ok);font-weight:600}
+label.photo{display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;border:2px dashed var(--line);border-radius:12px;font-weight:600;cursor:pointer}
+img.prev{max-height:140px;border-radius:8px}
+button:focus-visible,label.photo:focus-within{outline:3px solid var(--blue);outline-offset:2px}
+</style></head><body>
+<header><h1 id="h">Đặt Xe · Tài xế</h1><div id="sub">Đang tải…</div></header>
+<main id="m"><div class="card">Đang tải…</div></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+const TOKEN=location.hash.replace('#','');let sb=null,D=null,busy=false,open=null,photo=null,flash='';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const t2=n=>(+n||0).toLocaleString('vi-VN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const hm=s=>s?new Date(s*1000).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}):'';
+const ST={ok:['Chưa bốc',''],loaded:['Đã bốc – chờ chạy',''],transit:['Đang giao',''],delivered:['Đã giao','ok'],failed:['Không giao được','bad']};
+async function call(fn,args){const {data,error}=await sb.rpc(fn,args);if(error)throw new Error(error.message);return data;}
+function render(){const m=document.getElementById('m');
+ if(!D){return;}document.getElementById('h').textContent='Xe '+D.truck;document.getElementById('sub').textContent=`${D.whName||D.wh} · ngày ${D.day.split('-').reverse().join('/')}${D.plate?' · '+D.plate:''}${D.driver?' · '+D.driver:''}`;
+ const loaded=D.stops.filter(s=>s.status==='loaded').length;const left=D.stops.filter(s=>['loaded','transit'].includes(s.status)).length;
+ m.innerHTML=(flash?`<div class="done" role="status">${esc(flash)}</div>`:'')+(loaded?`<button class="main" data-go="transit" ${busy?'disabled':''}>🚚 Bắt đầu chạy (${loaded} đơn)</button>`:'')
+  +(!left&&D.stops.length?'<div class="done">Đã xong tất cả điểm giao. Cảm ơn anh/chị!</div>':'')
+  +D.stops.map(s=>{const st=ST[s.status]||[s.status,''];const can=['loaded','transit'].includes(s.status);const o=open&&open.id===s.id;
+   return `<div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><h2>${esc(s.customer)}</h2><span class="pill ${st[1]}">${st[0]}</span></div>
+    <div class="addr">📍 ${esc(s.address||'')}</div><div class="meta">${esc(s.ref)} · ${t2(s.tons)} MT${s.deliveredAt?' · giao lúc '+hm(s.deliveredAt):''}${s.pods?' · '+s.pods+' ảnh':''}</div>
+    ${can&&!o?`<div class="row"><button class="ok" data-open="${s.id}" data-k="delivered">✓ Đã giao</button><button data-open="${s.id}" data-k="failed">✗ Không giao được</button></div>`:''}
+    ${o?`<div style="display:grid;gap:8px">${open.k==='delivered'?`<label class="photo">📷 ${photo?'Đổi ảnh':'Chụp ảnh biên nhận (không bắt buộc)'}<input type="file" accept="image/*" capture="environment" id="ph" hidden></label>${photo?`<img class="prev" src="${photo.prev}" alt="Ảnh biên nhận">`:''}`:''}
+     <textarea id="note" placeholder="${open.k==='failed'?'Lý do không giao được (bắt buộc): khách vắng, sai địa chỉ…':'Ghi chú (không bắt buộc)'}"></textarea>
+     <div class="row"><button class="${open.k==='delivered'?'ok':'main'}" data-do="1" ${busy?'disabled':''}>${busy?'Đang gửi…':open.k==='delivered'?'Xác nhận đã giao':'Gửi báo không giao được'}</button><button data-cancel="1">Thôi</button></div></div>`:''}</div>`;}).join('')
+  +`<p class="meta" style="text-align:center">Link hết hạn ${hm(D.expiresAt)}. Có vấn đề gọi Logistics kho.</p>`;}
+function fail(t){document.getElementById('m').innerHTML=`<div class="msg">${esc(t)}</div>`;document.getElementById('sub').textContent='';}
+async function load(){try{D=await call('driver_get',{p_token:TOKEN});render();}catch(e){fail(e.message);}}
+async function compress(file){const url=URL.createObjectURL(file);try{const img=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=url;});let w=img.naturalWidth,h=img.naturalHeight;const k=Math.min(1,1600/Math.max(w,h));w=Math.round(w*k);h=Math.round(h*k);
+ const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);let q=.8,du=c.toDataURL('image/jpeg',q);while(du.length*.75>650000&&q>.35){q-=.15;du=c.toDataURL('image/jpeg',q);}return {b64:du.split(',')[1],prev:du};}finally{URL.revokeObjectURL(url);}}
+document.addEventListener('change',async e=>{if(e.target.id==='ph'&&e.target.files[0]){try{photo=await compress(e.target.files[0]);}catch(x){photo=null;}render();}});
+document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b||busy)return;flash='';
+ if(b.dataset.open){open={id:b.dataset.open,k:b.dataset.k};photo=null;render();setTimeout(()=>{const n=document.getElementById('note');if(n&&open.k==='failed')n.focus();},30);return;}
+ if(b.dataset.cancel){open=null;photo=null;render();return;}
+ if(b.dataset.go==='transit'||b.dataset.do){const note=(document.getElementById('note')||{}).value||'';
+  if(b.dataset.do&&open.k==='failed'&&note.trim().length<3){alertMsg('Ghi lý do không giao được.');return;}
+  busy=true;render();try{D=b.dataset.go?await call('driver_mark',{p_token:TOKEN,p_booking:null,p_action:'transit',p_note:null,p_photo:null})
+    :await call('driver_mark',{p_token:TOKEN,p_booking:open.id,p_action:open.k,p_note:note,p_photo:photo?photo.b64:null});
+   flash=b.dataset.go?'Đã báo bắt đầu chạy. Khách và CS đã được báo.':open.k==='delivered'?'Đã xác nhận giao. Khách và CS đã được báo.':'Đã báo không giao được. CS sẽ liên hệ khách.';open=null;photo=null;}
+  catch(x){flash='';busy=false;render();alertMsg(x.message);return;}busy=false;render();window.scrollTo(0,0);}});
+function alertMsg(t){const m=document.getElementById('m');const d=document.createElement('div');d.className='msg';d.setAttribute('role','alert');d.textContent=t;m.prepend(d);window.scrollTo(0,0);}
+(()=>{const C=window.APP_CONFIG||{};if(!TOKEN){fail('Link thiếu mã. Hỏi lại Logistics.');return;}if(!window.supabase||!C.SUPABASE_URL){fail('Không tải được trang. Kiểm tra mạng rồi mở lại link.');return;}
+ sb=window.supabase.createClient(String(C.SUPABASE_URL).trim().replace(/\/(rest|auth)\/v1\/?$/,'').replace(/\/+$/,''),String(C.SUPABASE_ANON_KEY).trim(),{auth:{persistSession:false}});load();
+ setInterval(()=>{if(!document.hidden&&!open&&!busy)load();},60000);})();
+</script></body></html>
