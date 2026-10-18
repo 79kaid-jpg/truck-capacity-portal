@@ -68,7 +68,7 @@ A.past52=()=>{V.past52=!V.past52;render();};
  const lg=document.querySelector('.top .logo');if(lg&&!lg.getAttribute('aria-label'))lg.setAttribute('aria-label','Đặt Xe – về Lịch');
  // Lịch: ngày đã qua gom vào một nút (chỉ hiện trên điện thoại)
  const cal=document.querySelector('.cal');
- if(cal){const n=cal.querySelectorAll('.cell.past:not(.pad):not(.wk)').length;cal.classList.toggle('showpast',!!V.past52);
+ if(cal){const p54=cal.querySelector('.past54');const n=cal.querySelectorAll('.cell.past:not(.pad):not(.wk)').length+(p54?+p54.dataset.n||0:0);cal.classList.toggle('showpast',!!V.past52);
   if(n&&!cal.parentElement.querySelector(':scope>.past52')){const b=document.createElement('button');b.type='button';b.className='past52';b.dataset.a='past52';
    b.setAttribute('aria-expanded',V.past52?'true':'false');b.innerHTML=(V.past52?UP_SVG52+'Ẩn ':'')+(V.past52?`${n} ngày đã qua`:`Xem ${n} ngày đã qua`);cal.parentElement.insertBefore(b,cal);}}
 };}

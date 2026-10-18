@@ -30,7 +30,7 @@ function cAllCell(date){const d=+date.slice(8);const past=date<TODAY;const today
  const mine=cMine().filter(b=>b.date===date&&b.status!=='cancelled');
  const byWh={};mine.forEach(b=>{(byWh[b.wh]=byWh[b.wh]||[]).push(b);});
  const lines=per.map(({w,m})=>{const full=m.avail<=0||m.status==='full';const col=full?'var(--muted)':CAP_COL[m.status]||'var(--ok)';
-  return `<b>${w}</b><span class="v num ${full?'full':''}">${full?'Đã đầy':'còn '+t2(m.avail)+' MT'}</span><i class="dot" style="background:${col}" title="${w}: ${full?'Đã đầy':'còn '+t2(m.avail)+' MT'}"></i>`;}).join('');
+  return `<b>${w}</b><span class="v num ${full?'full':''}">${full?'Đã đầy':'còn '+mt54(m.avail)}</span><i class="dot" style="background:${col}" title="${w}: ${full?'Đã đầy':'còn '+mt54(m.avail)}"></i>`;}).join('');
  const badges=Object.entries(byWh).map(([w,l])=>{const worst=l.map(cBadgeCls).sort((a,b)=>['bad','warn','hold','ok'].indexOf(a)-['bad','warn','hold','ok'].indexOf(b))[0];
   const lab=worst==='bad'?' · Bị từ chối':worst==='warn'?' · Đề nghị đổi ngày':'';return `<span class="cbadge ${worst}">📦 ${w} · ${l.length} đơn · ${t2(l.reduce((s,b)=>s+bkTotal(b),0))} MT${lab}</span>`;}).join('');
  const off=!per.length;const allOff=WH.every(w=>dayM(w.id,date).off);
@@ -50,12 +50,12 @@ function cSidePanel(){const[y,m]=V.ym;const ym=`${y}-${pad(m)}`;const mine=cMine
   <div><div class="lbl">14 ngày tới (${dm(TODAY)} – ${dm(end)})</div>${up.length?`<div class="cbklist">${up.map(b=>`<button type="button" class="cbk" data-a="custDay" data-d="${b.date}" data-w="${b.wh}" title="Xem đơn ngày ${dmy(b.date)} kho ${b.wh}"><span class="num">${dm(b.date)}</span><span class="num"><b>${b.wh}</b> · ${t2(bkTotal(b))}</span><span class="st st-${stKey(b)}">${ST_CUST[stKey(b)]}</span></button>`).join('')}</div>`:'<div class="muted small">Chưa có đơn nào trong 14 ngày tới.</div>'}</div>
   <div><div class="lbl">Sales phụ trách</div><div>${esc(sp.name)}</div><div class="muted small">${esc(sp.phone||'')} · ${esc(sp.email)}</div><div class="muted small" style="margin-top:4px">Muốn đặt thêm hoặc đổi lịch, liên hệ Sales.</div></div></aside>`;}
 {const vc0=vCalendar;vCalendar=function(){if(role()!=='customer')return vc0();cWhInit();
- const[y,m]=V.ym;const rows=gridDays(iso(y,m,1),dim(y,m));
+ const[y,m]=V.ym;const P54=pastRows54(gridDays(iso(y,m,1),dim(y,m)),7);const rows=P54.rows;
  const cell=d=>d?(V.whAll?cAllCell(d):dayCell(d)):'<div class="cell pad" aria-hidden="true"></div>';
  return `<div class="panel"><div class="calhead v36"><div class="illus">${DK_SVG()}</div>
   <div class="monthnav"><button class="navbtn" data-a="month" data-d="-1" aria-label="Tháng trước">‹</button><h1>THÁNG ${pad(m)} ${y}</h1><button class="navbtn" data-a="month" data-d="1" aria-label="Tháng sau">›</button></div><span></span></div>
   <div class="cal36bar cbar">${cWhChips()}</div>
-  <div class="calwrap"><div style="min-width:0"><div class="cal">${WD.map((w,i)=>`<div class="wd">${i===0?'CN':w}</div>`).join('')}${rows.map(r=>r.map(cell).join('')).join('')}</div>
+  <div class="calwrap"><div style="min-width:0"><div class="cal">${WD.map((w,i)=>`<div class="wd">${i===0?'CN':w}</div>`).join('')}${P54.html}${rows.map(r=>r.map(cell).join('')).join('')}</div>
   <div class="legend"><span><span class="sw" style="background:var(--ok)"></span>Còn chỗ</span><span><span class="sw" style="background:#e0861a"></span>Sắp đầy</span><span><span class="sw" style="background:var(--muted)"></span>Đã đầy</span><span>📦 Đơn của bạn (xanh: đã xếp xe · lam: chờ xếp xe · đỏ: từ chối)</span><span class="muted">Đơn vị: MT (metric tấn)</span></div></div>${cSidePanel()}</div></div>`;};}
 // Chi tiết ngày của khách: mọi kho khi đang xem Tất cả kho
 {const mc0=mCustDay;mCustDay=function(){const M=V.modal;const one=M.w||(!V.whAll&&V.wh);

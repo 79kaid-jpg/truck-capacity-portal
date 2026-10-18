@@ -401,6 +401,17 @@ Không cần chạy SQL.
 - Lần đầu mở trên điện thoại: dải nhắc phía dưới (Cài / Để sau – 14 ngày không nhắc).
 - File: `web/v51.js`; test `test/e2e/v51.mjs`.
 
+## v3.38 — Màn Lịch dễ dùng hơn
+Không đổi CSDL. File mới `web/v54.js`; sửa `web/v36.js`, `web/v40.js`, `web/v52.js` (rà màn Lịch bằng skill ui-ux-pro-max, 18/10/2026).
+- **Tuần đã qua gom thành một dải** "Xem N tuần đã qua (01/10 – 17/10)" ở đầu lịch tháng (CS, Logistics, khách). Hàng đầu tiên là tuần hiện tại. Bấm dải để hiện lại; điện thoại dùng nút "Xem N ngày đã qua" như v3.36.
+- **Ô hôm nay có chữ "Hôm nay"**, không chỉ viền xanh.
+- **Chi tiết ngày** (khách, số tấn, xe trống) hiện cả khi chọn ô bằng phím Tab / mũi tên, không chỉ khi rê chuột; Esc để ẩn.
+- **Xem 2 tuần**: rê chuột / trình đọc màn hình có tên khách đầy đủ + số tấn + trạng thái; số tấn bỏ ",00".
+- Ô ngày là nhóm có tên (không còn "nút chứa nút"); Enter vẫn mở Chi tiết ngày.
+- Biểu đồ "Theo tuần (% đã xếp)" ghi % trên mỗi cột.
+- Lịch khách: "còn 225 MT" (bỏ ",00"), không xuống dòng.
+- Điện thoại: nút + cao 44px; chừa khoảng trống đáy để nút trao đổi không che nội dung khi cuộn hết.
+
 ## v3.37 — Đồng bộ giao diện
 Không đổi CSDL. File mới `web/v53.js` (mục 2.3, 2.6–2.8, 3.1–3.3, 3.5 của báo cáo rà soát UI/UX).
 - **Chữ ≥ 12px** trên toàn giao diện (trước có 65 chỗ 9,5–11,5px), trừ số trên huy hiệu menu.
@@ -463,8 +474,9 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v44.js                  Kéo thả booking vào xe, gợi ý xe
   v45.js                  Tạo / lọc / xóa tài khoản
   v46.js                  Trợ lý (chatbot)
-  v52.js                  v3.35: giao diện điện thoại (lưới Đặt hàng dạng thẻ, nút Lọc, ngày đã qua)
-  v53.js                  v3.36: biểu tượng SVG thay emoji, aria-pressed, giữ con trỏ khi vẽ lại
+  v52.js                  v3.36: giao diện điện thoại (lưới Đặt hàng dạng thẻ, nút Lọc, ngày đã qua)
+  v53.js                  v3.37: biểu tượng SVG thay emoji, aria-pressed, giữ con trỏ khi vẽ lại
+  v54.js                  v3.38: màn Lịch – gom tuần đã qua, nhãn Hôm nay, số tấn gọn
 functions/api/chat.js     Cloudflare Function gọi Workers AI
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
