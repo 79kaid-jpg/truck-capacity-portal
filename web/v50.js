@@ -15,7 +15,7 @@
 .ovbars{display:grid;gap:4px;margin:6px 0}.ovbars .r{display:grid;grid-template-columns:62px 1fr 92px;gap:8px;align-items:center;font-size:12.5px}
 .ovbars .t{height:12px;background:var(--line);border-radius:6px;overflow:hidden;display:flex}.ovbars .t i{display:block;height:100%}
 .podimg{max-width:100%;max-height:60vh;border-radius:8px;display:block;margin:6px auto}
-@media (max-width:700px){.top .pkoff{font-size:0;padding:4px 7px;white-space:nowrap}.top .pkoff::first-letter{font-size:14px}.top .userbtn>span:nth-child(2),.top .userbtn>span:nth-child(3){display:none}.top .userbtn{padding:2px;flex:0 0 auto}.top{min-width:0;max-width:100vw}}
+@media (max-width:700px){.top .pkoff{font-size:0;padding:4px 7px;white-space:nowrap}.top .pkoff::first-letter{font-size:14px}.top .userbtn>span:nth-child(2),.top .userbtn>span:nth-child(3){display:none}.top .userbtn{padding:2px;flex:0 0 auto}}@media (min-width:701px){.top .menu .mname{display:none}.top{min-width:0;max-width:100vw}}
 `;document.head.appendChild(st);})();
 IC.work='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9l2 2 4-4M8 15h8"/></svg>';
 IC.yard='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20V9l9-5 9 5v11"/><path d="M7 20v-7h10v7M7 16h10"/></svg>';

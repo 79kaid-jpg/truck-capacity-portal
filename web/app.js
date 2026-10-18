@@ -247,7 +247,7 @@ function topbar(u){const w=WHALL.find(x=>x.id===V.wh);
  <div class="ctx">Lịch Đặt Xe – ${V.whAll&&V.view==='calendar'?'Tất cả kho':esc(w.full)}</div>
  <button class="gsbtn" data-a="gsOpen" aria-label="Tìm kiếm (Ctrl+K)">${SEARCH_SVG}<span>Tìm kiếm…</span><kbd>Ctrl K</kbd></button>
  <button class="userbtn" data-a="menu" aria-haspopup="true"><span class="avatar">${esc(u.name.split(' ').slice(-1)[0][0])}</span><span>${esc(u.name)}</span><span aria-hidden="true">▾</span></button>
- ${V.menu?`<div class="menu"><div class="sub">${esc(u.email)}</div><div class="sub">Vai trò: ${ROLE_LABEL[u.role]}${u.segment?' · Segment '+SEG_LABEL[u.segment]:''}${u.customerId?' · '+esc(cust(u.customerId).name)+' · '+SEG_LABEL[cust(u.customerId).segment]:''}</div><button data-a="go" data-v="profile">Hồ sơ cá nhân</button><button data-a="refresh">Tải lại dữ liệu</button><button data-a="logout">Đăng xuất</button></div>`:''}</header>`;}
+ ${V.menu?`<div class="menu"><div class="mname" style="padding:8px 12px 0;font-weight:700">${esc(u.name)}</div><div class="sub">${esc(u.email)}</div><div class="sub">Vai trò: ${ROLE_LABEL[u.role]}${u.segment?' · Segment '+SEG_LABEL[u.segment]:''}${u.customerId?' · '+esc(cust(u.customerId).name)+' · '+SEG_LABEL[cust(u.customerId).segment]:''}</div><button data-a="go" data-v="profile">Hồ sơ cá nhân</button><button data-a="refresh">Tải lại dữ liệu</button><button data-a="logout">Đăng xuất</button></div>`:''}</header>`;}
 const NAV=[
  {v:'calendar',label:'Lịch đặt xe',ic:'cal',ok:()=>true},
  {v:'dash',label:'Dashboard',ic:'chart',ok:()=>canAny('dash.')},
