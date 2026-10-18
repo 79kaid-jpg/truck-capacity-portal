@@ -1624,7 +1624,7 @@ begin
   me := app.require_perm('config.general');
   for k in select jsonb_object_keys(p) loop
     if k not in ('near','capDK','capCN','split','sla','maxStops','fillMin','suggestOn','sundayOff','holidays','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours',
-                 'shipRemindHours','shipAdminDays','requirePicking','chatOn','chatRoles','chatDaily','chatDailyRole','chatDailyTotal','transitDays','talkRemindHours') then
+                 'shipRemindHours','shipAdminDays','requirePicking','chatOn','chatRoles','chatDaily','chatDailyRole','chatDailyTotal','transitDays','talkRemindHours','uatOn') then
       raise exception 'Cấu hình % không hợp lệ.', k;
     end if;
     -- v3.15: bật/tắt bắt buộc picking list – chỉ Admin
@@ -1637,6 +1637,7 @@ begin
     if k in ('near','capDK','capCN','split','sla','maxStops','fillMin','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours','shipRemindHours','shipAdminDays','chatDaily','chatDailyTotal','talkRemindHours') and not ((p->>k)::numeric > 0) then
       raise exception 'Giá trị % phải lớn hơn 0.', k;
     end if;
+    if k = 'uatOn' and jsonb_typeof(p->k) <> 'boolean' then raise exception 'Giá trị uatOn phải là true/false.'; end if;
     if k = 'transitDays' and (jsonb_typeof(p->k) <> 'object' or exists (select 1 from jsonb_each(p->k) e
         where not exists (select 1 from app.warehouses w where w.code = e.key) or jsonb_typeof(e.value) <> 'number'
            or (e.value #>> '{}')::numeric not between 0 and 15 or (e.value #>> '{}')::numeric <> round((e.value #>> '{}')::numeric))) then
@@ -4226,7 +4227,7 @@ insert into app.settings (key, value) values
   ('cutoff', '"16:00"'), ('coilPct', '3'), ('coilTons', '0.5'), ('digestTimes', '["07:00","16:00"]'),
   ('requirePicking', 'true'), ('shipRemindHours', '6'), ('shipAdminDays', '2'),
   ('chatOn', 'true'), ('chatRoles', '["cs","sales","logistics","admin"]'), ('chatDaily', '150'),
-  ('chatDailyRole', '{"cs":150,"sales":150,"logistics":150,"admin":150,"customer":30}'), ('chatDailyTotal', '2000'), ('transitDays', '{}'), ('talkRemindHours', '2')
+  ('chatDailyRole', '{"cs":150,"sales":150,"logistics":150,"admin":150,"customer":30}'), ('chatDailyTotal', '2000'), ('transitDays', '{}'), ('talkRemindHours', '2'), ('uatOn', 'true')
 on conflict (key) do nothing;
 
 insert into app.warehouses (code, name, full_name) values

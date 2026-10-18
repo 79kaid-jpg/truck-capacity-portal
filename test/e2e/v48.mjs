@@ -89,5 +89,11 @@ await session('log@demo.vn', async p => {
   const g2 = await p.evaluate(() => [regionGuess({ wh: 'JM2', addrText: 'KCN Biên Hòa, Đồng Nai' }), regionGuess({ wh: 'JM2', addrText: 'Phường 7, Quận 3, TP.HCM' }), regionGuess({ wh: 'JM2', addrText: 'Xã ABC' })]);
   ok(g2[0] === 'PMY-DNA' && g2[1] === 'PMY-HCM' && g2[2] === null, 'đoán khu vực: Đồng Nai, TP.HCM, không đoán bừa', JSON.stringify(g2));
 });
+await session('cs@demo.vn', async p => {
+  S('uat'); await p.click('.userbtn'); await p.waitForTimeout(200);
+  ok(/#cs$/.test(await p.locator('.top .menu .uatlink').getAttribute('href')), 'menu có 🧪 Kiểm thử UAT mở đúng vai trò CS');
+  q("update app.settings set value='false' where key='uatOn'"); await p.evaluate(async () => { await reload(); V.menu = true; render(); }); await p.waitForTimeout(300);
+  ok(await p.locator('.top .menu .uatlink').count() === 0, 'Admin tắt → không còn nút UAT');
+});
 await browser.close();
 console.log(`${pass} OK, ${errors.length} lỗi`); if (errors.length) { console.log(errors.join('\n')); process.exit(1); }

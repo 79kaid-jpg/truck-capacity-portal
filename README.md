@@ -384,6 +384,10 @@ Không cần chạy SQL.
 - Thứ tự gợi ý: xe đang chở cùng khu vực (đúng loại → khác loại) → khu vực lân cận → xe trống đúng loại → khác loại. Đơn nhỏ ghép được vào đầu kéo đang chạy cùng tuyến thay vì mở xe thùng mới. Snack gợi ý ghi lý do ("ghép … cùng TP.HCM → đầy 100%, không phải mở thêm xe").
 - Đơn chưa có khu vực: đoán từ địa chỉ (tên khu vực / tỉnh mới, hiểu TP.HCM = Hồ Chí Minh = Sài Gòn); thẻ đơn có nút **Gán khu vực** (lưu cho địa chỉ, gán luôn các đơn cùng địa chỉ chưa có khu vực).
 
+## v3.29 — Kiểm thử UAT
+**Chạy `supabase/setup_all.sql` trước khi gộp** (cấu hình `uatOn`).
+- Menu tên người dùng có **🧪 Kiểm thử UAT**: mở checklist UAT vòng 2 (https://claude.ai/artifact/2ZXnJ44xxMcaRcGaZpBQYv) đúng vai trò (#kh, #sales, #rsm, #cs, #log, #admin). Admin tắt ở Cấu hình → Chung khi go-live.
+
 
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.
