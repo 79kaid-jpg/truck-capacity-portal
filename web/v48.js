@@ -92,3 +92,19 @@ document.addEventListener('input',e=>{const T=V.modal&&V.modal.trk;if(T&&e.targe
 {const r0=render;render=function(){r0();if(!S||V.view!=='booking'||!V.bk)return;const b=bkById(V.bk);if(!canReopen(b))return;const h=document.querySelector('.main .pagehead');if(!h||h.querySelector('[data-a="bkReopen"]'))return;
  const x=document.createElement('button');x.className='btn ghost';x.dataset.a='bkReopen';x.dataset.id=b.id;x.title='Xe chưa xuất phát: đưa đơn về Đã xếp xe để điều chỉnh';x.textContent='↩ Mở lại để điều chỉnh';h.appendChild(x);};}
 A.bkReopen=d=>{const b=bkById(d.id);const a=b&&allocsOf(b.id)[0];if(!a)return;V.modal={type:'truck',code:a.truck};render();A.trkReopen({id:b.id});};
+// ---------- v3.28: đoán khu vực từ địa chỉ + lý do gợi ý ----------
+const RG_ALIAS=s=>fold30(s).replace(/\btp\.?\s*hcm\b|\bhcm\b|\bsai gon\b|\btphcm\b/g,'ho chi minh').replace(/\b(tp|thanh pho|tinh)\.?\s+/g,'').replace(/[.,]/g,' ').replace(/\s+/g,' ').trim();
+function regionGuess(b){if(!b||!b.addrText)return null;const a=' '+RG_ALIAS(b.addrText)+' ';const rs=(S.regions||[]).filter(r=>r.wh===b.wh&&r.active!==false);
+ const byName=rs.map(r=>({r,k:RG_ALIAS(r.name)})).filter(x=>x.k.length>=3&&a.includes(' '+x.k+' ')).sort((x,y)=>y.k.length-x.k.length);if(byName.length)return byName[0].r.id;
+ const byNew=rs.filter(r=>r.newProvince&&a.includes(' '+RG_ALIAS(r.newProvince)+' '));return byNew.length===1?byNew[0].id:null;}
+const WHY_L={same:'ghép xe đang chở cùng khu vực',nb:'ghép xe đang chở khu vực lân cận',empty:'xe trống'};
+{const s0=A.dndSuggest;A.dndSuggest=d=>{s0(d);const b=bkById(d.id);const S1=DND.sug;if(!b||!S1||!S1.rows.length||S1.left>0.001)return;const r=S1.rows[0];const t=truckByCode(r.code);if(!t)return;
+ const g=b.region==='NONE'||!b.region?regionGuess(b):null;const after=pct((loadOf(t.code,b.id)+r.tons)/t.cap);
+ dndSnack(`💡 ${t.short}: ${WHY_L[r.why]||''}${r.why!=='empty'&&(g||b.region!=='NONE')?' '+regName(g||b.region):''} → đầy ${after}${r.why!=='empty'?', không phải mở thêm xe':''}${g?` · khu vực đoán từ địa chỉ: ${regName(g)}`:''}`);};}
+// thẻ đơn chờ xếp xe chưa có khu vực: hiện khu vực đoán + nút Gán
+{const r0=render;render=function(){r0();if(!S||V.view!=='day'||!can('booking.region'))return;
+ document.querySelectorAll('.main .pitem').forEach(pi=>{if(pi.querySelector('.rgguess'))return;const m=pi.textContent.match(/\b(BK-[A-Z0-9-]+)\b/);const b=m&&bkById(m[1]);if(!b||(b.region&&b.region!=='NONE'))return;
+  const g=regionGuess(b);const el=document.createElement('div');el.className='rgguess small';el.style.cssText='margin:4px 0;padding:4px 8px;border-radius:8px;background:#fff4c2;border:1px solid #f0d77a';
+  el.innerHTML=g?`📍 Chưa có khu vực · đoán từ địa chỉ: <b>${esc(regName(g))}</b> <button class="btn sm" data-a="rgSet" data-id="${b.id}" data-r="${g}" style="margin-left:4px">Gán khu vực</button>`:`📍 Chưa có khu vực – mở booking để chọn`;
+  const row=pi.querySelector('.small.muted');(row||pi.firstChild).after(el);});};}
+A.rgSet=d=>mutate('set_region',{p_id:d.id,p_region:d.r,p_save_addr:true},{ok:()=>toast('Đã gán khu vực '+regName(d.r)+' cho đơn và lưu cho địa chỉ này')});

@@ -1445,7 +1445,9 @@ begin
     jsonb_build_object('bk', p_id, 'day', b.day));
 end $$;
 
-create or replace function public.set_region(p_id text, p_region text) returns void
+-- v3.28: p_save_addr = lưu luôn khu vực cho địa chỉ giao (lần sau không phải gán lại)
+drop function if exists public.set_region(text, text);
+create or replace function public.set_region(p_id text, p_region text, p_save_addr boolean default false) returns void
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; b app.bookings; v_region text := nullif(nullif(p_region, ''), 'NONE');
 begin
@@ -1458,6 +1460,13 @@ begin
   end if;
   update app.bookings set region_id = v_region, updated_at = now() where id = p_id;
   perform app.audit(p_id, 'Đổi khu vực ' || coalesce(b.region_id, 'NONE') || ' → ' || coalesce(v_region, 'NONE'));
+  if p_save_addr and v_region is not null and b.address_id is not null then
+    insert into app.address_regions (address_id, warehouse_code, region_id) values (b.address_id, b.warehouse_code, v_region)
+      on conflict (address_id, warehouse_code) do update set region_id = excluded.region_id;
+    -- các đơn khác cùng địa chỉ, cùng kho, còn chưa có khu vực → gán luôn
+    update app.bookings set region_id = v_region, updated_at = now()
+     where address_id = b.address_id and warehouse_code = b.warehouse_code and region_id is null and id <> p_id and status in ('draft','hold','ok','resched');
+  end if;
 end $$;
 
 create or replace function public.apply_group(p_ids text[], p_tons numeric[], p_truck text, p_neighbor boolean) returns void

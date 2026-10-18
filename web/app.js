@@ -175,29 +175,32 @@ const tnum=v=>Math.abs(v-Math.round(v))<0.005?String(Math.round(v)):t2(v);
 const tsPill=(s,free)=>`<span class="pill ${s==='empty'?'p-ok':s==='part'?'p-near':'p-full'}" ${s==='part'&&free>0?`title="Còn ${t2(free)} MT"`:''}><i></i>${s==='part'&&free>0?'Còn '+tnum(free)+' MT':TS_LABEL[s]}</span>`;
 
 /* suggestion: assign one booking (BR-04, BR-20, 5.3) */
+// v3.28: ưu tiên ghép xe đang có hàng cùng tuyến (kể cả khác loại) trước khi mở xe trống; đơn chưa có khu vực thì đoán từ địa chỉ
 function suggestFor(b){
  const trucks=trucksOf(b.wh,b.date).filter(t=>!truckLocked(t));let need=bkTotal(b);const pref=need>S.cfg.split?'DK':'XT';
+ const reg=b.region&&b.region!=='NONE'?b.region:(typeof regionGuess==='function'?regionGuess(b):null);
  const free={};trucks.forEach(t=>free[t.code]=r2(t.cap-loadOf(t.code,b.id)));
  const res=[];const used=new Set();
  const partial=t=>loadOf(t.code,b.id)>0.001;
- const relOf=t=>{const rs=truckRegions(t.code,b.id);if(rs.includes(b.region))return'same';if(rs.some(r=>relation(r,b.region)==='nb'))return'nb';return'other';};
- const fit=list=>{const c=list.filter(t=>!used.has(t.code)&&free[t.code]>=need-0.001&&stopsOk(t.code,b)).sort((x,y)=>free[x.code]-free[y.code]);if(c.length){res.push({code:c[0].code,tons:r2(need)});used.add(c[0].code);need=0;return true;}return false;};
+ const relOf=t=>{if(!reg)return'other';const rs=truckRegions(t.code,b.id);if(rs.includes(reg))return'same';if(rs.some(r=>relation(r,reg)==='nb'))return'nb';return'other';};
+ const fit=(list,why)=>{const c=list.filter(t=>!used.has(t.code)&&free[t.code]>=need-0.001&&stopsOk(t.code,b)).sort((x,y)=>free[x.code]-free[y.code]);if(c.length){res.push({code:c[0].code,tons:r2(need),why});used.add(c[0].code);need=0;return true;}return false;};
  let guard=0;
  while(need>0.001&&guard++<40){
-  if(b.region!=='NONE'){
-   const p=trucks.filter(t=>t.type===pref&&partial(t));
-   if(fit(p.filter(t=>relOf(t)==='same')))break;
-   if(fit(p.filter(t=>relOf(t)==='nb')))break;
+  if(reg){const p=trucks.filter(t=>partial(t));
+   if(fit(p.filter(t=>t.type===pref&&relOf(t)==='same'),'same'))break;
+   if(fit(p.filter(t=>t.type!==pref&&relOf(t)==='same'),'same'))break;
+   if(fit(p.filter(t=>t.type===pref&&relOf(t)==='nb'),'nb'))break;
+   if(fit(p.filter(t=>t.type!==pref&&relOf(t)==='nb'),'nb'))break;
   }
   const empties=trucks.filter(t=>t.type===pref&&!partial(t)&&!used.has(t.code)).sort((x,y)=>x.idx-y.idx);
-  if(empties.length){const t=empties[0];const take=r2(Math.min(need,t.cap));res.push({code:t.code,tons:take});used.add(t.code);need=r2(need-take);continue;}
+  if(empties.length){const t=empties[0];const take=r2(Math.min(need,t.cap));res.push({code:t.code,tons:take,why:'empty'});used.add(t.code);need=r2(need-take);continue;}
   const p4=trucks.filter(t=>partial(t)&&!used.has(t.code)&&relOf(t)==='same'&&free[t.code]>0.001&&stopsOk(t.code,b)).sort((x,y)=>free[y.code]-free[x.code]);
-  if(p4.length){const t=p4[0];const take=r2(Math.min(need,free[t.code]));res.push({code:t.code,tons:take});used.add(t.code);need=r2(need-take);continue;}
+  if(p4.length){const t=p4[0];const take=r2(Math.min(need,free[t.code]));res.push({code:t.code,tons:take,why:'same'});used.add(t.code);need=r2(need-take);continue;}
   const other=trucks.filter(t=>t.type!==pref&&!partial(t)&&!used.has(t.code)).sort((x,y)=>x.idx-y.idx);
-  if(other.length){const t=other[0];const take=r2(Math.min(need,t.cap));res.push({code:t.code,tons:take});used.add(t.code);need=r2(need-take);continue;}
+  if(other.length){const t=other[0];const take=r2(Math.min(need,t.cap));res.push({code:t.code,tons:take,why:'empty'});used.add(t.code);need=r2(need-take);continue;}
   break;
  }
- return{rows:res,left:r2(need)};
+ return{rows:res,left:r2(need),guess:b.region&&b.region!=='NONE'?null:reg};
 }
 
 /* merge groups for a day (5.3, BR-20) */
