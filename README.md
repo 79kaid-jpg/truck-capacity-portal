@@ -379,6 +379,11 @@ Không cần chạy SQL.
 - Đơn Đã load, xe chưa xuất phát: ↩ Mở lại (từng đơn / cả xe / chi tiết booking), bắt buộc lý do, nhật ký, báo CS + Sales, không báo khách.
 - Xe đã chạy: ẩn Sửa phần hàng đơn đã đi, khóa tải trọng (máy chủ chặn), ẩn Chốt xe, nhãn "Trống x MT · không nhận thêm".
 
+## v3.28 — Gợi ý xe thông minh hơn
+**Chạy `supabase/setup_all.sql` trước khi gộp** (`set_region` lưu khu vực cho địa chỉ).
+- Thứ tự gợi ý: xe đang chở cùng khu vực (đúng loại → khác loại) → khu vực lân cận → xe trống đúng loại → khác loại. Đơn nhỏ ghép được vào đầu kéo đang chạy cùng tuyến thay vì mở xe thùng mới. Snack gợi ý ghi lý do ("ghép … cùng TP.HCM → đầy 100%, không phải mở thêm xe").
+- Đơn chưa có khu vực: đoán từ địa chỉ (tên khu vực / tỉnh mới, hiểu TP.HCM = Hồ Chí Minh = Sài Gòn); thẻ đơn có nút **Gán khu vực** (lưu cho địa chỉ, gán luôn các đơn cùng địa chỉ chưa có khu vực).
+
 
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.

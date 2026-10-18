@@ -74,5 +74,20 @@ await session('log@demo.vn', async p => {
   await shot(p, 'truck-after');
   S('closed-label'); ok(!/Đã đóng/.test(await p.locator('.modal').innerText()), 'không còn chữ "Đã đóng"');
 });
+await session('log@demo.vn', async p => {
+  S('suggest-merge'); const r = await p.evaluate(() => {
+    const d = S.bookings.find(b => b.wh === 'JM2' && b.date >= TODAY && trucksOf('JM2', b.date).filter(t => t.type === 'DK' && !loadOf(t.code)).length && trucksOf('JM2', b.date).filter(t => t.type === 'XT' && !loadOf(t.code)).length).date;
+    const dk = trucksOf('JM2', d).find(t => t.type === 'DK' && !loadOf(t.code));
+    const base = S.bookings.find(b => b.wh === 'JM2' && b.date === d);
+    const O = { ...base, id: 'BK-T-OK', status: 'ok', region: 'PMY-HCM', date: d, lines: [{ ...base.lines[0], t: dk.cap - 4 }], addrText: 'Kho Bình Chánh, TP.HCM', customerId: base.customerId };
+    const H = { ...base, id: 'BK-T-HOLD', status: 'hold', region: 'NONE', date: d, lines: [{ ...base.lines[0], t: 4 }], addrText: 'Lô B5-9 Đường D4, Kcn Tân Phú Trung, Củ Chi, Hồ Chí Minh', customerId: O.customerId };
+    S.bookings = [...S.bookings, O, H]; S._bm = null; S.allocs = [...S.allocs, { id: 'al-t', bk: O.id, truck: dk.code, tons: dk.cap - 4 }];
+    const g = regionGuess(H); const s = suggestFor(H); const res = { guess: g, first: s.rows[0] && s.rows[0].code, dk: dk.code, why: s.rows[0] && s.rows[0].why };
+    S.bookings = S.bookings.filter(b => !b.id.startsWith('BK-T-')); S._bm = null; S.allocs = S.allocs.filter(a => a.id !== 'al-t'); return res; });
+  ok(r.guess === 'PMY-HCM', 'đoán khu vực từ địa chỉ "Củ Chi, Hồ Chí Minh" → TP.HCM', JSON.stringify(r));
+  ok(r.first === r.dk && r.why === 'same', 'đơn 4 MT ghép vào đầu kéo đang chở cùng TP.HCM thay vì mở xe thùng trống', JSON.stringify(r));
+  const g2 = await p.evaluate(() => [regionGuess({ wh: 'JM2', addrText: 'KCN Biên Hòa, Đồng Nai' }), regionGuess({ wh: 'JM2', addrText: 'Phường 7, Quận 3, TP.HCM' }), regionGuess({ wh: 'JM2', addrText: 'Xã ABC' })]);
+  ok(g2[0] === 'PMY-DNA' && g2[1] === 'PMY-HCM' && g2[2] === null, 'đoán khu vực: Đồng Nai, TP.HCM, không đoán bừa', JSON.stringify(g2));
+});
 await browser.close();
 console.log(`${pass} OK, ${errors.length} lỗi`); if (errors.length) { console.log(errors.join('\n')); process.exit(1); }
