@@ -365,6 +365,9 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - Trợ lý tự thu gọn khi bấm ra ngoài.
 - Tin Trao đổi vào email tóm tắt (người chọn nhận email "tất cả").
 
+## v3.25 — Đổi người dùng thì tải lại sạch
+Không cần chạy SQL. Login as / Thoát Login as / Xem như khách hàng: xóa Bảng thống kê (kể cả bộ lọc Sales), bộ lọc danh sách booking, trợ lý, Trao đổi, tìm kiếm của người trước rồi tải lại theo quyền người mới. Phân quyền trên máy chủ không đổi (vốn đã đúng).
+
 
 ## Lưu ý gói miễn phí
 - Supabase Free tự **tạm dừng** project sau 7 ngày không ai dùng. Vào Supabase bấm **Restore** để chạy lại.
