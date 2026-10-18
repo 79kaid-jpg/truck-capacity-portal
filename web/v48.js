@@ -108,3 +108,12 @@ const WHY_L={same:'ghép xe đang chở cùng khu vực',nb:'ghép xe đang ch�
   el.innerHTML=g?`📍 Chưa có khu vực · đoán từ địa chỉ: <b>${esc(regName(g))}</b> <button class="btn sm" data-a="rgSet" data-id="${b.id}" data-r="${g}" style="margin-left:4px">Gán khu vực</button>`:`📍 Chưa có khu vực – mở booking để chọn`;
   const row=pi.querySelector('.small.muted');(row||pi.firstChild).after(el);});};}
 A.rgSet=d=>mutate('set_region',{p_id:d.id,p_region:d.r,p_save_addr:true},{ok:()=>toast('Đã gán khu vực '+regName(d.r)+' cho đơn và lưu cho địa chỉ này')});
+// ---------- v3.29: nút 🧪 Kiểm thử UAT (giai đoạn pilot; Admin bật / tắt ở Cấu hình → Chung) ----------
+const UAT_URL='https://claude.ai/artifact/2ZXnJ44xxMcaRcGaZpBQYv';
+const uatOn=()=>!!S&&S.cfg.uatOn!==false&&!S.custView;
+const uatRole=()=>{const r=role();return r==='customer'?'kh':r==='sales'?(S.me.statScope==='team'?'rsm':'sales'):r==='logistics'?'log':r==='cs'?'cs':'admin';};
+{const r0=render;render=function(){r0();if(!S)return;
+ const m=document.querySelector('.top .menu');if(m&&uatOn()&&!m.querySelector('.uatlink')){const a=document.createElement('a');a.className='uatlink';a.href=UAT_URL+'#'+uatRole();a.target='_blank';a.rel='noopener';
+  a.textContent='🧪 Kiểm thử UAT';a.style.cssText='display:block;padding:8px 12px;color:inherit;text-decoration:none;font-weight:600';a.title='Mở checklist kiểm thử đúng vai trò của bạn';const lo=m.querySelector('[data-a="logout"]');m.insertBefore(a,lo||null);}
+ if(V.view==='config'&&(V.cfgTab||'general')==='general'&&role()==='admin'){const host=document.querySelector('.main .panel .fgrid');if(host&&!document.querySelector('.uatcfg')){const c=document.createElement('div');c.className='pkcard uatcfg';
+  c.innerHTML=`<h4>🧪 Kiểm thử UAT</h4><label class="row" style="gap:8px"><input type="checkbox" data-f="cfgb" data-k="uatOn" ${S.cfg.uatOn===false?'':'checked'}> Hiện nút "Kiểm thử UAT" trong menu tên người dùng (giai đoạn pilot). Tắt khi go-live.</label>`;host.parentNode.insertBefore(c,host);}}};}
