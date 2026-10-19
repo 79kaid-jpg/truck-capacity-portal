@@ -179,6 +179,12 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - **Email:** việc gấp (đơn khẩn, hủy cận ngày, giao hàng gấp, load thiếu, giao lỗi, giao ngày nghỉ) gửi ngay; còn lại gộp một email tóm tắt mỗi người lúc 7:00 và 16:00 (trừ Chủ nhật). Hồ sơ cá nhân → mức nhận email (Tất cả / Chỉ việc gấp / Không) và email nhận riêng (Outlook).
 - **Cấu hình mới** (bảng `app.settings`): `cutoff` "16:00", `coilPct` 3, `coilTons` 0.5, `digestTimes` ["07:00","16:00"], `emailUrgent`. Mã kho ERP ở `app.warehouses.erp_code` (từ v3.0 mã kho = mã ERP: JM2, JD8, JD9); Mã KH ERP ở `app.customers.erp_code`.
 
+
+## v3.41 — Khu vực giao hàng theo địa chỉ ERP
+
+- Khu vực mẫu dựng lại theo địa chỉ giao hàng thật trong ERP: 39 khu vực (JM2 25, JD9 4, JD8 10), đặt theo tỉnh cũ kèm tỉnh mới; lân cận chỉ nối các tỉnh kề nhau trên cùng tuyến đường, luôn hai chiều.
+- Cột "Đi-về (ngày)" đổi thành "Đi (ngày)": số ngày xe đi một chiều, vì xe thuê theo chuyến.
+- Database đang chạy không tự đổi khi cập nhật phiên bản. Muốn làm lại khu vực trên database thật thì chạy script riêng (không lưu trong repo vì chứa địa chỉ khách).
 ## v3.0 – lưới đặt hàng, mã kho mới, trạng thái theo sơ đồ
 - **Lưới đặt hàng** (`web/v30.js`): nút Đặt hàng trên Lịch và Danh sách mở lưới nhiều dòng. Gõ mã hoặc tên khách để tìm; địa chỉ lấy theo khách; dán từ Excel (Ctrl+V) hoặc tải file CSV/XLSX; không nhập sản phẩm, chỉ nhập số tấn. Có 2 nút: Lưu tạm và Gửi Logistics. Nếu nhập địa chỉ mới, hệ thống hỏi có lưu vào hồ sơ khách không; chỉ lưu khi bạn đồng ý.
 - **Mã kho**: JM2 – Phú Mỹ, JD8 – Hải Phòng, JD9 – Cửa Lò. Chạy `setup_all.sql` sẽ tự đổi PMY/HPG/CLO sang mã mới cho dữ liệu cũ. Khách có thêm **Kho mặc định** nhưng vẫn đặt được ở nhiều kho. Màn **Cấu hình › Kho** cho thêm kho, sửa tên, mã ERP và ngừng dùng kho. Đơn thuộc kho đã ngừng có nút **Đổi kho**; sau khi đổi, đơn về Lưu tạm.
