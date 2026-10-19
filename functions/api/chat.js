@@ -22,7 +22,8 @@ async function callClaude(env, model, msgs, defs) {
     '\n\n[Cách làm việc] Dùng công cụ bằng cơ chế gọi công cụ (tool use), không viết JSON {"tool":…} thành chữ. Có thể gọi nhiều công cụ liên tiếp. Trả lời cuối bằng văn bản thường (markdown, tiếng Việt), không bọc trong {"answer":…}.';
   const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST',
     headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model, max_tokens: 1500, temperature: 0.2, system, messages: toAnthropic(msgs), tools: toolDefs(defs) }) });
+    // v3.44.1: không gửi temperature – các mô hình Claude mới không nhận tham số này
+    body: JSON.stringify({ model, max_tokens: 1500, system, messages: toAnthropic(msgs), tools: toolDefs(defs) }) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error((j.error && j.error.message) || ('Anthropic ' + r.status));
   const use = (j.content || []).find(c => c.type === 'tool_use');

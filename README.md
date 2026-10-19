@@ -183,6 +183,17 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+
+
+## v3.45 — Trợ lý bền hơn, hiện rõ khi Claude lỗi
+
+- Segment chỉ nhận DD / DA / EX (hiểu "dân dụng", "dự án", "xuất khẩu"); giá trị bịa như "UR", "all" bị bỏ và báo lại cho mô hình.
+- Tra Hướng dẫn bằng cả câu gốc người dùng gõ, nên từ khóa bị hỏng dấu vẫn tìm đúng mục.
+- Claude đang bật mà câu trả lời do mô hình miễn phí (Claude lỗi) → nhãn khung chat **Miễn phí (Claude lỗi)** màu cam, rê chuột xem lý do; khung Trợ lý của Admin hiện lỗi Claude gần nhất (trên máy đó).
+- Kiểm thử trợ lý: ghi mô hình thực sự trả lời từng câu, câu bị chuyển sang mô hình miễn phí tính Trượt; bảng Copy có dòng "Mô hình chọn" và cột "Mô hình trả lời".
+## v3.44.1 — Sửa gọi Claude
+
+- Bỏ tham số `temperature` khi gọi Anthropic: các mô hình Claude mới từ chối tham số này, khiến trợ lý luôn tự chuyển sang mô hình miễn phí.
 ## v3.44 — Trợ lý chính xác hơn, số tấn gọn
 
 - Số tấn tròn không còn hiện ",00" trên toàn Portal (100 MT, 88,5 MT, 30,25 MT).
