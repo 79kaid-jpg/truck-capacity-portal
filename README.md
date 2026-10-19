@@ -183,6 +183,10 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+
+## v3.44.1 — Sửa gọi Claude
+
+- Bỏ tham số `temperature` khi gọi Anthropic: các mô hình Claude mới từ chối tham số này, khiến trợ lý luôn tự chuyển sang mô hình miễn phí.
 ## v3.44 — Trợ lý chính xác hơn, số tấn gọn
 
 - Số tấn tròn không còn hiện ",00" trên toàn Portal (100 MT, 88,5 MT, 30,25 MT).

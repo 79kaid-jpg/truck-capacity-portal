@@ -28,6 +28,7 @@ const conv = { messages: [{ role: 'system', content: 'SYS' }, { role: 'assistant
 anthRes = { content: [{ type: 'tool_use', name: 'stats', input: { period: 'day' } }] };
 r = await onRequestPost({ request: req(conv), env: { AI, ASSETS: assets, ANTHROPIC_API_KEY: 'sk-test' } }); let k = await r.json();
 ok(k.engine === 'claude' && JSON.parse(k.text).tool === 'stats' && JSON.parse(k.text).args.period === 'day', 'Claude gọi công cụ → trả {"tool"} như cũ');
+ok(!('temperature' in anth.body), 'không gửi temperature cho Claude (mô hình mới từ chối)');
 ok(anth.o.headers['x-api-key'] === 'sk-test' && anth.body.model === 'claude-sonnet-5-5' && /SYS/.test(anth.body.system), 'gửi khóa, đúng mô hình, system riêng');
 ok(anth.body.messages.length === 1 && anth.body.messages[0].role === 'user' && anth.body.messages[0].content === 'a\n\nb', 'bỏ assistant đầu, gộp tin liền nhau cùng vai');
 ok(anth.body.tools.length === 1 && anth.body.tools[0].name === 'stats', 'công cụ chuẩn từ defs, bỏ tên lạ');
