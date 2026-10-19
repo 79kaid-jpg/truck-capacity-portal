@@ -180,6 +180,13 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - **Cấu hình mới** (bảng `app.settings`): `cutoff` "16:00", `coilPct` 3, `coilTons` 0.5, `digestTimes` ["07:00","16:00"], `emailUrgent`. Mã kho ERP ở `app.warehouses.erp_code` (từ v3.0 mã kho = mã ERP: JM2, JD8, JD9); Mã KH ERP ở `app.customers.erp_code`.
 
 
+
+## v3.42 — Kiểm thử trợ lý
+
+- Configuration → Ngưỡng & tải trọng → khung Trợ lý → **Kiểm thử trợ lý** (chỉ Admin): chạy 30 câu hỏi chuẩn (tình trạng xe/đơn, thống kê, khách hàng, đơn hàng, năng lực, hướng dẫn, thao tác, ngoài phạm vi; có câu hỏi nối tiếp) qua đúng chatbot đang dùng.
+- Đáp án đúng tính trực tiếp từ dữ liệu bằng chính các công cụ của trợ lý; chấm: gọi đúng công cụ, đúng số liệu / ý chính, không lỗi, không hiện JSON. Thao tác mở màn / điền form chỉ ghi lại.
+- Điểm lưu 10 lần gần nhất trên trình duyệt để so trước / sau khi đổi mô hình; **Copy kết quả** ra bảng để dán Excel.
+- Mỗi câu tốn 1 lượt trợ lý của Admin (câu nối tiếp tốn 2).
 ## v3.41 — Khu vực giao hàng theo địa chỉ ERP
 
 - Khu vực mẫu dựng lại theo địa chỉ giao hàng thật trong ERP: 39 khu vực (JM2 25, JD9 4, JD8 10), đặt theo tỉnh cũ kèm tỉnh mới; lân cận chỉ nối các tỉnh kề nhau trên cùng tuyến đường, luôn hai chiều.
