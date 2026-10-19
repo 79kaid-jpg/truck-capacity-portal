@@ -146,7 +146,7 @@ await session('log@demo.vn', async p => {
   S('regEdit'); await p.click('[data-a="go"][data-v="config"]'); await p.click('[data-a="cfgTab"][data-t="regions"]');
   log('region edit buttons:', await p.locator('[data-a="regEdit"]').count());
   await p.locator('tr', { hasText: 'PMY-DNA' }).first().locator('[data-a="regEdit"]').click().catch(async () => { await p.locator('tr', { hasText: 'DNA' }).first().locator('[data-a="regEdit"]').click(); });
-  await type(p, '#re-n', 'Vũng Tàu'); await clr(p); await p.click('[data-a="regEditSave"]'); await p.waitForTimeout(300);
+  await type(p, '#re-n', 'Bà Rịa – Vũng Tàu'); await clr(p); await p.click('[data-a="regEditSave"]'); await p.waitForTimeout(300);
   log('duplicate name ->', await p.locator('tr.editing .err').innerText().catch(() => '(none)'));
   await type(p, '#re-n', 'Đồng Nai (Biên Hòa)'); await p.fill('#re-d', '2'); await p.locator('#re-d').dispatchEvent('input');
   await p.locator('tr.editing input[data-f="regENb"]', { has: p.locator('xpath=.') }).first();
