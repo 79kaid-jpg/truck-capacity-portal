@@ -20,4 +20,29 @@ ok(r.status === 403 && /hết 10 lượt/.test((await r.json()).error), 'hết l
 quotaOk = true; const AI2 = { run: async () => ({ response: { tool: 'capacity', args: { date: '2026-10-19' } } }) };
 r = await onRequestPost({ request: req({ messages: [{ role: 'user', content: 'hi' }] }), env: { AI: AI2, ASSETS: assets } });
 ok(JSON.parse((await r.json()).text).tool === 'capacity', 'AI trả object → chuyển thành chuỗi JSON (không còn [object Object])');
+// v3.43: Claude
+let quota = { left: 9, limit: 10, engine: 'claude', model: 'sonnet' }, anth = null, anthRes = null, anthStatus = 200;
+globalThis.fetch = async (url, o) => { if (String(url).includes('anthropic.com')) { anth = { url, o, body: JSON.parse(o.body) }; return new Response(JSON.stringify(anthRes), { status: anthStatus }); }
+  return new Response(JSON.stringify(quota), { status: 200 }); };
+const conv = { messages: [{ role: 'system', content: 'SYS' }, { role: 'assistant', content: 'chào' }, { role: 'user', content: 'a' }, { role: 'user', content: 'b' }], defs: [{ name: 'stats', d: 'Số liệu' }, { name: 'BAD NAME', d: 'x' }] };
+anthRes = { content: [{ type: 'tool_use', name: 'stats', input: { period: 'day' } }] };
+r = await onRequestPost({ request: req(conv), env: { AI, ASSETS: assets, ANTHROPIC_API_KEY: 'sk-test' } }); let k = await r.json();
+ok(k.engine === 'claude' && JSON.parse(k.text).tool === 'stats' && JSON.parse(k.text).args.period === 'day', 'Claude gọi công cụ → trả {"tool"} như cũ');
+ok(anth.o.headers['x-api-key'] === 'sk-test' && anth.body.model === 'claude-sonnet-5-5' && /SYS/.test(anth.body.system), 'gửi khóa, đúng mô hình, system riêng');
+ok(anth.body.messages.length === 1 && anth.body.messages[0].role === 'user' && anth.body.messages[0].content === 'a\n\nb', 'bỏ assistant đầu, gộp tin liền nhau cùng vai');
+ok(anth.body.tools.length === 1 && anth.body.tools[0].name === 'stats', 'công cụ chuẩn từ defs, bỏ tên lạ');
+anthRes = { content: [{ type: 'text', text: 'Có **3** xe đang giao.' }] };
+r = await onRequestPost({ request: req(conv), env: { AI, ASSETS: assets, ANTHROPIC_API_KEY: 'sk-test' } }); k = await r.json();
+ok(JSON.parse(k.text).answer === 'Có **3** xe đang giao.', 'trả lời thường → bọc {"answer"}');
+anthStatus = 529; anthRes = { error: { message: 'overloaded' } };
+r = await onRequestPost({ request: req(conv), env: { AI, ASSETS: assets, ANTHROPIC_API_KEY: 'sk-test' } }); k = await r.json();
+ok(k.engine === 'free' && /Claude lỗi/.test(k.note) && k.text === '{"answer":"Xin chào"}', 'Anthropic lỗi → tự dùng mô hình miễn phí');
+anthStatus = 200;
+r = await onRequestPost({ request: req(conv), env: { AI, ASSETS: assets } }); k = await r.json();
+ok(k.engine === 'free' && /ANTHROPIC_API_KEY/.test(k.note), 'chưa cài khóa → mô hình miễn phí + ghi chú');
+quota = { left: 9, limit: 10, engine: 'free' }; anth = null;
+r = await onRequestPost({ request: req(conv), env: { AI, ASSETS: assets, ANTHROPIC_API_KEY: 'sk-test' } }); k = await r.json();
+ok(k.engine === 'free' && anth === null, 'Admin chưa bật → không gọi Anthropic');
+const { onRequestGet } = await import('../functions/api/chat.js');
+ok((await (onRequestGet({ env: { ANTHROPIC_API_KEY: 'x' } })).json()).claudeKey === true && (await (onRequestGet({ env: {} })).json()).claudeKey === false, 'GET cho biết đã cài khóa (không lộ khóa)');
 console.log(`${pass} OK, ${fail} lỗi`); if (fail) process.exit(1);

@@ -181,6 +181,15 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+
+## v3.43 — Trợ lý: bật Claude khi cần
+
+**Chạy `supabase/setup_all.sql` trước khi dùng** (cột `chat_log.engine`, `app.ai_engine`, RPC `set_ai`, cấu hình `aiEngine`, `aiModel`, `aiUntil`, `aiClaudeDaily`).
+- Configuration → khung Trợ lý → **Mô hình AI** (chỉ Admin): Miễn phí (Llama) hoặc Claude Haiku / Sonnet, bật trong 2 giờ / 4 giờ / đến hết ngày, hết hạn tự quay về Miễn phí. **Tắt ngay** bất kỳ lúc nào.
+- Hạn mức lượt Claude / ngày toàn hệ thống (mặc định 200); hết thì tự về Miễn phí và báo Admin.
+- `functions/api/chat.js`: khi Claude đang bật và có biến bí mật **`ANTHROPIC_API_KEY`** trên Cloudflare Pages → gọi Anthropic với cơ chế gọi công cụ chuẩn; thiếu khóa hoặc Anthropic lỗi → tự dùng Llama. Khóa không nằm trong code hay database.
+- Đầu khung chat có nhãn **✦ Claude** / **Miễn phí**; Kiểm thử trợ lý ghi mô hình của mỗi lần chạy.
+- Cài khóa: Cloudflare → Pages → `truck-capacity-portal` → Settings → Variables and Secrets → thêm `ANTHROPIC_API_KEY` (Secret) → deploy lại.
 ## v3.42 — Kiểm thử trợ lý
 
 - Configuration → Ngưỡng & tải trọng → khung Trợ lý → **Kiểm thử trợ lý** (chỉ Admin): chạy 30 câu hỏi chuẩn (tình trạng xe/đơn, thống kê, khách hàng, đơn hàng, năng lực, hướng dẫn, thao tác, ngoài phạm vi; có câu hỏi nối tiếp) qua đúng chatbot đang dùng.

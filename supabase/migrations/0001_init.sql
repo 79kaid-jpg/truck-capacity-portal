@@ -93,6 +93,7 @@ create table if not exists app.chat_log (
   tools   text[] not null default '{}'
 );
 create index if not exists chat_log_user_at on app.chat_log (user_id, at);
+alter table app.chat_log add column if not exists engine text not null default 'free';  -- v3.43: 'free' (Workers AI) | 'claude'
 create table if not exists app.deleted_users (
   user_id    uuid primary key,
   full_name  text not null,
@@ -3732,9 +3733,16 @@ language sql stable security definer set search_path = '' as $$
 $$;
 
 -- Gọi trước mỗi lượt hỏi AI (Cloudflare Function gọi bằng token của người dùng): kiểm tra quyền + hạn mức ngày, ghi nhật ký
+-- v3.43: mô hình AI đang dùng: 'claude' khi Admin bật và chưa hết thời hạn (aiUntil), ngược lại 'free'
+create or replace function app.ai_engine() returns text
+language sql stable security definer set search_path = '' as $$
+  select case when coalesce(app.setting('aiEngine') #>> '{}', 'free') = 'claude'
+               and coalesce((app.setting('aiUntil') #>> '{}')::timestamptz, '-infinity') > now() then 'claude' else 'free' end
+$$;
+
 create or replace function public.chat_use(p_tools text[] default '{}') returns jsonb
 language plpgsql volatile security definer set search_path = '' as $$
-declare me app.profiles; v_lim int; v_used int; v_tot int := coalesce(app.setn('chatDailyTotal'), 2000)::int; v_all int;
+declare me app.profiles; v_lim int; v_used int; v_tot int := coalesce(app.setn('chatDailyTotal'), 2000)::int; v_all int; v_eng text; v_cl int;
 begin
   select * into me from app.profiles where user_id = app.uid() and active;
   if not found then raise exception 'Tài khoản chưa được cấp quyền.' using errcode = '42501'; end if;
@@ -3753,8 +3761,20 @@ begin
   end if;
   select count(*) into v_used from app.chat_log where user_id = me.user_id and at >= (app.today()::timestamp at time zone 'Asia/Ho_Chi_Minh');
   if v_used >= v_lim then raise exception 'Bạn đã dùng hết % lượt chatbot hôm nay. Mai dùng tiếp nhé.', v_lim using errcode = '42501'; end if;
-  insert into app.chat_log (user_id, tools) values (me.user_id, coalesce(p_tools, '{}'));
-  return jsonb_build_object('left', v_lim - v_used - 1, 'limit', v_lim);
+  -- v3.43: Claude chỉ khi Admin bật, còn thời hạn và còn hạn mức lượt Claude trong ngày; hết hạn mức → tự tắt, báo Admin
+  v_eng := app.ai_engine();
+  if v_eng = 'claude' then
+    select count(*) into v_cl from app.chat_log where engine = 'claude' and at >= (app.today()::timestamp at time zone 'Asia/Ho_Chi_Minh');
+    if v_cl >= coalesce(app.setn('aiClaudeDaily'), 200) then
+      v_eng := 'free';
+      update app.settings set value = '"free"' where key = 'aiEngine';
+      perform app.notify(array(select user_id from app.profiles where role = 'admin' and active), 'Nhắc việc',
+        'Trợ lý đã dùng hết ' || v_cl || ' lượt Claude hôm nay → tự chuyển về mô hình miễn phí.', null);
+    end if;
+  end if;
+  insert into app.chat_log (user_id, tools, engine) values (me.user_id, coalesce(p_tools, '{}'), v_eng);
+  return jsonb_build_object('left', v_lim - v_used - 1, 'limit', v_lim, 'engine', v_eng,
+    'model', case when v_eng = 'claude' then coalesce(app.setting('aiModel') #>> '{}', 'haiku') end);
 end $$;
 
 create or replace function public.set_customer_chat(p_customer uuid, p_on boolean) returns void
@@ -3783,7 +3803,36 @@ begin
                      count(*) filter (where l.at >= (app.today()::timestamp at time zone 'Asia/Ho_Chi_Minh')) t, count(*) w
                 from app.chat_log l left join app.profiles p on p.user_id = l.user_id left join app.deleted_users d on d.user_id = l.user_id
                where l.at > now() - interval '7 days' group by 1) z),
-    'total', coalesce(app.setn('chatDailyTotal'), 2000));
+    'total', coalesce(app.setn('chatDailyTotal'), 2000),
+    'claudeToday', (select count(*) from app.chat_log where engine = 'claude' and at >= (app.today()::timestamp at time zone 'Asia/Ho_Chi_Minh')),
+    'engine', app.ai_engine());
+end $$;
+
+-- v3.43: Admin bật / tắt Claude. p_engine 'claude' | 'free'; p_model 'haiku' | 'sonnet'; p_hours thời hạn bật (giờ, 0.5–12);
+-- p_daily (tùy chọn) hạn mức lượt Claude / ngày toàn hệ thống; p_engine null = chỉ đổi hạn mức
+create or replace function public.set_ai(p_engine text, p_model text default 'haiku', p_hours numeric default 2, p_daily int default null) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; v_until timestamptz;
+begin
+  me := app.require_perm('config.general');
+  if me.role <> 'admin' then raise exception 'Chỉ Admin được đổi mô hình AI.' using errcode = '42501'; end if;
+  if p_engine is not null and p_engine not in ('claude', 'free') then raise exception 'Mô hình AI không hợp lệ.'; end if;
+  if p_daily is not null then
+    if p_daily < 1 or p_daily > 5000 then raise exception 'Hạn mức lượt Claude mỗi ngày phải từ 1 đến 5000.'; end if;
+    insert into app.settings values ('aiClaudeDaily', to_jsonb(p_daily)) on conflict (key) do update set value = excluded.value;
+  end if;
+  if p_engine = 'claude' then
+    if coalesce(p_model, '') not in ('haiku', 'sonnet') then raise exception 'Loại Claude phải là haiku hoặc sonnet.'; end if;
+    if p_hours is null or p_hours < 0.5 or p_hours > 12 then raise exception 'Thời hạn bật phải từ 0,5 đến 12 giờ.'; end if;
+    v_until := now() + make_interval(secs => (p_hours * 3600)::int);
+    insert into app.settings values ('aiModel', to_jsonb(p_model)) on conflict (key) do update set value = excluded.value;
+    insert into app.settings values ('aiUntil', to_jsonb(v_until)) on conflict (key) do update set value = excluded.value;
+  end if;
+  if p_engine is null then return jsonb_build_object('engine', app.ai_engine()); end if;  -- chỉ đổi hạn mức
+  insert into app.settings values ('aiEngine', to_jsonb(p_engine)) on conflict (key) do update set value = excluded.value;
+  insert into app.audit_log (entity_id, detail, actor) values ('chat', me.full_name || case when p_engine = 'claude'
+    then ' bật Claude ' || initcap(p_model) || ' đến ' || to_char(v_until at time zone 'Asia/Ho_Chi_Minh', 'HH24:MI DD/MM') else ' chuyển trợ lý về mô hình miễn phí' end, me.user_id);
+  return jsonb_build_object('engine', app.ai_engine(), 'until', v_until);
 end $$;
 
 
@@ -4314,7 +4363,7 @@ begin
        'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa','list_bookings','booking_stats',
        'bulk_create_bookings','suggest_days','set_urgent','confirm_delivery','get_coils','mark_loaded','resolve_short','mark_transit',
        'mark_delivered','mark_failed','close_truck','set_email_prefs','send_to_logistics','save_warehouse','change_booking_wh',
-       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop','req_create','req_update','admin_create_user','admin_reset_password','my_pw_changed','admin_user_refs','admin_delete_user','chat_use','set_customer_chat','chat_stats','req_set_day','unload_booking','get_delta','log_usage','sys_health','driver_link_create','driver_link_revoke','pod_list','cust_overview','talk_get','talk_post','talk_edit','talk_react','talk_set','talk_upload','talk_file','my_new_notifs')
+       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop','req_create','req_update','admin_create_user','admin_reset_password','my_pw_changed','admin_user_refs','admin_delete_user','chat_use','set_customer_chat','chat_stats','set_ai','req_set_day','unload_booking','get_delta','log_usage','sys_health','driver_link_create','driver_link_revoke','pod_list','cust_overview','talk_get','talk_post','talk_edit','talk_react','talk_set','talk_upload','talk_file','my_new_notifs')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);
