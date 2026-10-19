@@ -17,13 +17,15 @@ async function open(email) {
   else if (await p.locator('#mfc-code').count()) { await p.fill('#mfc-code', '123456'); await p.click('#mfc button'); await p.waitForTimeout(800); }
   await p.waitForTimeout(600); return p;
 }
+// v3.44: số tấn tròn không còn ,00 → so theo giá trị số
+const nv = x => +String(x).replace(/\./g, '').replace(',', '.');
 const big = async p => (await p.locator('aside.sst .bignum').innerText()).split('\n').pop().replace(/\s*MT$/,'').trim();
 
 // 1. Sales mặc định: khách mình phụ trách, có cả nháp CS lưu cho khách
 let p = await open('s1@demo.vn');
 let txt = await p.locator('aside.sst').innerText();
 check('Sales own: title + scope label', /THỐNG KÊ KHÁCH CỦA BẠN/i.test(txt) && /Khách bạn phụ trách/.test(txt));
-check('Sales own: total = SQL', (await big(p)) === OWN, `${await big(p)} vs ${OWN}`);
+check('Sales own: total = SQL', nv(await big(p)) === nv(OWN), `${await big(p)} vs ${OWN}`);
 check('Sales own: lưu tạm hiện riêng, không tính tổng', /Đang lưu tạm \(chưa gửi, không tính vào tổng\): 12(,00)? MT · 1 đơn/.test(txt));
 check('Sales own: no segment chips', (await p.locator('[data-a="csSeg"]').count()) === 0);
 await p.screenshot({ path: '/tmp/e2e-shots/ss-1-sales.png', fullPage: true });
@@ -41,7 +43,7 @@ await p.click('[data-a="statMode"][data-v="cust"]'); await p.waitForTimeout(700)
 check('Admin Khách: all customers scope', /Tất cả khách hàng/.test(await p.locator('aside.sst').innerText()));
 await p.click('[data-a="csSeg"][data-v="DD"]'); await p.waitForTimeout(200); const ddA = await big(p);
 await p.click('[data-a="csSeg"][data-v="DA"]'); await p.waitForTimeout(200); const daA = await big(p);
-check('Admin Khách: Dân dụng / Dự án = SQL', ddA === DD && daA === DA, `${ddA}/${daA} vs ${DD}/${DA}`);
+check('Admin Khách: Dân dụng / Dự án = SQL', nv(ddA) === nv(DD) && nv(daA) === nv(DA), `${ddA}/${daA} vs ${DD}/${DA}`);
 await p.click('[data-a="csSeg"][data-v="all"]'); await p.waitForTimeout(200);
 await p.screenshot({ path: '/tmp/e2e-shots/ss-2-admin-cust.png', fullPage: true });
 // 4. Bảng thống kê · tab Sales (thay DB-05)
@@ -58,7 +60,7 @@ await p.context().close();
 // 5. s1 với phạm vi Dân dụng: thống kê toàn DD nhưng danh sách booking vẫn chỉ khách mình
 p = await open('s1@demo.vn');
 txt = await p.locator('aside.sst').innerText();
-check('Sales DD scope: label + total = all DD', /Toàn bộ khách Dân dụng/.test(txt) && (await big(p)) === DD, await big(p));
+check('Sales DD scope: label + total = all DD', /Toàn bộ khách Dân dụng/.test(txt) && nv(await big(p)) === nv(DD), await big(p));
 check('Sales DD scope: details still restricted', await p.evaluate(() => S.bookings.filter(b => b.customerId !== '__other').every(b => cust(b.customerId).salesId === V.me)));
 await p.context().close();
 
