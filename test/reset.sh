@@ -8,6 +8,8 @@ for r in anon authenticated service_role; do $P -d postgres -c "do \$\$begin cre
 grep -v "^create role" test/00_supabase_stub.sql | $P -d t
 $P -d t -f test/01_supabase_ext_stub.sql
 $P -d t -f supabase/migrations/0001_init.sql
+# SHIFT=N: giả lập "hôm nay" của Portal lệch N ngày (dùng cho test/sql-week.sh)
+[ "${SHIFT:-0}" != 0 ] && $P -d t -c "create or replace function app.today() returns date language sql stable set search_path = '' as \$f\$ select (now() at time zone 'Asia/Ho_Chi_Minh')::date + ${SHIFT} \$f\$"
 grep -v "^create extension if not exists pg_" supabase/migrations/0002_email.sql | $P -d t
 $P -d t -f supabase/seed.sql -f supabase/demo_data.sql
 $P -d t <<'SQL'

@@ -1,8 +1,10 @@
 -- v3.27: mở lại đơn Đã load; khóa tải trọng xe đã chạy
+-- "Hôm nay" theo Portal (app.today), lấy trước khi đổi vai trò
+select app.today() as td \gset
 \set LOG '00000000-0000-0000-0000-0000000000b1'
 \set KH  '00000000-0000-0000-0000-0000000000e1'
 update app.settings set value = 'false' where key = 'requirePicking';
-select a.truck_code as trk, b.id as bk from app.allocations a join app.bookings b on b.id = a.booking_id where b.status = 'ok' and b.day >= current_date
+select a.truck_code as trk, b.id as bk from app.allocations a join app.bookings b on b.id = a.booking_id where b.status = 'ok' and b.day >= :'td'::date
   and not exists (select 1 from app.allocations a2 where a2.booking_id = b.id and a2.truck_code <> a.truck_code) order by b.day limit 1 \gset
 select set_config('request.jwt.claim.sub', :'LOG', false);
 select public.mark_loaded(:'bk', '{}', '')->>'short' as loaded;

@@ -1,9 +1,11 @@
 -- v3.31: link tài xế, ảnh giao hàng, tổng quan khách, email tuần
+-- "Hôm nay" theo Portal (app.today), lấy trước khi đổi vai trò
+select app.today() as td \gset
 \set LOG '00000000-0000-0000-0000-0000000000b1'
 \set KH  '00000000-0000-0000-0000-0000000000e1'
 \set S1  '00000000-0000-0000-0000-0000000000d1'
 update app.settings set value = 'false' where key = 'requirePicking';
-select a.truck_code as trk, b.id as bk from app.allocations a join app.bookings b on b.id = a.booking_id where b.status = 'ok' and b.day >= current_date order by b.day limit 1 \gset
+select a.truck_code as trk, b.id as bk from app.allocations a join app.bookings b on b.id = a.booking_id where b.status = 'ok' and b.day >= :'td'::date order by b.day limit 1 \gset
 select set_config('request.jwt.claim.sub', :'KH', false);
 \echo expect ERROR khách không tạo link
 select public.driver_link_create(:'trk');

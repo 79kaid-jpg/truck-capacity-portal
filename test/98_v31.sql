@@ -1,4 +1,6 @@
 -- v3.1: phiên bản dữ liệu / danh mục, phát hiện sửa trùng, segment Export, nhập khách hàng từ file
+-- "Hôm nay" theo Portal (app.today), lấy trước khi đổi vai trò
+select app.today() as td \gset
 \set CS  '00000000-0000-0000-0000-0000000000c1'
 \set ADM '00000000-0000-0000-0000-00000000000a'
 \echo --- 1. get_ver: đổi đơn -> d tăng, c giữ nguyên; sửa khách -> c tăng
@@ -10,10 +12,10 @@ select (public.get_ver()->>'d')::bigint > :d0 as d_up, (public.get_ver()->>'c'):
 update app.customers set name = name || '' where code = 'KH0101';
 select (public.get_ver()->>'c')::bigint > :c0 as c_up;
 \echo --- 2. get_state: gửi đúng khóa danh mục -> customers = null; sai khóa -> có danh sách
-select public.get_state(current_date, current_date + 3)->>'catKey' as ck \gset
-select jsonb_typeof(public.get_state(current_date, current_date + 3, :'ck')->'customers') as with_key,
-       jsonb_typeof(public.get_state(current_date, current_date + 3, 'x')->'customers') as wrong_key,
-       public.get_state(current_date, current_date + 3)->'ver' ? 'n' as has_ver;
+select public.get_state(:'td'::date, :'td'::date + 3)->>'catKey' as ck \gset
+select jsonb_typeof(public.get_state(:'td'::date, :'td'::date + 3, :'ck')->'customers') as with_key,
+       jsonb_typeof(public.get_state(:'td'::date, :'td'::date + 3, 'x')->'customers') as wrong_key,
+       public.get_state(:'td'::date, :'td'::date + 3)->'ver' ? 'n' as has_ver;
 \echo --- 3. Sửa trùng: ADM sửa (rev+1) -> CS gửi rev cũ -> ERROR; rev mới -> OK; nhiều lần sửa trong 1 giao dịch -> OK
 select rev as r0 from app.bookings where id = :'bk' \gset
 update app.bookings set note = 'adm' where id = :'bk';

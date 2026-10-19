@@ -1,14 +1,16 @@
 -- expect-errors: 12 (các bước kiểm tra bị chặn đúng)
+-- "Hôm nay" theo Portal (app.today), lấy trước khi đổi vai trò
+select app.today() as td \gset
 -- v2.9 (SRS mục 14): nhập nhiều dòng, ngày nghỉ có xe, đổi ngày có lý do, đơn khẩn, hủy cận ngày,
 -- xác nhận giao hàng + danh sách cuộn, load / giao / giao lỗi, tách đơn, đóng xe.
 \set CS  '00000000-0000-0000-0000-0000000000c1'
 \set LOG '00000000-0000-0000-0000-0000000000b1'
 \set ADM '00000000-0000-0000-0000-00000000000a'
-select (current_date + ((7 - extract(dow from current_date)::int) % 7 + 7))::text as sun \gset
-select (current_date + 1)::text as d1, (current_date + 2)::text as d2, (current_date + 5)::text as d5 \gset
+select (:'td'::date + ((7 - extract(dow from :'td'::date)::int) % 7 + 7))::text as sun \gset
+select (:'td'::date + 1)::text as d1, (:'td'::date + 2)::text as d2, (:'td'::date + 5)::text as d5 \gset
 -- Ngày mai / mốt / +5 luôn có khai báo xe (test không phụ thuộc thứ trong tuần)
 insert into app.daily_fleet (warehouse_code, day, dk_count, cn_count, reason)
-select 'JM2', current_date + g, 9, 4, 'test' from generate_series(1, 5) g on conflict do nothing;
+select 'JM2', :'td'::date + g, 9, 4, 'test' from generate_series(1, 5) g on conflict do nothing;
 
 \echo --- 1. Nhập nhiều dòng: dòng 2 sai mã khách, dòng 3 vượt sức chứa -> 1 nhận, 2 không nhận, dòng 3 có ngày gợi ý
 begin;
@@ -98,7 +100,7 @@ insert into app.settings values ('cutoff', '"00:00"') on conflict (key) do updat
 set local role authenticated;
 reset role;
 select id as bk from app.bookings where status = 'ok' order by day, id limit 1 \gset
-update app.bookings set day = current_date + 1 where id = :'bk';
+update app.bookings set day = :'td'::date + 1 where id = :'bk';
 set local role authenticated;
 select set_config('request.jwt.claim.sub', :'CS', true);
 set local role authenticated;

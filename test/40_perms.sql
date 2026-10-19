@@ -1,4 +1,6 @@
 -- expect-errors: 5 (các bước kiểm tra bị chặn đúng)
+-- "Hôm nay" theo Portal (app.today), lấy trước khi đổi vai trò
+select app.today() as td \gset
 \set ON_ERROR_STOP 0
 select id as kh_dd from app.customers where code='KH0102' \gset
 select id as kh_da from app.customers where code='KH0201' \gset
@@ -7,7 +9,7 @@ select a.id as addr_da from app.customer_addresses a where customer_id=:'kh_da' 
 select app.today()+2+(extract(dow from app.today()+2)=0)::int as d \gset
 set role authenticated;
 \echo '--- perms per role'
-select r, jsonb_array_length(get_state(current_date,current_date)->'perms') n, get_state(current_date,current_date) ? 'roleMatrix' matrix
+select r, jsonb_array_length(get_state(:'td'::date,:'td'::date)->'perms') n, get_state(:'td'::date,:'td'::date) ? 'roleMatrix' matrix
  from (values ('admin','00000000-0000-0000-0000-00000000000a'),('logistics','00000000-0000-0000-0000-0000000000b1'),('cs','00000000-0000-0000-0000-0000000000c1'),('sales','00000000-0000-0000-0000-0000000000d1'),('customer','00000000-0000-0000-0000-0000000000e1')) v(r,u)
  where set_config('request.jwt.claim.sub',u,false) is not null;
 \echo '--- admin does CS + Logistics work'
@@ -16,12 +18,12 @@ select save_booking(jsonb_build_object('mode','hold','wh','JM2','day',:'d','cust
 select :'bk' admin_booking, place_on_truck(:'bk','JM2-'||to_char(:'d'::date,'DDMMYY')||'-XT-04',10) full_on_truck;
 select confirm_group(array[:'bk']) confirmed;
 \echo '--- admin turns off CS cancel, grants Sales booking.create; tries to drop own perms.manage'
-select get_state(current_date,current_date)->'roleMatrix' as m \gset
+select get_state(:'td'::date,:'td'::date)->'roleMatrix' as m \gset
 select save_role_permissions(jsonb_build_object(
   'cs', (:'m'::jsonb->'cs') - 'booking.cancel',
   'sales', (:'m'::jsonb->'sales') || '["booking.create"]'::jsonb,
   'admin', '[]'::jsonb)) changed_roles;
-select get_state(current_date,current_date)->'roleMatrix'->'admin' admin_after_empty;
+select get_state(:'td'::date,:'td'::date)->'roleMatrix'->'admin' admin_after_empty;
 \echo '--- CS cancel now blocked'
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000c1',false) \g /dev/null
 select cancel_booking(:'bk','test');
@@ -38,4 +40,4 @@ select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000b1'
 select reset_role_permissions();
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-00000000000a',false) \g /dev/null
 select reset_role_permissions();
-select k, jsonb_array_length(v) from jsonb_each(get_state(current_date,current_date)->'roleMatrix') x(k,v);
+select k, jsonb_array_length(v) from jsonb_each(get_state(:'td'::date,:'td'::date)->'roleMatrix') x(k,v);
