@@ -35,7 +35,7 @@ create table if not exists app.regions (
   code            text not null,
   name            text not null,
   new_province    text not null,
-  round_trip_days int  not null default 1,
+  round_trip_days int  not null default 1,  -- v3.41: số ngày ĐI một chiều (tên cột giữ nguyên)
   active          boolean not null default true,
   unique (warehouse_code, name)
 );
@@ -1801,7 +1801,7 @@ begin
   return v_id;
 end $$;
 
--- Sửa khu vực: tên, tỉnh mới, số ngày đi-về, khu vực lân cận (mã/ID giữ nguyên để không ảnh hưởng booking, địa chỉ)
+-- Sửa khu vực: tên, tỉnh mới, số ngày đi (một chiều), khu vực lân cận (mã/ID giữ nguyên để không ảnh hưởng booking, địa chỉ)
 create or replace function public.update_region(p_id text, p_name text, p_new_province text, p_days int, p_neighbors text[]) returns void
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; r app.regions; n text; v_txt text := '';
@@ -1810,7 +1810,7 @@ begin
   select * into r from app.regions where id = p_id for update;
   if not found then raise exception 'Không tìm thấy khu vực.'; end if;
   if coalesce(trim(p_name), '') = '' or coalesce(p_new_province, '') = '' then raise exception 'Nhập tên khu vực và chọn tỉnh mới tương ứng.'; end if;
-  if coalesce(p_days, 0) < 1 or p_days > 30 then raise exception 'Số ngày đi-về phải từ 1 đến 30.'; end if;
+  if coalesce(p_days, 0) < 1 or p_days > 30 then raise exception 'Số ngày đi phải từ 1 đến 30.'; end if;
   if exists (select 1 from app.regions where warehouse_code = r.warehouse_code and lower(name) = lower(trim(p_name)) and id <> p_id) then
     raise exception 'Kho này đã có khu vực cùng tên.';
   end if;
@@ -1821,7 +1821,7 @@ begin
   end loop;
   if r.name <> trim(p_name) then v_txt := v_txt || 'tên ' || r.name || ' → ' || trim(p_name) || '; '; end if;
   if r.new_province <> p_new_province then v_txt := v_txt || 'tỉnh mới → ' || p_new_province || '; '; end if;
-  if r.round_trip_days <> p_days then v_txt := v_txt || 'đi-về ' || r.round_trip_days || ' → ' || p_days || ' ngày; '; end if;
+  if r.round_trip_days <> p_days then v_txt := v_txt || 'số ngày đi ' || r.round_trip_days || ' → ' || p_days || ' ngày; '; end if;
   update app.regions set name = trim(p_name), new_province = p_new_province, round_trip_days = p_days where id = p_id;
   delete from app.region_neighbors where region_a = p_id or region_b = p_id;
   foreach n in array coalesce(p_neighbors, '{}') loop
@@ -4610,33 +4610,100 @@ on conflict (code) do nothing;
 update app.warehouses set erp_code = v.erp from (values ('JM2','JM2'), ('JD8','JD8'), ('JD9','JD9')) v(code, erp)
  where warehouses.code = v.code and warehouses.erp_code = '';
 
--- Khu vực = tỉnh (tên cũ) theo từng kho, kèm tỉnh mới sau sáp nhập 01/07/2025 và số ngày đi-về
+-- Khu vực = tỉnh (tên cũ) theo từng kho, kèm tỉnh mới sau sáp nhập 01/07/2025 và số ngày ĐI một chiều (xe thuê theo chuyến).
+-- v3.41: dựng lại theo địa chỉ giao hàng trong ERP; lân cận = tỉnh kề nhau trên cùng tuyến đường.
 insert into app.regions (id, warehouse_code, code, name, new_province, round_trip_days) values
+  ('PMY-VTA','JM2','VTA','Bà Rịa – Vũng Tàu','TP. Hồ Chí Minh',1),
   ('PMY-HCM','JM2','HCM','TP.HCM','TP. Hồ Chí Minh',1),
   ('PMY-BDU','JM2','BDU','Bình Dương','TP. Hồ Chí Minh',1),
-  ('PMY-VTA','JM2','VTA','Vũng Tàu','TP. Hồ Chí Minh',1),
   ('PMY-DNA','JM2','DNA','Đồng Nai','Đồng Nai',1),
-  ('PMY-BTH','JM2','BTH','Bình Thuận','Lâm Đồng',2),
   ('PMY-LAN','JM2','LAN','Long An','Tây Ninh',1),
-  ('PMY-GLA','JM2','GLA','Gia Lai','Gia Lai',3),
-  ('PMY-DLK','JM2','DLK','Đắk Lắk','Đắk Lắk',3),
-  ('PMY-DNG','JM2','DNG','Đà Nẵng','Đà Nẵng',4),
+  ('PMY-TNI','JM2','TNI','Tây Ninh','Tây Ninh',1),
+  ('PMY-TGI','JM2','TGI','Tiền Giang','Đồng Tháp',1),
+  ('PMY-VLO','JM2','VLO','Vĩnh Long','Vĩnh Long',1),
+  ('PMY-TVI','JM2','TVI','Trà Vinh','Vĩnh Long',2),
+  ('PMY-CTH','JM2','CTH','Cần Thơ','Cần Thơ',1),
+  ('PMY-HGI','JM2','HGI','Hậu Giang','Cần Thơ',2),
+  ('PMY-STR','JM2','STR','Sóc Trăng','Cần Thơ',2),
+  ('PMY-BLI','JM2','BLI','Bạc Liêu','Cà Mau',2),
+  ('PMY-CMA','JM2','CMA','Cà Mau','Cà Mau',2),
+  ('PMY-KGI','JM2','KGI','Kiên Giang','An Giang',2),
+  ('PMY-BTH','JM2','BTH','Bình Thuận','Lâm Đồng',1),
+  ('PMY-LDG','JM2','LDG','Lâm Đồng','Lâm Đồng',2),
+  ('PMY-DNO','JM2','DNO','Đắk Nông','Lâm Đồng',1),
+  ('PMY-DLK','JM2','DLK','Đắk Lắk','Đắk Lắk',2),
+  ('PMY-GLA','JM2','GLA','Gia Lai','Gia Lai',2),
+  ('PMY-PYE','JM2','PYE','Phú Yên','Đắk Lắk',2),
+  ('PMY-BDI','JM2','BDI','Bình Định','Gia Lai',2),
+  ('PMY-QNG','JM2','QNG','Quảng Ngãi','Quảng Ngãi',3),
+  ('PMY-QNA','JM2','QNA','Quảng Nam','Đà Nẵng',3),
+  ('PMY-DNG','JM2','DNG','Đà Nẵng','Đà Nẵng',3),
+  ('CLO-THO','JD9','THO','Thanh Hóa','Thanh Hóa',1),
   ('CLO-NAN','JD9','NAN','Nghệ An','Nghệ An',1),
   ('CLO-HTI','JD9','HTI','Hà Tĩnh','Hà Tĩnh',1),
-  ('CLO-THO','JD9','THO','Thanh Hóa','Thanh Hóa',1),
-  ('CLO-QTR','JD9','QTR','Quảng Trị','Quảng Trị',2),
+  ('CLO-QTR','JD9','QTR','Quảng Trị','Quảng Trị',1),
   ('HPG-HPH','JD8','HPH','Hải Phòng','Hải Phòng',1),
+  ('HPG-HDU','JD8','HDU','Hải Dương','Hải Phòng',1),
+  ('HPG-HYE','JD8','HYE','Hưng Yên','Hưng Yên',1),
+  ('HPG-TBI','JD8','TBI','Thái Bình','Hưng Yên',1),
   ('HPG-HNO','JD8','HNO','Hà Nội','Hà Nội',1),
-  ('HPG-QNI','JD8','QNI','Quảng Ninh','Quảng Ninh',1),
   ('HPG-BNI','JD8','BNI','Bắc Ninh','Bắc Ninh',1),
-  ('HPG-HYE','JD8','HYE','Hưng Yên','Hưng Yên',1)
+  ('HPG-LSO','JD8','LSO','Lạng Sơn','Lạng Sơn',1),
+  ('HPG-PTH','JD8','PTH','Phú Thọ','Phú Thọ',1),
+  ('HPG-TQU','JD8','TQU','Tuyên Quang','Tuyên Quang',1),
+  ('HPG-LCA','JD8','LCA','Lào Cai','Lào Cai',2)
 on conflict (id) do nothing;
 
 insert into app.region_neighbors (region_a, region_b)
 select a, b from (values
-  ('PMY-HCM','PMY-BDU'),('PMY-HCM','PMY-LAN'),('PMY-BDU','PMY-DNA'),('PMY-DNA','PMY-VTA'),('PMY-VTA','PMY-HCM'),
-  ('PMY-DNA','PMY-BTH'),('PMY-GLA','PMY-DLK'),('CLO-NAN','CLO-HTI'),('CLO-NAN','CLO-THO'),
-  ('HPG-HPH','HPG-QNI'),('HPG-HPH','HPG-HYE'),('HPG-HNO','HPG-BNI')
+  ('PMY-VTA','PMY-HCM'),
+  ('PMY-VTA','PMY-BDU'),
+  ('PMY-VTA','PMY-DNA'),
+  ('PMY-HCM','PMY-BDU'),
+  ('PMY-HCM','PMY-DNA'),
+  ('PMY-HCM','PMY-LAN'),
+  ('PMY-HCM','PMY-TNI'),
+  ('PMY-BDU','PMY-DNA'),
+  ('PMY-BDU','PMY-TNI'),
+  ('PMY-LAN','PMY-TNI'),
+  ('PMY-LAN','PMY-TGI'),
+  ('PMY-DNA','PMY-BTH'),
+  ('PMY-DNA','PMY-LDG'),
+  ('PMY-BTH','PMY-LDG'),
+  ('PMY-TGI','PMY-VLO'),
+  ('PMY-VLO','PMY-TVI'),
+  ('PMY-VLO','PMY-CTH'),
+  ('PMY-CTH','PMY-HGI'),
+  ('PMY-CTH','PMY-STR'),
+  ('PMY-CTH','PMY-KGI'),
+  ('PMY-HGI','PMY-KGI'),
+  ('PMY-HGI','PMY-STR'),
+  ('PMY-STR','PMY-TVI'),
+  ('PMY-STR','PMY-BLI'),
+  ('PMY-BLI','PMY-CMA'),
+  ('PMY-CMA','PMY-KGI'),
+  ('PMY-DNO','PMY-DLK'),
+  ('PMY-DLK','PMY-GLA'),
+  ('PMY-DLK','PMY-PYE'),
+  ('PMY-GLA','PMY-BDI'),
+  ('PMY-PYE','PMY-BDI'),
+  ('PMY-BDI','PMY-QNG'),
+  ('PMY-QNG','PMY-QNA'),
+  ('PMY-QNA','PMY-DNG'),
+  ('CLO-NAN','CLO-HTI'),
+  ('CLO-NAN','CLO-THO'),
+  ('CLO-HTI','CLO-QTR'),
+  ('HPG-HPH','HPG-HDU'),
+  ('HPG-HPH','HPG-TBI'),
+  ('HPG-HDU','HPG-HYE'),
+  ('HPG-HDU','HPG-BNI'),
+  ('HPG-HYE','HPG-TBI'),
+  ('HPG-HYE','HPG-HNO'),
+  ('HPG-HNO','HPG-BNI'),
+  ('HPG-HNO','HPG-PTH'),
+  ('HPG-BNI','HPG-LSO'),
+  ('HPG-PTH','HPG-TQU'),
+  ('HPG-PTH','HPG-LCA')
 ) v(x, y), lateral (values (x, y), (y, x)) p(a, b)
 on conflict do nothing;
 

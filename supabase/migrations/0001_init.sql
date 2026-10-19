@@ -33,7 +33,7 @@ create table if not exists app.regions (
   code            text not null,
   name            text not null,
   new_province    text not null,
-  round_trip_days int  not null default 1,
+  round_trip_days int  not null default 1,  -- v3.41: số ngày ĐI một chiều (tên cột giữ nguyên)
   active          boolean not null default true,
   unique (warehouse_code, name)
 );
@@ -1799,7 +1799,7 @@ begin
   return v_id;
 end $$;
 
--- Sửa khu vực: tên, tỉnh mới, số ngày đi-về, khu vực lân cận (mã/ID giữ nguyên để không ảnh hưởng booking, địa chỉ)
+-- Sửa khu vực: tên, tỉnh mới, số ngày đi (một chiều), khu vực lân cận (mã/ID giữ nguyên để không ảnh hưởng booking, địa chỉ)
 create or replace function public.update_region(p_id text, p_name text, p_new_province text, p_days int, p_neighbors text[]) returns void
 language plpgsql volatile security definer set search_path = '' as $$
 declare me app.profiles; r app.regions; n text; v_txt text := '';
@@ -1808,7 +1808,7 @@ begin
   select * into r from app.regions where id = p_id for update;
   if not found then raise exception 'Không tìm thấy khu vực.'; end if;
   if coalesce(trim(p_name), '') = '' or coalesce(p_new_province, '') = '' then raise exception 'Nhập tên khu vực và chọn tỉnh mới tương ứng.'; end if;
-  if coalesce(p_days, 0) < 1 or p_days > 30 then raise exception 'Số ngày đi-về phải từ 1 đến 30.'; end if;
+  if coalesce(p_days, 0) < 1 or p_days > 30 then raise exception 'Số ngày đi phải từ 1 đến 30.'; end if;
   if exists (select 1 from app.regions where warehouse_code = r.warehouse_code and lower(name) = lower(trim(p_name)) and id <> p_id) then
     raise exception 'Kho này đã có khu vực cùng tên.';
   end if;
@@ -1819,7 +1819,7 @@ begin
   end loop;
   if r.name <> trim(p_name) then v_txt := v_txt || 'tên ' || r.name || ' → ' || trim(p_name) || '; '; end if;
   if r.new_province <> p_new_province then v_txt := v_txt || 'tỉnh mới → ' || p_new_province || '; '; end if;
-  if r.round_trip_days <> p_days then v_txt := v_txt || 'đi-về ' || r.round_trip_days || ' → ' || p_days || ' ngày; '; end if;
+  if r.round_trip_days <> p_days then v_txt := v_txt || 'số ngày đi ' || r.round_trip_days || ' → ' || p_days || ' ngày; '; end if;
   update app.regions set name = trim(p_name), new_province = p_new_province, round_trip_days = p_days where id = p_id;
   delete from app.region_neighbors where region_a = p_id or region_b = p_id;
   foreach n in array coalesce(p_neighbors, '{}') loop
