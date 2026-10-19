@@ -13,7 +13,8 @@ const dim=(y,m)=>new Date(Date.UTC(y,m,0)).getUTCDate();
 const WD=['CHỦ NHẬT','THỨ 2','THỨ 3','THỨ 4','THỨ 5','THỨ 6','THỨ 7'];
 const WDS=['CN','T2','T3','T4','T5','T6','T7'];
 const r2=n=>Math.round((+n||0)*100)/100;
-const t2=n=>r2(n).toLocaleString('vi-VN',{minimumFractionDigits:2,maximumFractionDigits:2});
+// v3.44: số tấn tròn không hiện phần thập phân (100 MT, 88,5 MT, 30,25 MT)
+const t2=n=>r2(n).toLocaleString('vi-VN',{minimumFractionDigits:0,maximumFractionDigits:2});
 const pct=n=>Math.round(n*100)+'%';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid=p=>p+Math.random().toString(36).slice(2,8);

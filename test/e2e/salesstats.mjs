@@ -24,7 +24,7 @@ let p = await open('s1@demo.vn');
 let txt = await p.locator('aside.sst').innerText();
 check('Sales own: title + scope label', /THỐNG KÊ KHÁCH CỦA BẠN/i.test(txt) && /Khách bạn phụ trách/.test(txt));
 check('Sales own: total = SQL', (await big(p)) === OWN, `${await big(p)} vs ${OWN}`);
-check('Sales own: lưu tạm hiện riêng, không tính tổng', /Đang lưu tạm \(chưa gửi, không tính vào tổng\): 12,00 MT · 1 đơn/.test(txt));
+check('Sales own: lưu tạm hiện riêng, không tính tổng', /Đang lưu tạm \(chưa gửi, không tính vào tổng\): 12(,00)? MT · 1 đơn/.test(txt));
 check('Sales own: no segment chips', (await p.locator('[data-a="csSeg"]').count()) === 0);
 await p.screenshot({ path: '/tmp/e2e-shots/ss-1-sales.png', fullPage: true });
 await p.context().close();
