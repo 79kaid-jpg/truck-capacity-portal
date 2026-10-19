@@ -80,7 +80,7 @@ await session('cs@demo.vn', async p => {
     return { l: m.left, r: m.right, tr: getComputedStyle(tr).display, foot: f.bottom <= innerHeight && f.right <= innerWidth, th: getComputedStyle(document.querySelector('.g30 thead')).display, sw: document.querySelector('.modal').scrollWidth <= innerWidth }; });
   ok(g.l >= 0 && g.r <= 390, 'lưới Đặt hàng nằm gọn trong màn hình', JSON.stringify(g)); ok(g.tr === 'grid' && g.th === 'none', 'mỗi dòng đơn là một thẻ'); ok(g.foot, 'nút Đặt & gửi Logistics luôn thấy ở đáy'); ok(g.sw, 'không cuộn ngang trong lưới');
   await p.fill('[data-g="code"][data-i="0"]', 'KH0101'); await p.keyboard.press('Enter'); await p.fill('[data-g="tons"][data-i="0"]', '20'); await p.waitForTimeout(300);
-  ok(/20,00 MT/.test(await p.locator('#g30foot').innerText()), 'nhập trên thẻ vẫn cộng vào tổng'); await p.screenshot({ path: `${OUT}/m-grid.png` });
+  ok(/20(,00)? MT/.test(await p.locator('#g30foot').innerText()), 'nhập trên thẻ vẫn cộng vào tổng'); await p.screenshot({ path: `${OUT}/m-grid.png` });
 }, phone);
 await session('kh@demo.vn', async p => {
   S('m-kh'); const v = await p.evaluate(() => { const c = [...document.querySelectorAll('.cal .cell:not(.pad)')].find(e => e.getBoundingClientRect().height > 0); return c && c.classList.contains('today'); });

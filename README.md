@@ -182,6 +182,12 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+
+## v3.44 — Trợ lý chính xác hơn, số tấn gọn
+
+- Số tấn tròn không còn hiện ",00" trên toàn Portal (100 MT, 88,5 MT, 30,25 MT).
+- Trợ lý (cả mô hình miễn phí và Claude): mỗi công cụ chỉ nhận tham số có thật, tham số lạ bị bỏ và báo lại; quy tắc không tự thêm bộ lọc kho / segment / khách; "tạo đơn … bốc ngày X" mở lưới Đặt hàng theo ngày bốc, form Yêu cầu chỉ dùng cho ngày giao; tra Hướng dẫn ưu tiên từ hiếm, tiêu đề, từ khóa mục (`data-k` trong `guide.html`).
+- Kiểm thử trợ lý chấm chặt hơn: hiểu "chưa đặt đơn nào" = 0; Trượt khi dùng tham số không có thật, tự thêm bộ lọc người hỏi không nêu, thao tác sai công cụ / ngày / kho, câu Hướng dẫn thiếu ý chính, hoặc viết "300.00 MT".
 ## v3.43 — Trợ lý: bật Claude khi cần
 
 **Chạy `supabase/setup_all.sql` trước khi dùng** (cột `chat_log.engine`, `app.ai_engine`, RPC `set_ai`, cấu hình `aiEngine`, `aiModel`, `aiUntil`, `aiClaudeDaily`).

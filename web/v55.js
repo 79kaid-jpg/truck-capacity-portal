@@ -19,7 +19,7 @@ try{EV55.hist=JSON.parse(localStorage.getItem('ev55-hist')||'[]');}catch(e){}
 const ev55Nums=s=>(String(s||'').replace(/\*\*/g,'').match(/\d[\d.,]*/g)||[]).map(x=>{x=x.replace(/[.,]$/,'');
   if(/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(x))x=x.replace(/\./g,'').replace(',','.');else x=x.replace(',','.');return parseFloat(x);}).filter(n=>!isNaN(n));
 const ev55Num=v=>{if(typeof v==='number')return v;const m=String(v||'').match(/[\d.,]+/);return m?ev55Nums(m[0])[0]:NaN;};
-const ev55HasNum=(ans,t)=>t===0?(/\b0\b/.test(ans)||/kh[oô]ng c[oó]|ch[uư]a c[oó]|kh[oô]ng th[aấ]y/i.test(ans)):ev55Nums(ans).some(n=>Math.abs(n-t)<=Math.max(0.051,Math.abs(t)*0.01));
+const ev55HasNum=(ans,t)=>t===0?(/(^|[^\d.,])0([^\d.,]|$)/.test(ans)||/\b(khong|chua)\s+(co|dat|con|thay|giao|boc)\b|\bkhong\b.*\bnao\b/.test(fz(ans))):ev55Nums(ans).some(n=>Math.abs(n-t)<=Math.max(0.051,Math.abs(t)*0.01));
 const ev55Has=(ans,list)=>list.some(x=>fz(ans).includes(fz(x)));
 const ev55Day=n=>{let d=addDays(TODAY,n);if(dow(d)===0)d=addDays(d,1);return d;};
 // ---- bộ câu hỏi: q (chuỗi hoặc mảng nhiều lượt), tools (một trong các công cụ phải được gọi), truth() → {num} | {text:[…]} | {none:true} | null (bỏ qua) ----
@@ -51,12 +51,12 @@ var EV55_SET=()=>{const S0=a=>TOOLS.stats.run(a);
  {g:'Năng lực',q:'Ngày mai kho JM2 còn đặt được bao nhiêu tấn?',tools:['capacity'],truth:async()=>{const r=(await TOOLS.capacity.run({date:addDays(TODAY,1),wh:'JM2'}))[0];return r?{num:ev55Num(r.con_dat_duoc_MT)}:null;}},
  {g:'Năng lực',q:()=>`Ngày ${dm(ev55Day(3))} kho JM2 còn chỗ không?`,tools:['capacity'],truth:async()=>{const r=(await TOOLS.capacity.run({date:ev55Day(3),wh:'JM2'}))[0];return r?{num:ev55Num(r.con_dat_duoc_MT)}:null;}},
  {g:'Năng lực',q:'Ngày mai JM2 còn xe nào trống không?',tools:['find_trucks','capacity'],truth:async()=>({num:(await TOOLS.find_trucks.run({date:addDays(TODAY,1),wh:'JM2',state:'empty'})).length})},
- {g:'Hướng dẫn',q:'Làm sao để đổi ngày bốc của một đơn?',tools:['guide'],truth:()=>({text:['đổi ngày','ngày bốc']})},
- {g:'Hướng dẫn',q:'Ngưỡng gần đầy nghĩa là gì?',tools:['guide'],truth:()=>({text:['gần đầy','%']})},
- {g:'Hướng dẫn',q:'Đơn khẩn được tính thế nào?',tools:['guide'],truth:()=>({text:['khẩn']})},
- {g:'Thao tác',q:async()=>{const t=await top();return t?`Tạo đơn cho khách ${t} 30 tấn bốc ngày ${dm(ev55Day(2))} ở JM2`:null;},tools:['fill_order','fill_request'],act:true,truth:()=>({text:['form','lưới','kiểm tra']})},
- {g:'Thao tác',q:'Gợi ý xếp xe cho các đơn chờ ngày mai ở JM2',tools:['suggest_all','suggest_trucks'],act:true,truth:()=>null},
- {g:'Thao tác',q:'Mở lịch ngày mai kho JM2',tools:['open'],act:true,truth:()=>null},
+ {g:'Hướng dẫn',q:'Làm sao để đổi ngày bốc của một đơn?',tools:['guide'],truth:()=>({all:['lý do'],text:['Sửa','Đổi ngày']})},
+ {g:'Hướng dẫn',q:'Ngưỡng gần đầy nghĩa là gì?',tools:['guide'],truth:()=>({all:['%'],text:['lịch','năng lực']})},
+ {g:'Hướng dẫn',q:'Đơn khẩn được tính thế nào?',tools:['guide'],truth:()=>({all:['giờ chốt']})},
+ {g:'Thao tác',q:async()=>{const t=await top();return t?`Tạo đơn cho khách ${t} 30 tấn bốc ngày ${dm(ev55Day(2))} ở JM2`:null;},tools:['fill_order'],act:true,exp:()=>({tool:'fill_order',date:ev55Day(2),wh:'JM2'}),truth:()=>null},
+ {g:'Thao tác',q:'Gợi ý xếp xe cho các đơn chờ ngày mai ở JM2',tools:['suggest_all'],act:true,exp:()=>({tool:'suggest_all',date:addDays(TODAY,1),wh:'JM2'}),truth:()=>null},
+ {g:'Thao tác',q:'Mở lịch ngày mai kho JM2',tools:['open'],act:true,exp:()=>({tool:'open',date:addDays(TODAY,1),wh:'JM2'}),truth:()=>null},
  {g:'Ngoài phạm vi',q:'Thời tiết Vũng Tàu hôm nay thế nào?',tools:[],truth:()=>({none:true})},
 ];};
 // công cụ có thao tác (mở màn, điền form) → chỉ ghi lại khi kiểm thử, không chuyển màn
@@ -64,8 +64,8 @@ const EV55_ACT=['open','fill_request','fill_order','suggest_trucks','suggest_all
 async function ev55One(it){
  const qs=typeof it.q==='function'?await it.q():it.q;if(!qs)return {g:it.g,q:'(thiếu dữ liệu để đặt câu hỏi)',st:'skip'};
  const turns=Array.isArray(qs)?qs:[qs];let truth=null;try{truth=await it.truth();}catch(e){truth=null;}
- const used=[];const saved={};for(const k of Object.keys(TOOLS)){saved[k]=TOOLS[k].run;const r0=TOOLS[k].run;
-  TOOLS[k].run=async a=>{used.push(k+(a&&Object.keys(a).length?' '+JSON.stringify(a):''));return EV55_ACT.includes(k)?{da_mo:true,ghi_chu:'Đã mở cho người dùng kiểm tra.'}:r0(a);};}
+ const used=[],calls=[];const saved={};for(const k of Object.keys(TOOLS)){saved[k]=TOOLS[k].run;const r0=TOOLS[k].run;
+  TOOLS[k].run=async a=>{calls.push({k,a:a&&typeof a==='object'?a:{}});used.push(k+(a&&Object.keys(a).length?' '+JSON.stringify(a):''));return EV55_ACT.includes(k)?{da_mo:true,ghi_chu:'Đã mở cho người dùng kiểm tra.'}:r0(a);};}
  const keep=CHAT.msgs;CHAT.msgs=[];const t0=Date.now();let ans='',err='';
  try{for(const q of turns){await chatAsk(q);while(CHAT.busy)await new Promise(r=>setTimeout(r,200));}
   const a=[...CHAT.msgs].reverse().find(m=>m.role==='assistant');ans=a?a.content:'';const e=CHAT.msgs.find(m=>m.role==='err');err=e?e.content:'';}
@@ -76,7 +76,19 @@ async function ev55One(it){
  if(it.tools.length&&!names.some(n=>it.tools.includes(n)))why.push('Không gọi đúng công cụ ('+it.tools.join(' / ')+')');
  if(!it.tools.length&&names.length)why.push('Gọi công cụ khi không cần');
  if(truth&&ans){if(truth.num!=null&&!ev55HasNum(ans,truth.num))why.push('Sai số liệu (đúng: '+truth.num+')');
-  if(truth.text&&!it.act&&!ev55Has(ans,truth.text))why.push('Thiếu ý chính ('+truth.text.join(' / ')+')');}
+  if(truth.text&&!it.act&&!ev55Has(ans,truth.text))why.push('Thiếu ý chính ('+truth.text.join(' / ')+')');
+  if(truth.all){const miss=truth.all.filter(x=>!fz(ans).includes(fz(x)));if(miss.length)why.push('Thiếu ý chính ('+miss.join(', ')+')');}}
+ // v3.44: tham số không có thật / tự thêm bộ lọc người hỏi không nêu / sai công cụ, sai ngày khi thao tác / số kiểu tiếng Anh
+ const qa=' '+fz(turns.join(' '))+' ';
+ for(const c of calls){const allow=TOOLS[c.k]&&TOOLS[c.k].args;const bad=allow?Object.keys(c.a).filter(x=>!allow.includes(x)):[];
+  if(bad.length)why.push('Tham số không có thật: '+c.k+' '+bad.join(', '));
+  if(c.a.segment&&!/dan dung|du an|xuat khau|segment/.test(qa))why.push('Tự thêm bộ lọc segment');
+  if(c.a.wh&&['stats','find_bookings'].includes(c.k)&&!WH.some(w=>qa.includes(' '+fz(w.id)+' ')||qa.includes(fz(w.short))))why.push('Tự thêm bộ lọc kho');
+  if(c.a.customer&&['stats','find_bookings'].includes(c.k)&&!qa.includes(fz(String(c.a.customer)).split(' ')[0])&&turns.length===1)why.push('Tự thêm bộ lọc khách');
+  if(c.a.sales&&!/sales|nhan vien/.test(qa)&&!qa.includes(fz(String(c.a.sales))))why.push('Tự thêm bộ lọc Sales');}
+ if(it.exp){const e=it.exp();const hit=calls.find(c=>c.k===e.tool);
+  if(!hit)why.push('Không gọi '+e.tool);else{if(e.date&&dateArg(hit.a.date)!==e.date)why.push('Sai ngày ('+(hit.a.date||'trống')+', đúng: '+e.date+')');if(e.wh&&whArg(hit.a.wh)!==e.wh)why.push('Sai kho');}}
+ if(/\d\.\d{1,2}\s*(MT|tấn)/i.test(ans)||/\d,00\s*(MT|tấn)/i.test(ans))why.push('Số tấn viết sai kiểu (300.00 / 30,00)');
  return {g:it.g,q:turns.join(' → '),ans,tools:used,why,st:why.length?'bad':'ok',ms:Date.now()-t0};}
 async function ev55Run(){if(EV55.run)return;EV55.run=true;EV55.stop=false;EV55.res=[];ev55Draw();
  const set=EV55_SET();for(const it of set){if(EV55.stop)break;EV55.res.push({g:it.g,q:'…',st:'run'});ev55Draw();
