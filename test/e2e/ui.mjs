@@ -142,7 +142,7 @@ await session('kh@demo.vn', async p => {
 await session('cs@demo.vn', async p => {
   S('cal-phone'); const q = await p.evaluate(() => [...document.querySelectorAll('.qadd')].filter(e => e.getBoundingClientRect().height).map(e => Math.round(e.getBoundingClientRect().height)));
   ok(q.length && q.every(h => h >= 44), 'điện thoại: nút + cao ≥ 44px', q.join(','));
-  ok(/Xem 17 ngày đã qua/.test(await p.locator('.past52').innerText()), 'điện thoại: nút ngày đã qua đếm đủ cả các tuần đã gom');
+  { const want = await p.evaluate(() => +TODAY.slice(8) - 1); ok(new RegExp('Xem ' + want + ' ngày đã qua').test(await p.locator('.past52').innerText()), 'điện thoại: nút ngày đã qua đếm đủ cả các tuần đã gom', want); }
   await p.click('.past52'); await p.waitForTimeout(300); ok(await p.evaluate(() => [...document.querySelectorAll('.cal .cell.past:not(.pad)')].some(e => e.getBoundingClientRect().height > 0)), 'điện thoại: bấm → hiện lại ngày đã qua');
   await p.evaluate(() => scrollTo(0, document.body.scrollHeight)); await p.waitForTimeout(200);
   ok(await p.evaluate(() => [...document.querySelectorAll('.qadd')].filter(e => { const r = e.getBoundingClientRect(); return r.height && r.top >= 0 && r.bottom <= innerHeight; }).every(e => { const r = e.getBoundingClientRect(); const el = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return el && e.contains(el); })), 'cuộn hết: nút chat không che nút +');
