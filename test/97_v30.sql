@@ -1,7 +1,9 @@
 -- v3.0: mã kho mới, Lưu tạm → Gửi Logistics, nhắc / tự hủy nháp, cấu hình kho, đổi kho
+-- "Hôm nay" theo Portal (app.today), lấy trước khi đổi vai trò
+select app.today() as td \gset
 \set CS  '00000000-0000-0000-0000-0000000000c1'
 \set ADM '00000000-0000-0000-0000-00000000000a'
-select (current_date + 5)::text as d5 \gset
+select (:'td'::date + 5)::text as d5 \gset
 \echo --- 1. Kho mới JM2 / JD8 / JD9, mã booking mới BK-JM2
 select string_agg(code, ',' order by code) as whs from app.warehouses;
 begin;
@@ -20,9 +22,9 @@ rollback;
 \echo --- 3. Nhắc nháp quá mốc chốt; nháp quá ngày bốc 2 ngày tự hủy
 begin;
 insert into app.bookings (id, warehouse_code, day, customer_id, status, cs_user_id)
-select 'T-D1', 'JM2', current_date + 1, id, 'draft', :'CS' from app.customers where code = 'KH0101';
+select 'T-D1', 'JM2', :'td'::date + 1, id, 'draft', :'CS' from app.customers where code = 'KH0101';
 insert into app.bookings (id, warehouse_code, day, customer_id, status, cs_user_id)
-select 'T-D2', 'JM2', current_date - 3, id, 'draft', :'CS' from app.customers where code = 'KH0101';
+select 'T-D2', 'JM2', :'td'::date - 3, id, 'draft', :'CS' from app.customers where code = 'KH0101';
 insert into app.settings values ('cutoff', '"00:00"') on conflict (key) do update set value = excluded.value;
 select app.escalate() >= 2 as ran;
 select id, status from app.bookings where id in ('T-D1','T-D2') order by id;
@@ -40,7 +42,7 @@ rollback to a;
 select public.save_warehouse('{"code":"JD9","name":"Cửa Lò","active":false}');
 reset role;
 insert into app.bookings (id, warehouse_code, day, customer_id, status, cs_user_id)
-select 'T-W1', 'JD9', current_date + 3, id, 'hold', :'CS' from app.customers where code = 'KH0101';
+select 'T-W1', 'JD9', :'td'::date + 3, id, 'hold', :'CS' from app.customers where code = 'KH0101';
 set local role authenticated;
 select public.change_booking_wh('T-W1', 'JM2');
 reset role;

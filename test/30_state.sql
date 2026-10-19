@@ -1,4 +1,6 @@
 -- legacy: viết cho cách dựng dữ liệu cũ, test/sql.sh bỏ qua
+-- "Hôm nay" theo Portal (app.today), lấy trước khi đổi vai trò
+select app.today() as td \gset
 \set ON_ERROR_STOP 1
 select array_agg(id order by id) as ids from (select id from app.bookings where status='hold' and day=app.today() order by id limit 3) x \gset
 select (select id from app.bookings where status='hold' and day=app.today() order by id offset 3 limit 1) as h4,
@@ -25,11 +27,11 @@ select 'customer' r, jsonb_array_length(s->'bookings') bk, jsonb_array_length(s-
   from (select get_state(date_trunc('month',now())::date-7, date_trunc('month',now())::date+52) s) x
   where set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000e1',false) is not null;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000e1',false);
-select c->>'day', c->>'avail', c->>'status' from jsonb_array_elements(get_state(current_date, current_date+3)->'calendar') c where c->>'wh'='JM2';
+select c->>'day', c->>'avail', c->>'status' from jsonb_array_elements(get_state(:'td'::date, :'td'::date+3)->'calendar') c where c->>'wh'='JM2';
 select set_config('request.jwt.claim.sub','',false);
-select get_state(current_date, current_date);
+select get_state(:'td'::date, :'td'::date);
 reset role;
 set role anon;
 \set ON_ERROR_STOP 0
-select get_state(current_date, current_date);
+select get_state(:'td'::date, :'td'::date);
 select app.today();

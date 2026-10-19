@@ -1,12 +1,15 @@
 -- v3.19: chatbot – quyền, hạn mức
+-- now-dependent: hạn mức chatbot đếm theo giờ thật (now()), bỏ qua khi giả lập ngày (SHIFT≠0)
+-- "Hôm nay" theo Portal (app.today), lấy trước khi đổi vai trò
+select app.today() as td \gset
 \set CS '00000000-0000-0000-0000-0000000000c1'
 \set KH '00000000-0000-0000-0000-0000000000e1'
 \set AD '00000000-0000-0000-0000-00000000000a'
 select set_config('request.jwt.claim.sub', :'CS', false);
 select (public.chat_use('{find_bookings}')->>'left')::int as cs_left;
-select (public.get_state(current_date, current_date)->'me'->>'chat') as cs_chat;
+select (public.get_state(:'td'::date, :'td'::date)->'me'->>'chat') as cs_chat;
 select set_config('request.jwt.claim.sub', :'KH', false);
-select (public.get_state(current_date, current_date)->'me'->>'chat') as kh_chat_off;
+select (public.get_state(:'td'::date, :'td'::date)->'me'->>'chat') as kh_chat_off;
 \echo expect ERROR chưa được bật
 select public.chat_use();
 select set_config('request.jwt.claim.sub', :'AD', false);

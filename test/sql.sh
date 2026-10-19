@@ -4,6 +4,7 @@ cd "$(dirname "$0")/.."
 FAILED=""
 for f in test/[1-9]*.sql; do
   if head -1 "$f" | grep -q "^-- legacy"; then echo "SKIP $f (legacy)"; continue; fi
+  if [ "${SHIFT:-0}" != 0 ] && grep -q "^-- now-dependent" "$f"; then echo "SKIP $f (phụ thuộc giờ thật)"; continue; fi
   bash test/reset.sh >/dev/null 2>&1 || { echo "reset lỗi"; exit 1; }
   out=$(psql -h /tmp -U postgres -d t -q -f "$f" 2>&1)
   got=$(echo "$out" | grep -c "^psql:.*ERROR:")

@@ -1,4 +1,6 @@
 -- v3.24: Trao đổi nội bộ
+-- "Hôm nay" theo Portal (app.today), lấy trước khi đổi vai trò
+select app.today() as td \gset
 \set CS  '00000000-0000-0000-0000-0000000000c1'
 \set LOG '00000000-0000-0000-0000-0000000000b1'
 \set KH  '00000000-0000-0000-0000-0000000000e1'
@@ -14,14 +16,14 @@ select count(*) > 0 as log_notified from app.notifications where user_id = :'LOG
 select set_config('request.jwt.claim.sub', :'KH', false);
 \echo expect ERROR nội bộ
 select public.talk_get('bk', :'bk');
-select jsonb_array_length(public.get_state(current_date - 30, current_date + 30)->'talk') as kh_talk;
+select jsonb_array_length(public.get_state(:'td'::date - 30, :'td'::date + 30)->'talk') as kh_talk;
 \echo --- Sales khác không thấy
 select set_config('request.jwt.claim.sub', :'other_sales', false);
 \echo expect ERROR quyền
 select public.talk_get('bk', :'bk');
 \echo --- Log xem, thấy chưa đọc, trả lời
 select set_config('request.jwt.claim.sub', :'LOG', false);
-select (t->>'unread')::int as unread, (t->>'inv')::boolean as inv from jsonb_array_elements(public.get_state(current_date - 30, current_date + 30)->'talk') t where t->>'ref' = :'bk';
+select (t->>'unread')::int as unread, (t->>'inv')::boolean as inv from jsonb_array_elements(public.get_state(:'td'::date - 30, :'td'::date + 30)->'talk') t where t->>'ref' = :'bk';
 select jsonb_array_length(public.talk_get('bk', :'bk')->'reads') as reads_others;
 select public.talk_post(jsonb_build_object('kind','bk','ref',:'bk','body','Xe đến 14h','ask',false))->'thread'->>'st' as answered;
 \echo --- sửa trong 5 phút, người khác không sửa được
@@ -37,7 +39,7 @@ select count(*) > 0 as pin_in_history from app.audit_log where entity_id = :'bk'
 select public.talk_set('bk', :'bk', 'status', 'done')->'thread'->>'st' as done;
 select public.talk_set('bk', :'bk', 'mode', 'mute')->'thread'->>'mode' as mode;
 \echo --- xe / ngày
-select public.talk_post(jsonb_build_object('kind','day','ref','JM2:' || (current_date+1)::text,'body','Ngày mai thiếu 2 xe DK?'))->'thread'->>'title' as day_title;
+select public.talk_post(jsonb_build_object('kind','day','ref','JM2:' || (:'td'::date+1)::text,'body','Ngày mai thiếu 2 xe DK?'))->'thread'->>'title' as day_title;
 \echo expect ERROR ref sai
 select public.talk_post(jsonb_build_object('kind','truck','ref','bad','body','x'));
 \echo --- ảnh
