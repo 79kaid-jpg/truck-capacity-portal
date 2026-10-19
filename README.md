@@ -401,6 +401,12 @@ Không cần chạy SQL.
 - Lần đầu mở trên điện thoại: dải nhắc phía dưới (Cài / Để sau – 14 ngày không nhắc).
 - File: `web/v51.js`; test `test/e2e/v51.mjs`.
 
+## v3.40 — Trợ lý: "đang giao" / "đã bốc" theo tình trạng hiện tại
+
+- Hỏi "Có mấy xe đang giao?", "Có xe nào đã bốc?": đếm mọi đơn bốc trong 14 ngày gần nhất theo tình trạng hiện tại, không chỉ ngày hôm nay; kèm danh sách đơn và ngày bốc gần nhất khi hôm nay chưa bốc.
+- Trợ lý không tự lọc theo kho khi người hỏi không nêu kho.
+- Không còn hiện nguyên chữ `{"answer":…}` khi câu trả lời có ký tự lạ.
+
 ## v3.39 — Trợ lý: hỏi "đơn đang giao"
 Không đổi CSDL. Sửa `web/v46.js`.
 - Hỏi "Tháng này có bao nhiêu đơn đang giao?" trước đây có thể trả lời "không có" vì: tìm xe đang giao chỉ xem xe bốc **hôm nay** (xe đang chạy thường bốc từ hôm trước); "tháng này", "Đang giao hàng", "đang vận chuyển"… không được hiểu; số liệu gộp Đang giao với Đã bốc.
