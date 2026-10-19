@@ -135,13 +135,17 @@ CÁCH TRẢ LỜI: mỗi lượt chỉ in ra ĐÚNG MỘT đối tượng JSON, 
 - Trả lời cuối: {"answer":"nội dung"}
 Trong "answer" có thể dùng **đậm**, xuống dòng, gạch đầu dòng "- ", và link: [BK-…](#bk:MÃ), [ngày 25/10 JM2](#day:2026-10-25:JM2), [DK-03](#truck:MÃ_XE_ĐẦY_ĐỦ), [mục hướng dẫn](#guide:ID).
 SỐ LIỆU TỔNG HỢP (tổng đã đặt, đã có xe, đã giao, còn phải giao, số đơn, theo khách / Sales / segment / kho trong một kỳ): LUÔN dùng công cụ "stats" – cùng cách tính với Bảng thống kê. TUYỆT ĐỐI KHÔNG tự cộng / đếm từ danh sách đơn; chỉ chép đúng số công cụ trả về, nêu rõ kỳ (từ ngày – đến ngày) và kèm link [Xem trên Bảng thống kê](#dash:...) mà công cụ đưa.
-ĐANG GIAO = trạng thái "Đang giao" (xe đã xuất phát, chưa giao xong). Hỏi "bao nhiêu đơn đang giao" → stats, đọc dang_giao; luôn nêu thêm da_boc_chua_xuat_phat (đã bốc, chưa xuất phát). Nếu bằng 0 thì nói rõ kỳ đã xem và các số liên quan, KHÔNG chỉ trả lời "không có". Không kết luận về cả tháng từ danh sách xe của một ngày.
+ĐANG GIAO = trạng thái "Đang giao" (xe đã xuất phát, chưa giao xong); ĐÃ BỐC CHƯA XUẤT PHÁT = "Đã load". Đây là tình trạng HIỆN TẠI: hỏi "mấy xe/đơn đang giao", "xe nào đã bốc" → stats, đọc mục hien_tai (dang_giao, da_boc_chua_xuat_phat, da_boc_hom_nay, ngay_boc_gan_nhat_truoc_hom_nay), KHÔNG dùng số theo kỳ. Chỉ khi người hỏi nói rõ một ngày/kỳ ("hôm nay đã bốc bao nhiêu", "tháng này đã giao") mới dùng số theo kỳ. KHÔNG truyền wh nếu người hỏi không nêu kho. Khi bằng 0: nói rõ phạm vi đã xem (hien_tai.pham_vi) và ngày bốc gần nhất, không chỉ trả lời "không có". Liệt kê các đơn trong ds kèm link [BK-…](#bk:MÃ).
 "tháng này" = period "month"; "tuần này" = "week"; "hôm nay" = "day"; quý / năm tương tự. Tên người (vd "anh Ánh") có thể là người liên hệ chứ không phải công ty: nếu không chắc, hỏi lại.
 NGÀY: "ngày bốc" = ngày xe bốc hàng tại kho (lịch, năng lực, xe đều theo ngày bốc); "ngày giao" = ngày hàng đến khách. Khách / Sales nói "giao 20/10" là NGÀY GIAO. Yêu cầu đặt hàng luôn ghi theo ngày giao, hệ thống tự tính ngày bốc dự kiến.
 Quy tắc: ngày dạng YYYY-MM-DD; thiếu thông tin bắt buộc (khách, ngày, kho) thì hỏi lại thay vì đoán; với điền form chỉ nói "đã mở form, bạn kiểm tra và bấm Gửi" – không bao giờ nói đã gửi/đã lưu; câu hỏi ngoài phạm vi công việc thì lịch sự từ chối.`;}
 // ---------- vòng hỏi – công cụ – trả lời ----------
 function parseReply(t){if(t&&typeof t==='object')return normReply(t);t=String(t||'').trim();const i=t.indexOf('{'),j=t.lastIndexOf('}');
- if(i>=0&&j>i){try{return normReply(JSON.parse(t.slice(i,j+1)));}catch(e){}}return {answer:t};}
+ if(i>=0&&j>i){try{return normReply(JSON.parse(t.slice(i,j+1)));}catch(e){}
+  // v3.40: JSON hỏng (xuống dòng / ngoặc kép chưa thoát) → vẫn tách lấy phần chữ của "answer"
+  try{return normReply(JSON.parse(t.slice(i,j+1).replace(/\r?\n/g,'\\n')));}catch(e){}
+  const m=t.match(/^[^{]*\{\s*"answer"\s*:\s*"([\s\S]*)"\s*\}[^}]*$/);if(m)return {answer:m[1].replace(/\\n/g,'\n').replace(/\\"/g,'"').replace(/\\\\/g,'\\')};}
+ return {answer:t};}
 // chuẩn hóa: args có thể là chuỗi JSON; answer có thể là object / mảng → chuyển thành chữ
 function normReply(R){if(!R||typeof R!=='object')return {answer:String(R||'')};
  if(R.tool&&typeof R.args==='string'){try{R.args=JSON.parse(R.args);}catch(e){R.args={};}}
@@ -159,7 +163,7 @@ async function chatAsk(q){if(CHAT.busy||!q.trim())return;CHAT.busy=true;CHAT.msg
     let res;try{res=await TOOLS[R.tool].run(R.args||{});}catch(e){res={loi:e.message};}
     work.push({role:'assistant',content:JSON.stringify({tool:R.tool,args:R.args||{}})},{role:'user',content:'KẾT QUẢ CÔNG CỤ '+R.tool+': '+JSON.stringify(res).slice(0,7000)+'\nTiếp tục: gọi công cụ khác hoặc trả lời cuối bằng {"answer":"..."}'});continue;}
    if(R.tool){work.push({role:'assistant',content:txt},{role:'user',content:'Công cụ "'+R.tool+'" không tồn tại hoặc bạn không có quyền. Trả lời bằng {"answer":"..."}'});continue;}
-   const ans=typeof R.answer==='string'&&R.answer?R.answer:(typeof txt==='string'?txt:JSON.stringify(txt));CHAT.msgs.push({role:'assistant',content:ans,raw:JSON.stringify({answer:ans})});break;}}
+   const ans=typeof R.answer==='string'&&R.answer?R.answer.replace(/^\s*\{\s*"answer"\s*:\s*"([\s\S]*)"\s*\}\s*$/,'$1'):(typeof txt==='string'?txt:JSON.stringify(txt));CHAT.msgs.push({role:'assistant',content:ans,raw:JSON.stringify({answer:ans})});break;}}
  catch(e){CHAT.msgs.push({role:'err',content:e.message});}
  CHAT.busy=false;chatRender();}
 const STEP={capacity:'Xem năng lực còn đặt được',find_bookings:'Tìm đơn',booking_detail:'Xem chi tiết booking',requests:'Xem yêu cầu đặt hàng',guide:'Tra hướng dẫn',fill_request:'Mở form yêu cầu đặt hàng',open:'Mở màn hình',find_customer:'Tìm khách hàng',find_trucks:'Tìm xe',truck_detail:'Xem chi tiết xe',suggest_trucks:'Gợi ý xe',suggest_all:'Gợi ý xếp cả ngày',fill_order:'Mở lưới đặt hàng'};
@@ -250,9 +254,18 @@ TOOLS.stats={d:'SỐ LIỆU TỔNG HỢP giống Bảng thống kê (dùng cho m
   let sp='';if(a.sales&&isInt()){const k=fz(a.sales);const us=S.users.filter(u=>u.role==='sales'&&fz(u.name).includes(k));if(us.length!==1)return {loi:us.length?'Nhiều Sales khớp: '+us.map(u=>u.name).join(', '):'Không có Sales tên "'+a.sales+'"'};sp=us[0].id;L=L.filter(r=>r.sales===sp);loc.push('Sales '+us[0].name);}
   let cid='';if(a.customer){const cs=custFind(a.customer);if(cs.length!==1)return {loi:cs.length?'Nhiều khách khớp: '+cs.map(c=>c.code+' '+c.name).join('; '):'Không có công ty khách tên "'+a.customer+'" (có thể là người liên hệ: dùng find_bookings với q).'};cid=cs[0].id;L=L.filter(r=>r.cid===cid);loc.push('khách '+cs[0].name);}
   const sum=fn=>{const l=L.filter(fn);return {don:l.length,MT:mt1(l.reduce((s,r)=>s+r.t,0))};};
+  // v3.40: "đang giao" / "đã bốc chưa xuất phát" là tình trạng HIỆN TẠI → xét mọi đơn bốc trong 14 ngày gần nhất, không theo kỳ
+  const h0=addDays(TODAY,-14);let H=(await stRows(h0,TODAY)).filter(r=>r.d>=h0&&r.d<=TODAY);
+  if(w)H=H.filter(r=>r.w===w);if(a.segment){const g=String(a.segment).toUpperCase().slice(0,2);H=H.filter(r=>r.g===g);}if(sp)H=H.filter(r=>r.sales===sp);if(cid)H=H.filter(r=>r.cid===cid);
+  const hs=st=>{const l=H.filter(r=>r.s===st).sort((x,y)=>x.d<y.d?-1:1);return {don:l.length,MT:mt1(l.reduce((s,r)=>s+r.t,0)),ds:l.slice(0,10).map(r=>({id:r.id,ngay_boc:r.d,kho:r.w,khach:r.name,MT:mt1(r.t)}))};};
+  const bocL=H.filter(r=>['loaded','transit','delivered','failed'].includes(r.s));const bocHn=bocL.filter(r=>r.d===TODAY);const prev=bocL.filter(r=>r.d<TODAY).map(r=>r.d).sort().pop();
+  const now=new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Ho_Chi_Minh'});
+  const hien_tai={pham_vi:'đơn bốc từ '+dmy(h0)+' đến hôm nay, '+(loc.join(', ')||'tất cả kho')+', tính đến '+now,dang_giao:hs('transit'),da_boc_chua_xuat_phat:hs('loaded'),
+   da_boc_hom_nay:{don:bocHn.length,MT:mt1(bocHn.reduce((s,r)=>s+r.t,0))},
+   ...(prev?{ngay_boc_gan_nhat_truoc_hom_nay:{ngay:prev,don:bocL.filter(r=>r.d===prev).length,MT:mt1(bocL.filter(r=>r.d===prev).reduce((s,r)=>s+r.t,0))}}:{})};
   const B=L.filter(r=>ST_DZ_BOOK.includes(r.s));const top={};B.forEach(r=>{top[r.name]=(top[r.name]||0)+r.t;});
   const link='#dash:'+(isInt()?'sales':'')+':'+f+':'+t+':'+(w||'')+':'+(a.segment?String(a.segment).toUpperCase().slice(0,2):'')+':'+sp;
-  return {ky:dmy(f)+' – '+dmy(t),loai_ky:per,loc:loc.join(', ')||'tất cả',
+  return {hien_tai,ky:dmy(f)+' – '+dmy(t),loai_ky:per,loc:loc.join(', ')||'tất cả',
    tong_da_dat:sum(r=>ST_DZ_BOOK.includes(r.s)),da_co_xe:sum(r=>stGrp(r)==='ok'),cho_xep_xe:sum(r=>r.s==='hold'),de_nghi_doi_ngay:sum(r=>r.s==='resched'),luu_tam:sum(r=>r.s==='draft'),
    da_giao:sum(r=>r.s==='delivered'),dang_giao:sum(r=>r.s==='transit'),da_boc_chua_xuat_phat:sum(r=>r.s==='loaded'),dang_giao_hoac_da_load:sum(r=>r.s==='transit'||r.s==='loaded'),giao_loi:sum(r=>r.s==='failed'),
    con_phai_giao:{...sum(r=>['ok','loaded','transit'].includes(r.s)),dinh_nghia:'đơn đã có xe nhưng chưa giao (Đã xếp xe / Đã load / Đang giao)'},

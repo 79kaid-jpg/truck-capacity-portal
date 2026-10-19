@@ -142,7 +142,24 @@ await session('log@demo.vn', async p => {
   ok(r.f1 === 2 && /-01 → .*-3[01]$/.test(r.kd), '"Đang giao hàng" + "tháng này" → đúng trạng thái, cả tháng', JSON.stringify([r.f1, r.kd]));
   ok(r.f2 === 0 && r.khac && Object.keys(r.khac).length > 0 && /Không có đơn/.test(r.note || ''), 'không có đơn ở trạng thái hỏi → kèm các trạng thái khác', JSON.stringify(r.khac));
   ok(r.t0 === 2 && r.t1 === 2 && r.t2b === 0, 'xe đang giao: không ghi ngày thì quét cả các ngày bốc trước', JSON.stringify([r.t0, r.t1, r.t2b]));
-  ok(/dang_giao/.test(r.sys) && /KHÔNG chỉ trả lời "không có"/.test(r.sys), 'hướng dẫn trợ lý cách trả lời câu "đang giao"');
+  ok(/dang_giao/.test(r.sys) && /không chỉ trả lời "không có"/i.test(r.sys), 'hướng dẫn trợ lý cách trả lời câu "đang giao"');
+});
+// v3.40: hỏi lúc sáng sớm hôm sau – "Có mấy xe đang giao?" / "Có xe nào đã bốc?" không được ra 0 vì chỉ xem ngày hôm nay
+await session('log@demo.vn', async p => {
+  S('transit-now');
+  const r = await p.evaluate(async () => {
+    const d0 = TODAY; TODAY = addDays(TODAY, 1);
+    const s = await TOOLS.stats.run({ period: 'day' });
+    const h = s.hien_tai;
+    const bad = [parseReply('{"answer":"Không có xe đã bốc. Xem trên [Bảng thống kê](#dash:sales:x)"}').answer,
+      parseReply('{"answer":"dòng 1\ndòng 2"}').answer, parseReply('{"answer":"Xe "DK-01" đang chạy"}').answer];
+    return { d0, dg: h.dang_giao.don, ds: h.dang_giao.ds.length, db: h.da_boc_chua_xuat_phat.don, hn: h.da_boc_hom_nay.don, gn: (h.ngay_boc_gan_nhat_truoc_hom_nay || {}).ngay, pv: h.pham_vi, ky: s.dang_giao.don, bad, sys: sysPrompt() };
+  });
+  ok(r.dg === 2 && r.ds === 2 && r.db === 1, 'hien_tai: đơn bốc hôm trước vẫn được đếm là Đang giao / Đã bốc', JSON.stringify([r.dg, r.ds, r.db]));
+  ok(r.ky === 0 && r.hn === 0 && r.gn === r.d0, 'hôm nay chưa bốc → báo ngày bốc gần nhất', JSON.stringify([r.ky, r.hn, r.gn]));
+  ok(/tất cả kho/.test(r.pv) && /tính đến/.test(r.pv), 'không tự lọc kho, nêu giờ tính', r.pv);
+  ok(r.bad.every(a => !/^\s*\{/.test(a) && !/"answer"/.test(a)), 'không bao giờ hiện nguyên chữ {"answer":…}', JSON.stringify(r.bad));
+  ok(/hien_tai/.test(r.sys) && /KHÔNG truyền wh/.test(r.sys), 'hướng dẫn trợ lý dùng tình trạng hiện tại, không tự lọc kho');
 });
 await browser.close();
 console.log(`${pass} OK, ${errors.length} lỗi`); if (errors.length) { console.log(errors.join('\n')); process.exit(1); }
