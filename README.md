@@ -185,6 +185,12 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+
+## v3.46 — Khung chat trên điện thoại
+
+- Ô nhập cỡ chữ 16px: iPhone không còn tự phóng to làm khung chat tràn sang phải.
+- Trên điện thoại khung chat chiếm trọn màn hình, co theo bàn phím, chừa tai thỏ / thanh home; nút Gửi, Mới, Đóng ≥ 44px.
+- Mã booking, link dài tự ngắt dòng, bảng trong tin nhắn cuộn ngang trong bong bóng.
 ## v3.45 — Trợ lý bền hơn, hiện rõ khi Claude lỗi
 
 - Segment chỉ nhận DD / DA / EX (hiểu "dân dụng", "dự án", "xuất khẩu"); giá trị bịa như "UR", "all" bị bỏ và báo lại cho mô hình.
