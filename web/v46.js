@@ -153,8 +153,8 @@ function normReply(R){if(!R||typeof R!=='object')return {answer:String(R||'')};
  if(R.answer!=null&&typeof R.answer!=='string')R.answer=Array.isArray(R.answer)?R.answer.map(x=>typeof x==='string'?x:JSON.stringify(x)).join('\n'):JSON.stringify(R.answer);
  if(!R.tool&&R.answer==null)R.answer=R.text||R.response||JSON.stringify(R);return R;}
 async function callAI(msgs,tools){const {data}=await sb.auth.getSession();const tok=data&&data.session&&data.session.access_token;
- const r=await fetch(CHAT.api,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+tok},body:JSON.stringify({messages:msgs,tools})});
- const j=await r.json().catch(()=>({error:'Máy chủ chatbot không phản hồi ('+r.status+').'}));if(!r.ok||j.error)throw new Error(j.error||('Lỗi '+r.status));if(j.left!=null)CHAT.left=j.left;return j.text;}
+ const r=await fetch(CHAT.api,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+tok},body:JSON.stringify({messages:msgs,tools,defs:toolList().map(([k,t])=>({name:k,d:t.d}))})});
+ const j=await r.json().catch(()=>({error:'Máy chủ chatbot không phản hồi ('+r.status+').'}));if(!r.ok||j.error)throw new Error(j.error||('Lỗi '+r.status));if(j.left!=null)CHAT.left=j.left;CHAT.engine=j.engine||'free';CHAT.model=j.model||'';CHAT.note=j.note||'';return j.text;}
 async function chatAsk(q){if(CHAT.busy||!q.trim())return;CHAT.busy=true;CHAT.msgs.push({role:'user',content:q.trim()});chatRender();
  const base=[{role:'system',content:sysPrompt()},...CHAT.msgs.filter(m=>m.role==='user'||m.role==='assistant').slice(-10).map(m=>({role:m.role,content:m.raw||m.content}))];
  const work=base.slice();const used=[];

@@ -23,7 +23,7 @@ const ev55HasNum=(ans,t)=>t===0?(/\b0\b/.test(ans)||/kh[oô]ng c[oó]|ch[uư]a c
 const ev55Has=(ans,list)=>list.some(x=>fz(ans).includes(fz(x)));
 const ev55Day=n=>{let d=addDays(TODAY,n);if(dow(d)===0)d=addDays(d,1);return d;};
 // ---- bộ câu hỏi: q (chuỗi hoặc mảng nhiều lượt), tools (một trong các công cụ phải được gọi), truth() → {num} | {text:[…]} | {none:true} | null (bỏ qua) ----
-const EV55_SET=()=>{const S0=a=>TOOLS.stats.run(a);
+var EV55_SET=()=>{const S0=a=>TOOLS.stats.run(a);
  const top=async()=>{const s=await S0({period:'month'});const t=(s.top_khach||[])[0];return t?t.split(':')[0].trim():null;};
  const anyBk=()=>(S.bookings||[]).filter(b=>visibleBk(b)&&b.status!=='draft'&&b.customerId!=='__other').sort((a,b)=>b.date<a.date?-1:1)[0];
  const lastMonth=()=>{const [y,m]=TODAY.split('-').map(Number);return iso(m===1?y-1:y,m===1?12:m-1,15);};
@@ -94,8 +94,8 @@ function ev55Draw(){let el=document.getElementById('ev55');if(!EV55.open){if(el)
   ${EV55.run?`<button class="btn ghost sm" data-e="stop">Dừng</button>`:`<button class="btn sm" data-e="run">Chạy ${n} câu hỏi</button>`}
   <button class="btn ghost sm" data-e="copy" ${EV55.res.length?'':'disabled'}>Copy kết quả</button><button class="btn ghost sm" data-e="close" aria-label="Đóng">✕</button></div></div>
   <p class="small muted" style="margin:0">Chạy bộ câu hỏi chuẩn qua đúng chatbot đang dùng (cùng mô hình AI, cùng dữ liệu, bằng tài khoản của bạn). Đáp án đúng được tính trực tiếp từ dữ liệu. Các thao tác mở màn / điền form chỉ được ghi lại, không thực hiện. Mỗi câu dùng 1 lượt trợ lý (câu nhiều lượt dùng nhiều hơn).</p>
-  <div class="sum"><div class="k"><b>${sc.n?Math.round(sc.ok*100/sc.n)+'%':'–'}</b><span>Đạt ${sc.ok}/${sc.n}${sc.skip?' · bỏ qua '+sc.skip:''}</span></div>
-   ${last?`<div class="k"><b>${Math.round(last.ok*100/Math.max(1,last.n))}%</b><span>Lần trước · ${new Date(last.at).toLocaleString('vi-VN',{dateStyle:'short',timeStyle:'short'})}</span></div>`:''}
+  <div class="sum"><div class="k"><b>${sc.n?Math.round(sc.ok*100/sc.n)+'%':'–'}</b><span>Đạt ${sc.ok}/${sc.n}${sc.skip?' · bỏ qua '+sc.skip:''}${EV55.model?' · '+esc(EV55.model):''}</span></div>
+   ${last?`<div class="k"><b>${Math.round(last.ok*100/Math.max(1,last.n))}%</b><span>Lần trước · ${new Date(last.at).toLocaleString('vi-VN',{dateStyle:'short',timeStyle:'short'})}${last.model?' · '+esc(last.model):''}</span></div>`:''}
    ${EV55.run?`<div class="k"><b>${EV55.res.length}/${n}</b><span>Đang chạy…</span></div>`:''}</div>
   <div class="tw"><table><thead><tr><th>#</th><th>Nhóm</th><th>Câu hỏi</th><th>Kết quả</th><th>Câu trả lời của trợ lý</th><th>Công cụ đã gọi</th></tr></thead><tbody>
   ${EV55.res.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.g)}</td><td>${esc(r.q)}</td><td><span class="p ${r.st}">${r.st==='ok'?'Đạt':r.st==='skip'?'Bỏ qua':r.st==='run'?'Đang chạy…':'Trượt'}</span>${(r.why||[]).map(w=>`<div class="why">${esc(w)}</div>`).join('')}</td><td class="ans">${esc(r.ans||'')}</td><td class="small muted">${(r.tools||[]).map(esc).join('<br>')}</td></tr>`).join('')||`<tr><td colspan="6" class="muted">Bấm "Chạy" để bắt đầu. Kết quả hiện dần từng câu.</td></tr>`}

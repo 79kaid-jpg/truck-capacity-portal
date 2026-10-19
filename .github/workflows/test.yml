@@ -31,6 +31,8 @@ jobs:
           psql -h /tmp -U postgres -Atc 'select version()'
       - name: Test SQL
         run: bash test/sql.sh
+      - name: Test máy chủ chatbot
+        run: node test/chat_fn.mjs
       - name: Cài Playwright + thư viện Python
         run: |
           sudo mkdir -p /opt/npm-tools && sudo chown "$USER" /opt/npm-tools
