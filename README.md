@@ -187,6 +187,18 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+
+## v3.48 — UI/UX theo vai trò
+
+Không đổi database. Theo rà soát `claude/ra-soat-ui-ux-theo-vai-tro.md` (Project).
+- **Menu tiếng Việt, có chữ**: Thống kê, Người dùng, Chờ xếp xe, Khai báo xe, Cấu hình, Trao đổi. Máy tính: chữ dưới biểu tượng.
+- **Điện thoại: thanh điều hướng dưới** 4 mục theo vai trò + **Thêm** (Khách: Lịch / Đơn của tôi / Thông báo; Sales: Thống kê / Lịch / Danh sách booking / Việc của tôi; CS: Việc của tôi / Lịch / Danh sách booking / Thông báo; Logistics: Chờ xếp xe / Lịch / Việc của tôi / Thông báo; Admin: Lịch / Chờ xếp xe / Người dùng / Việc của tôi).
+- **Chờ xếp xe**: nút **Gợi ý xe** / **Chi tiết** trên từng dòng; trên điện thoại Chờ xếp xe, Danh sách booking, Đơn của tôi hiện dạng thẻ.
+- **Trang chủ theo vai trò** khi đăng nhập: Sales → Thống kê, CS → Việc của tôi, Logistics → Chờ xếp xe (Khách, Admin: Lịch).
+- **Đơn của tôi** cho khách (Sắp tới / 30 ngày qua).
+- Hai nút trên Lịch: **Tạo yêu cầu** và **Danh sách yêu cầu**.
+- Danh sách booking trên điện thoại: bộ lọc thu vào nút **Bộ lọc (n)**, tab một hàng cuộn ngang.
+- Header điện thoại gọn, dải chọn kho xuống dòng, bảng Thống kê cuộn trong khung, tiêu đề bớt chữ in hoa.
 ## v3.47 — Chi tiết ngày trên điện thoại
 
 - Điện thoại: tóm tắt ngày (còn đặt được, đã xếp / giữ chỗ, số xe theo tình trạng, nút Đặt hàng mới) lên đầu trang; thanh chọn **Đơn chờ / Xe / Gợi ý gộp** dính trên cùng khi cuộn.
