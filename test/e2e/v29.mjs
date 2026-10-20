@@ -37,7 +37,8 @@ await session('cs@demo.vn', async p => {
   S('grid-open'); await p.click('[data-a="go"][data-v="bookings"]'); await p.click('[data-a="newBk"]');
   ok(await p.locator('.g30 h2', { hasText: 'ĐẶT HÀNG' }).count() === 1, 'Đặt hàng opens grid');
   S('grid-paste');
-  const day = d(5);
+  // ngày làm việc đầu tiên từ +5 có khai báo xe (không rơi vào Chủ nhật / ngày nghỉ) – kết quả giống nhau mọi ngày trong tuần
+  const day = await p.evaluate(() => { for (let i = 5; i < 20; i++) { const x = addDays(TODAY, i); const m = dayM('JM2', x); if (dow(x) !== 0 && m.declared && !m.off) return x; } return addDays(TODAY, 5); });
   await p.evaluate(t => { const el = document.querySelector('[data-g="code"][data-i="0"]'); const dt = new DataTransfer(); dt.setData('text/plain', t); el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); },
     `Kho\tNgày bốc\tMã KH\tSố tấn\tĐịa chỉ\tRef\tGhi chú\nJM2\t${dmy(day)}\tKH0102\t30\tKCN Phú Mỹ 1\tSO-7788\t\nJM2\t${dmy(day)}\tXX999\t10\t\t\t\nJM2\t${dmy(day)}\tKH0101\t250\t\t\t`);
   await p.waitForTimeout(300);
@@ -98,7 +99,7 @@ await session('log@demo.vn', async p => {
   ok(await p.locator('.crumb .st-loaded').count() === 1, 'status Đã load hàng');
   S('transit'); await p.click('[data-a="v9Ship"][data-k="transit"]'); await p.click('[data-a="v9ShipSave"]'); await p.waitForTimeout(1000);
   ok(await p.locator('.crumb .st-transit').count() === 1, 'status Đang giao');
-  S('truck-close'); const code = await ev(p, () => trucksOf(V.wh, addDays(TODAY, 5)).find(t => loadOf(t.code) < 0.001).code);
+  S('truck-close'); const code = await ev(p, () => { for (let i = 5; i < 20; i++) { const t = trucksOf(V.wh, addDays(TODAY, i)).find(t => loadOf(t.code) < 0.001); if (t) return t.code; } });
   await ev(p, c => { V.modal = { type: 'truck', code: c, wide: true }; render(); }, code);
   await p.selectOption('#cl-r', 'FULL'); await p.locator('#cl-r').dispatchEvent('change');
   await p.click('[data-a="v9TruckClose"]'); await p.waitForTimeout(1000);
