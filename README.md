@@ -186,6 +186,12 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+
+## v3.47 — Chi tiết ngày trên điện thoại
+
+- Điện thoại: tóm tắt ngày (còn đặt được, đã xếp / giữ chỗ, số xe theo tình trạng, nút Đặt hàng mới) lên đầu trang; thanh chọn **Đơn chờ / Xe / Gợi ý gộp** dính trên cùng khi cuộn.
+- Đơn chờ xếp xe nằm trên danh sách xe; xe trống gom thành một dòng "N xe trống", bấm để mở.
+- Máy tính giữ nguyên bố cục.
 ## v3.46 — Khung chat trên điện thoại
 
 - Ô nhập cỡ chữ 16px: iPhone không còn tự phóng to làm khung chat tràn sang phải.
