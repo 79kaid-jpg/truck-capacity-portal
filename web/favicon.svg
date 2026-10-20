@@ -1,10 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#1F2C3D"/>
-  <g fill="none" stroke="#FFFFFF" stroke-width="4.2" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M9 18h26v22H9z"/>
-    <path d="M35 25h10l8 8v7H35z"/>
-  </g>
-  <circle cx="19" cy="45" r="5" fill="#1F2C3D" stroke="#FFFFFF" stroke-width="4"/>
-  <circle cx="44" cy="45" r="5" fill="#1F2C3D" stroke="#FFFFFF" stroke-width="4"/>
-  <rect x="13" y="24" width="10" height="4" rx="2" fill="#E8B04B"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Background -->
+  <rect width="100" height="100" rx="20" fill="#1F2C3D"/>
+
+  <!-- Truck cabin -->
+  <rect x="15" y="35" width="25" height="28" rx="2" fill="none" stroke="#FFFFFF" stroke-width="3"/>
+
+  <!-- Truck cabin window -->
+  <rect x="20" y="38" width="15" height="12" fill="#E8B04B" opacity="0.9"/>
+
+  <!-- Truck cargo bed -->
+  <rect x="40" y="35" width="40" height="28" rx="2" fill="none" stroke="#FFFFFF" stroke-width="3"/>
+
+  <!-- Cargo bed floor pattern -->
+  <line x1="50" y1="35" x2="50" y2="63" stroke="#FFFFFF" stroke-width="1" opacity="0.5"/>
+  <line x1="60" y1="35" x2="60" y2="63" stroke="#FFFFFF" stroke-width="1" opacity="0.5"/>
+  <line x1="70" y1="35" x2="70" y2="63" stroke="#FFFFFF" stroke-width="1" opacity="0.5"/>
+
+  <!-- Front wheel -->
+  <circle cx="28" cy="70" r="8" fill="none" stroke="#FFFFFF" stroke-width="3"/>
+  <circle cx="28" cy="70" r="4" fill="#1F2C3D"/>
+
+  <!-- Back wheel left -->
+  <circle cx="60" cy="70" r="8" fill="none" stroke="#FFFFFF" stroke-width="3"/>
+  <circle cx="60" cy="70" r="4" fill="#1F2C3D"/>
+
+  <!-- Back wheel right -->
+  <circle cx="75" cy="70" r="8" fill="none" stroke="#FFFFFF" stroke-width="3"/>
+  <circle cx="75" cy="70" r="4" fill="#1F2C3D"/>
+
+  <!-- Axle line connecting wheels -->
+  <line x1="20" y1="70" x2="82" y2="70" stroke="#FFFFFF" stroke-width="1" opacity="0.3"/>
 </svg>
