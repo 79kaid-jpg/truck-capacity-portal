@@ -1,16 +1,10 @@
 // v3.48: UI/UX theo vai trò (rà soát 20/10/2026)
-// P1: menu tiếng Việt có chữ; điện thoại: thanh điều hướng dưới ≤ 4 mục theo vai trò + "Thêm"; bảng Chờ xếp xe / Danh sách booking thành thẻ;
+// P1: menu tiếng Việt (chỉ biểu tượng, tên khi rê chuột / trình đọc màn hình); điện thoại: thanh điều hướng dưới ≤ 4 mục theo vai trò + "Thêm"; bảng Chờ xếp xe / Danh sách booking thành thẻ;
 //     nút Gợi ý xe / Chi tiết ngay trên dòng Chờ xếp xe
 // P2: trang chủ theo vai trò; "Đơn của tôi" cho khách; tách rõ hai nút Yêu cầu; bộ lọc điện thoại thu vào nút "Bộ lọc (n)"
 // P3: header điện thoại gọn, dải chọn kho xuống dòng, bảng thống kê cuộn trong khung, tiêu đề bớt in hoa
 (()=>{const st=document.createElement('style');st.textContent=`
 .bnav61,.more61{display:none}
-@media (min-width:761px){
- .side{width:88px}
- .side button{width:80px;height:auto;min-height:56px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
- .side .lb61{font-size:12px;line-height:1.15;font-weight:600;text-align:center;max-width:76px;overflow-wrap:anywhere}
- .side .dot{top:2px;right:10px}
-}
 @media (max-width:760px){
  .shell>nav.side{display:none}
  .bnav61{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--surface);border-top:1px solid var(--line);
@@ -19,8 +13,8 @@
  .bnav61 button svg{width:22px;height:22px}
  .bnav61 button.on{color:var(--ink)}.bnav61 button.on svg{color:var(--navy)}
  .bnav61 button.on::before{content:"";position:absolute;top:0;left:30%;right:30%;height:3px;border-radius:0 0 3px 3px;background:var(--navy)}
- .bnav61 .dot{position:absolute;top:4px;left:calc(50% + 6px);min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--bad);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
- .bnav61 .lb61{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .bnav61 .dot{position:absolute;top:8px;left:calc(50% + 6px);min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--bad);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
+ .bnav61 .lb61{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
  .more61{display:flex;flex-direction:column;position:fixed;left:8px;right:8px;bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:61;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:6px}
  .more61[hidden]{display:none}
  .more61 button{display:flex;align-items:center;gap:12px;min-height:48px;padding:0 12px;border:0;border-radius:10px;background:none;color:var(--ink);font:inherit;font-size:15px;text-align:left;position:relative}
@@ -45,7 +39,7 @@
  /* P3 */
  .top [data-a="guide"]{font-size:0!important;gap:0!important}.top [data-a="guide"] svg{width:20px;height:20px}
  .cal36bar.cbar .cwh{flex-wrap:wrap;overflow:visible}
- .cal36bar .rqbtn .t{display:inline!important}.cal36bar .rqbtn{width:auto!important;padding:0 12px!important}
+ .cal36bar.cbar .rqbtn .t{display:inline!important}.cal36bar.cbar .rqbtn{width:auto!important;padding:0 12px!important}
 }
 .act61 .btn{white-space:nowrap}
 .rqbtn[data-a="rqList"]{border-color:var(--line)!important;background:var(--surface)!important;color:var(--ink)!important}
@@ -82,7 +76,7 @@ const TH61={approvals:{'Mã booking':'w61','Khách hàng':'w61','Nơi giao':'w61
   if(auto&&h&&V.view==='calendar'&&!location.hash){const n=NAV.find(x=>x.v===h);if(n&&n.ok())V.view=h;}}
  r0();if(!S)return;
  const side=document.querySelector('.shell>nav.side');
- if(side){side.querySelectorAll('button[data-v]').forEach(b=>{if(!b.querySelector('.lb61')){const s=document.createElement('span');s.className='lb61';s.textContent=b.getAttribute('aria-label')||'';b.appendChild(s);}});
+ if(side){
   // điện thoại: thanh dưới
   const all=[...side.querySelectorAll('button[data-v]')];const pri=(PRI61[role()]||['calendar']).map(v=>all.find(b=>b.dataset.v===v)).filter(Boolean);
   for(const b of all){if(pri.length>=4)break;if(!pri.includes(b))pri.push(b);}
