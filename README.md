@@ -63,6 +63,13 @@ Làm sau khi đã cấp quyền ít nhất một Sales Dân dụng, một Sales 
 select app.load_demo();   -- 10 khách hàng mẫu, khai báo xe 30 ngày tới, ~19 booking quanh hôm nay
 -- select app.clear_demo();  -- xóa toàn bộ booking, khai báo xe và 10 khách hàng mẫu
 ```
+**Không chạy `clear_demo()` trên dữ liệu thật** (hàm xóa TOÀN BỘ booking).
+
+### Bước 6b (tùy chọn) – Sinh dữ liệu trình diễn trên dữ liệu đang chạy (v3.35)
+Dán `supabase/demo_gen.sql` vào SQL Editor → Run. Dùng khách hàng, Sales, CS, Logistics hiện có; sinh ~8.000 MT tháng trước (Dân dụng 4.500 / Dự án 3.000 / Export 500, ~90% đã giao), tháng này theo nhịp đến hôm nay, và ~40 đơn sắp tới (chỉ ở ngày đã có xe và còn chỗ), kèm lịch sử, nhật ký, yêu cầu đặt hàng, Trao đổi, thông báo. Mọi đơn có mã `DEMO-…`. Thống kê sẽ lẫn đơn mẫu cho tới khi xóa; đơn sắp tới chiếm chỗ xe thật.
+```sql
+select app.gen_demo_clear();   -- xóa sạch toàn bộ dữ liệu mẫu đã sinh (đơn thật không bị đụng)
+```
 
 ---
 
@@ -565,6 +572,7 @@ supabase/
   seed.sql                  Danh mục: kho, khu vực, sản phẩm, màu, độ dày, khổ, cấu hình
   migrations/0002_email.sql Hàng đợi email + gửi qua Resend (pg_net, pg_cron, Vault)
   demo_data.sql             Hàm load_demo() / clear_demo()
+  demo_gen.sql              Sinh dữ liệu trình diễn trên dữ liệu thật (gen_demo_orders / gen_demo_clear)
   email_setup.sql           = 0002_email.sql, dán vào SQL Editor để bật email
   setup_all.sql             Gộp tất cả, dùng cho cài đặt mới
 test/                     Kiểm thử cục bộ (Postgres 16 + Playwright), không deploy
