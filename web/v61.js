@@ -45,7 +45,7 @@
  /* P3 */
  .top [data-a="guide"]{font-size:0!important;gap:0!important}.top [data-a="guide"] svg{width:20px;height:20px}
  .cal36bar.cbar .cwh{flex-wrap:wrap;overflow:visible}
- .cal36bar .rqbtn .t{display:inline!important}.cal36bar .rqbtn{width:auto!important;padding:0 12px!important}
+ .cal36bar.cbar .rqbtn .t{display:inline!important}.cal36bar.cbar .rqbtn{width:auto!important;padding:0 12px!important}
 }
 .act61 .btn{white-space:nowrap}
 .rqbtn[data-a="rqList"]{border-color:var(--line)!important;background:var(--surface)!important;color:var(--ink)!important}
