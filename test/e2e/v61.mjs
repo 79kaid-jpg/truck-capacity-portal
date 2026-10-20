@@ -34,8 +34,9 @@ const fillArea = async (p, sel, v) => { await p.fill(sel, v); await p.locator(se
 const phone = p => p.setViewportSize({ width: 390, height: 844 });
 await session('log@demo.vn', async p => {
   S('desk');
-  const lb = await p.evaluate(() => [...document.querySelectorAll('nav.side .lb61')].map(x => x.textContent));
-  ok(lb.includes('Chờ xếp xe') && lb.includes('Khai báo xe') && lb.includes('Cấu hình') && !lb.some(x => /Approval|Trucks|Configuration|Setting/.test(x)), 'menu máy tính có chữ, tiếng Việt', JSON.stringify(lb));
+  const lb = await p.evaluate(() => [...document.querySelectorAll('nav.side button[data-v]')].map(x => x.getAttribute('aria-label')));
+  ok(await p.locator('nav.side .lb61').count() === 0, 'máy tính: chỉ biểu tượng, không chữ');
+  ok(lb.includes('Chờ xếp xe') && lb.includes('Khai báo xe') && lb.includes('Cấu hình') && !lb.some(x => /Approval|Trucks|Configuration|Setting/.test(x)), 'tên menu tiếng Việt (rê chuột / trình đọc màn hình)', JSON.stringify(lb));
   await p.evaluate(() => go('approvals')); await p.waitForTimeout(500);
   ok(/Đơn chờ xếp xe/.test(await p.locator('.main .pagehead h2').innerText()), 'tiêu đề Đơn chờ xếp xe');
   ok(await p.locator('.main tbody tr .act61 [data-a="sug61"]').count() > 0, 'nút Gợi ý xe trên từng dòng');
@@ -44,8 +45,9 @@ await session('log@demo.vn', async p => {
   ok(await p.evaluate(() => V.view === 'day'), 'Gợi ý xe → mở ngày với gợi ý', id);
   S('phone'); await phone(p); await p.evaluate(() => go('approvals')); await p.waitForTimeout(600);
   const r = await p.evaluate(() => ({ side: getComputedStyle(document.querySelector('nav.side')).display, n: document.querySelectorAll('.bnav61 > button').length,
-    labels: [...document.querySelectorAll('.bnav61 .lb61')].map(x => x.textContent), card: getComputedStyle(document.querySelector('.main thead')).display, sw: document.documentElement.scrollWidth, w: innerWidth,
+    labels: [...document.querySelectorAll('.bnav61 > button')].map(x => x.getAttribute('aria-label')), vis: [...document.querySelectorAll('.bnav61 .lb61')].every(x => x.getBoundingClientRect().width <= 1), card: getComputedStyle(document.querySelector('.main thead')).display, sw: document.documentElement.scrollWidth, w: innerWidth,
     hmin: Math.min(...[...document.querySelectorAll('.bnav61 > button')].map(b => b.getBoundingClientRect().height)) }));
+  ok(r.vis, 'điện thoại: thanh dưới chỉ biểu tượng');
   ok(r.side === 'none' && r.n === 5 && r.labels[0] === 'Chờ xếp xe' && r.labels[4] === 'Thêm', 'điện thoại: thanh dưới 4 mục theo vai trò + Thêm', JSON.stringify(r.labels));
   ok(r.card === 'none' && r.sw <= r.w, 'bảng thành thẻ, không cuộn ngang', JSON.stringify([r.sw, r.w]));
   ok(r.hmin >= 44, 'nút thanh dưới ≥ 44px', r.hmin);
@@ -68,7 +70,7 @@ await session('cs@demo.vn', async p => {
 });
 await session('kh@demo.vn', async p => {
   S('kh'); await phone(p); await p.waitForTimeout(300);
-  ok(await p.evaluate(() => [...document.querySelectorAll('.bnav61 .lb61')].map(x => x.textContent).join('|') === 'Lịch đặt xe|Đơn của tôi|Thông báo'), 'khách: Lịch / Đơn của tôi / Thông báo');
+  ok(await p.evaluate(() => [...document.querySelectorAll('.bnav61 > button')].map(x => x.getAttribute('aria-label')).join('|') === 'Lịch đặt xe|Đơn của tôi|Thông báo'), 'khách: Lịch / Đơn của tôi / Thông báo');
   await p.click('.bnav61 [data-v="myorders"]'); await p.waitForTimeout(900);
   const r = await p.evaluate(() => ({ h: document.querySelector('.main .pagehead h2').textContent, n: document.querySelectorAll('.main tbody tr[data-id]').length, sw: document.documentElement.scrollWidth, w: innerWidth }));
   ok(r.h === 'Đơn của tôi' && r.n > 0 && r.sw <= r.w, 'Đơn của tôi: danh sách đơn của khách', JSON.stringify(r));
