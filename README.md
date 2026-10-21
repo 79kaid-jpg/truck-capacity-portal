@@ -195,6 +195,14 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+## v3.49 — Icon mới, Khai báo xe tháng sau, sửa dữ liệu mẫu
+
+Không bắt buộc chạy lại `setup_all.sql` (chỉ đổi `load_demo()`, hàm này chỉ tạo booking mẫu khi chưa có booking nào).
+
+- **Icon:** xe đầu kéo chở 3 cuộn coil. PNG nền đặc cho iPhone (`apple-touch-icon.png` 180) và Android (192, 512, maskable 512); đường dẫn có `?v=349`. iPhone đang hiện chữ "Đ": xóa icon cũ, xóa dữ liệu Safari rồi Thêm vào Màn hình chính lại.
+- **Khai báo xe (`v62.js`):** "Điền vào bảng" tự chuyển sang tháng của "Từ ngày" (trước đây chỉ điền tháng đang xem nên khai báo tháng sau không lưu được gì), báo đúng số ngày đã điền, báo lỗi khi không điền được ngày nào. Chuyển tháng / đổi kho khi còn thay đổi chưa lưu thì hỏi lại.
+- **Dữ liệu mẫu:** `load_demo()` đặt booking mẫu theo ngày làm việc thứ n, hết chồng xe khi +n ngày rơi vào Chủ nhật (test `99l_demo_gen.sql` lỗi theo thứ trong tuần).
+
 ## v3.48 — UI/UX theo vai trò
 
 Không đổi database. Theo rà soát `claude/ra-soat-ui-ux-theo-vai-tro.md` (Project).
@@ -560,6 +568,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v52.js                  v3.36: giao diện điện thoại (lưới Đặt hàng dạng thẻ, nút Lọc, ngày đã qua)
   v53.js                  v3.37: biểu tượng SVG thay emoji, aria-pressed, giữ con trỏ khi vẽ lại
   v54.js                  v3.38: màn Lịch – gom tuần đã qua, nhãn Hôm nay, số tấn gọn
+  v62.js                  v3.49: Khai báo xe – điền tháng sau, hỏi trước khi bỏ thay đổi chưa lưu
 functions/api/chat.js     Cloudflare Function gọi Workers AI
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
