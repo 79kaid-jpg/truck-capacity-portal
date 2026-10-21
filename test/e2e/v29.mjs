@@ -39,8 +39,10 @@ await session('cs@demo.vn', async p => {
   S('grid-paste');
   // ngày làm việc đầu tiên từ +5 có khai báo xe (không rơi vào Chủ nhật / ngày nghỉ) – kết quả giống nhau mọi ngày trong tuần
   const day = await p.evaluate(() => { for (let i = 5; i < 20; i++) { const x = addDays(TODAY, i); const m = dayM('JM2', x); if (dow(x) !== 0 && m.declared && !m.off) return x; } return addDays(TODAY, 5); });
+  // dòng 3 vượt năng lực còn trống của ngày (tính theo dữ liệu thật, không gõ cứng số tấn)
+  const over = await p.evaluate(d => Math.ceil(dayM('JM2', d).avail) + 5, day);
   await p.evaluate(t => { const el = document.querySelector('[data-g="code"][data-i="0"]'); const dt = new DataTransfer(); dt.setData('text/plain', t); el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); },
-    `Kho\tNgày bốc\tMã KH\tSố tấn\tĐịa chỉ\tRef\tGhi chú\nJM2\t${dmy(day)}\tKH0102\t30\tKCN Phú Mỹ 1\tSO-7788\t\nJM2\t${dmy(day)}\tXX999\t10\t\t\t\nJM2\t${dmy(day)}\tKH0101\t250\t\t\t`);
+    `Kho\tNgày bốc\tMã KH\tSố tấn\tĐịa chỉ\tRef\tGhi chú\nJM2\t${dmy(day)}\tKH0102\t30\tKCN Phú Mỹ 1\tSO-7788\t\nJM2\t${dmy(day)}\tXX999\t10\t\t\t\nJM2\t${dmy(day)}\tKH0101\t${over}\t\t\t`);
   await p.waitForTimeout(300);
   const g = await p.locator('.g30 tbody').innerText();
   ok(/Vạn Thành/.test(g) && /Không có mã khách/.test(g) && /Vượt năng lực/.test(g), 'grid: name filled, unknown code + over capacity flagged', g.slice(0, 300));

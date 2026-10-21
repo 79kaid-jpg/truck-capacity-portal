@@ -4923,8 +4923,14 @@ begin
       (5,'KH0101','ok','Hoa Cương','Xám Trắng',0.45,1200,28.0,'DK-02',0),
       (5,'KH0103','hold','Tôn mạ màu','Đỏ Đô',0.4,1200,10.0,'',20)
     ) v(off, code, st, p, c, th, w, t, truck, mins) loop
-      d := v_today + r.off;
-      while extract(dow from d) = 0 or coalesce(app.setting('holidays'), '[]'::jsonb) ? d::text loop d := d + 1; end loop;  -- bỏ Chủ nhật và ngày nghỉ đã cấu hình
+      -- Ngày làm việc thứ r.off kể từ hôm nay (bỏ Chủ nhật và ngày nghỉ đã cấu hình).
+      -- Tính theo ngày làm việc để hai offset khác nhau không rơi vào cùng một ngày (tránh chồng xe khi +n là Chủ nhật).
+      d := v_today;
+      while extract(dow from d) = 0 or coalesce(app.setting('holidays'), '[]'::jsonb) ? d::text loop d := d + 1; end loop;
+      for k in 1..r.off loop
+        d := d + 1;
+        while extract(dow from d) = 0 or coalesce(app.setting('holidays'), '[]'::jsonb) ? d::text loop d := d + 1; end loop;
+      end loop;
       select c.id into v_cust from app.customers c where c.code = r.code;
       select a.id into v_addr from app.customer_addresses a join app.address_regions ar on ar.address_id = a.id
        where a.customer_id = v_cust and ar.warehouse_code = 'JM2' limit 1;
