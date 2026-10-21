@@ -195,7 +195,7 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
-## v3.50 — Đặt hàng theo ngày giao, Zone vận chuyển
+## v3.51 — Đặt hàng theo ngày giao, Zone vận chuyển
 
 > **Chạy `supabase/setup_all.sql` trước khi gộp.** Lần chạy đầu bật sẵn chế độ đặt theo ngày giao, tạo Zone, gắn Zone cho khu vực, thêm khu vực còn thiếu, điền ngày giao cho đơn cũ.
 
@@ -588,8 +588,8 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v53.js                  v3.37: biểu tượng SVG thay emoji, aria-pressed, giữ con trỏ khi vẽ lại
   v54.js                  v3.38: màn Lịch – gom tuần đã qua, nhãn Hôm nay, số tấn gọn
   v62.js                  v3.49: Khai báo xe – điền tháng sau, hỏi trước khi bỏ thay đổi chưa lưu
-  v63.js                  v3.50: Đặt hàng theo ngày giao, Zone vận chuyển, Cấu hình › Vận chuyển, đổi ngày bốc sớm hơn
-  v63.js                  v3.50: logo mới ở đầu trang / đăng nhập, biểu tượng menu Khai báo xe
+  v63.js                  v3.51: Đặt hàng theo ngày giao, Zone vận chuyển, Cấu hình › Vận chuyển, đổi ngày bốc sớm hơn
+  v63.js                  v3.51: logo mới ở đầu trang / đăng nhập, biểu tượng menu Khai báo xe
 functions/api/chat.js     Cloudflare Function gọi Workers AI
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
