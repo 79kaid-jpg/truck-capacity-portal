@@ -195,6 +195,13 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+## v3.50 — Logo mới trong app
+
+Không đổi database.
+
+- **Logo đầu trang và màn đăng nhập (`v63.js`):** dùng đúng icon app (xe đầu kéo chở 3 cuộn coil, `favicon.svg`), bỏ biểu tượng xe trong vòng tròn.
+- **Menu "Khai báo xe":** biểu tượng nét mới – rơ-moóc chở 3 cuộn coil, cùng kiểu các biểu tượng menu khác.
+
 ## v3.49 — Icon mới, Khai báo xe tháng sau, sửa dữ liệu mẫu
 
 Không bắt buộc chạy lại `setup_all.sql` (chỉ đổi `load_demo()`, hàm này chỉ tạo booking mẫu khi chưa có booking nào).
@@ -569,6 +576,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v53.js                  v3.37: biểu tượng SVG thay emoji, aria-pressed, giữ con trỏ khi vẽ lại
   v54.js                  v3.38: màn Lịch – gom tuần đã qua, nhãn Hôm nay, số tấn gọn
   v62.js                  v3.49: Khai báo xe – điền tháng sau, hỏi trước khi bỏ thay đổi chưa lưu
+  v63.js                  v3.50: logo mới ở đầu trang / đăng nhập, biểu tượng menu Khai báo xe
 functions/api/chat.js     Cloudflare Function gọi Workers AI
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
