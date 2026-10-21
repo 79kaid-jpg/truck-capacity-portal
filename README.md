@@ -195,6 +195,15 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+## v3.52 — Lịch: đếm chờ xếp xe khớp nhau, sửa nút Ngày bốc bị che
+
+Không cần chạy `setup_all.sql`.
+
+- Nút lọc **Chờ xếp xe / Khẩn / Của tôi** đếm **số đơn** (trước đây đếm số ngày); rê chuột: "5 đơn chờ xếp xe trong 3 ngày". Khớp với tổng các khung "N đơn chờ xếp xe" trong ô và khung thống kê.
+- Lịch **Ngày giao**: đơn chờ xếp xe hiện ở ô **ngày giao** của đơn (trước đây lấy theo ngày bốc của Zone đang chọn nên lệch ô).
+- Nút **Ngày bốc** không còn bị ô chọn Zone che mất chữ.
+- Sửa file sau khi gộp #62 và #63 (cùng tên `v63`): `web/v63.js` = logo, `web/v64.js` = đặt theo ngày giao; test `v63.mjs` (logo) bị ghép hỏng được tách lại, thêm `v64.mjs`.
+
 ## v3.51 — Đặt hàng theo ngày giao, Zone vận chuyển
 
 > **Chạy `supabase/setup_all.sql` trước khi gộp.** Lần chạy đầu bật sẵn chế độ đặt theo ngày giao, tạo Zone, gắn Zone cho khu vực, thêm khu vực còn thiếu, điền ngày giao cho đơn cũ.
@@ -206,7 +215,7 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - **Lịch:** nút Ngày giao / Ngày bốc. Ở Ngày giao, đơn nằm ở ô ngày giao; năng lực của ô = năng lực ngày bốc tương ứng với Zone đang chọn.
 - **Cấu hình › Vận chuyển** (quyền mới `config.transport`, Logistics + Admin): sửa Zone, số ngày riêng, tên gọi khác; **Tải Excel / Nạp Excel** (xem trước thêm / sửa / lỗi, có lỗi thì không ghi); liệt kê đơn đang bốc muộn hơn ngày gợi ý sau khi đổi số liệu (không tự đổi). Admin bật / tắt chế độ đặt theo ngày giao.
 - Yêu cầu đặt hàng: ngày bốc dự kiến theo Zone địa chỉ của khách.
-- Mã: `web/v63.js`; CSDL: `app.zones`, `regions.zone_code / days_own / aliases`, `app.calc_load_day`, `app.guess_region`, trigger `bk_deliv`, `save_zone`, `save_region_transport`, `import_transport`, `transport_drift`, `set_load_day`. Test: `test/99m_ngay_giao.sql`, `test/e2e/v63.mjs`.
+- Mã: `web/v64.js`; CSDL: `app.zones`, `regions.zone_code / days_own / aliases`, `app.calc_load_day`, `app.guess_region`, trigger `bk_deliv`, `save_zone`, `save_region_transport`, `import_transport`, `transport_drift`, `set_load_day`. Test: `test/99m_ngay_giao.sql`, `test/e2e/v64.mjs`.
 ## v3.50 — Logo mới trong app
 
 Không đổi database.
@@ -588,8 +597,8 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v53.js                  v3.37: biểu tượng SVG thay emoji, aria-pressed, giữ con trỏ khi vẽ lại
   v54.js                  v3.38: màn Lịch – gom tuần đã qua, nhãn Hôm nay, số tấn gọn
   v62.js                  v3.49: Khai báo xe – điền tháng sau, hỏi trước khi bỏ thay đổi chưa lưu
-  v63.js                  v3.51: Đặt hàng theo ngày giao, Zone vận chuyển, Cấu hình › Vận chuyển, đổi ngày bốc sớm hơn
-  v63.js                  v3.51: logo mới ở đầu trang / đăng nhập, biểu tượng menu Khai báo xe
+  v63.js                  v3.50: logo mới ở đầu trang / đăng nhập, biểu tượng menu Khai báo xe
+  v64.js                  v3.51–3.52: Đặt hàng theo ngày giao, Zone vận chuyển, Cấu hình › Vận chuyển, đổi ngày bốc sớm hơn
 functions/api/chat.js     Cloudflare Function gọi Workers AI
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
