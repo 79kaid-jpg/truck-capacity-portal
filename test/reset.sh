@@ -26,7 +26,10 @@ insert into app.profiles (user_id,full_name,email,phone,role,segment,default_war
  ('00000000-0000-0000-0000-0000000000d1','Phạm Quốc Bảo','s1@demo.vn','0903 112 233','sales','DD','JM2','{}'),
  ('00000000-0000-0000-0000-0000000000d2','Đỗ Thu Hà','s2@demo.vn','0908 445 566','sales','DA','JM2','{}');
 select app.load_demo();
+-- v3.50: test cũ đặt thẳng ngày bốc; DELIV=1 để chạy với chế độ đặt theo ngày giao
+update app.settings set value = 'false' where key = 'deliveryMode';
 insert into app.profiles (user_id,full_name,email,role,customer_id) select '00000000-0000-0000-0000-0000000000e1','Văn Phú','kh@demo.vn','customer',id from app.customers where code='KH0102';
 SQL
+[ "${DELIV:-0}" = 1 ] && $P -d t -c "update app.settings set value = 'true' where key = 'deliveryMode'"
 psql -h /tmp -U postgres -q -d postgres -c "alter database t set request.jwt.claim.aal = 'aal2'"
 echo reset-ok

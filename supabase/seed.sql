@@ -11,7 +11,7 @@ insert into app.settings (key, value) values
   ('requirePicking', 'true'), ('shipRemindHours', '6'), ('shipAdminDays', '2'),
   ('chatOn', 'true'), ('chatRoles', '["cs","sales","logistics","admin"]'), ('chatDaily', '150'),
   ('chatDailyRole', '{"cs":150,"sales":150,"logistics":150,"admin":150,"customer":30}'), ('chatDailyTotal', '2000'), ('transitDays', '{}'), ('talkRemindHours', '2'), ('uatOn', 'true'),
-  ('aiEngine', '"free"'), ('aiModel', '"haiku"'), ('aiClaudeDaily', '200')
+  ('aiEngine', '"free"'), ('aiModel', '"haiku"'), ('aiClaudeDaily', '200'), ('deliveryMode', 'true')
 on conflict (key) do nothing;
 
 insert into app.warehouses (code, name, full_name) values
@@ -121,6 +121,114 @@ select a, b from (values
 ) v(x, y), lateral (values (x, y), (y, x)) p(a, b)
 on conflict do nothing;
 
+-- v3.50: Zone vận chuyển và số ngày xe chạy từ kho (file "Customer and loading estimation" của Logistics, 21/10/2026).
+-- Logistics sửa ở Cấu hình › Vận chuyển; chạy lại file này không ghi đè số liệu đã sửa.
+insert into app.zones (warehouse_code, code, name, days) values
+  ('JM2','SE','South East',1), ('JM2','HL','Highland',2), ('JM2','MK','Mekong',1), ('JM2','CT','Central',4),
+  ('JD8','NO','North',1), ('JD8','RR','Red River',1),
+  ('JD9','RR','Red River',1), ('JD9','CT','Central',2)
+on conflict do nothing;
+
+-- Khu vực chưa có trong danh mục (tên tỉnh cũ). Hà Giang tách khỏi Tuyên Quang vì đi 2 ngày.
+insert into app.regions (id, warehouse_code, code, name, new_province, round_trip_days, zone_code) values
+  ('PMY-BPH','JM2','BPH','Bình Phước','Đồng Nai',1,'SE'),
+  ('PMY-KHO','JM2','KHO','Khánh Hòa','Khánh Hòa',1,'SE'),
+  ('PMY-NTH','JM2','NTH','Ninh Thuận','Khánh Hòa',1,'SE'),
+  ('PMY-HUE','JM2','HUE','Thừa Thiên Huế','Huế',4,'CT'),
+  ('PMY-KTU','JM2','KTU','Kon Tum','Quảng Ngãi',2,'HL'),
+  ('PMY-AGI','JM2','AGI','An Giang','An Giang',1,'MK'),
+  ('PMY-BTR','JM2','BTR','Bến Tre','Vĩnh Long',1,'MK'),
+  ('PMY-DTH','JM2','DTH','Đồng Tháp','Đồng Tháp',1,'MK'),
+  ('CLO-QBI','JD9','QBI','Quảng Bình','Quảng Trị',2,'CT'),
+  ('HPG-BGI','JD8','BGI','Bắc Giang','Bắc Ninh',1,'NO'),
+  ('HPG-BKA','JD8','BKA','Bắc Kạn','Thái Nguyên',1,'NO'),
+  ('HPG-CBA','JD8','CBA','Cao Bằng','Cao Bằng',1,'NO'),
+  ('HPG-HGG','JD8','HGG','Hà Giang','Tuyên Quang',2,null),
+  ('HPG-HBI','JD8','HBI','Hòa Bình','Phú Thọ',1,'NO'),
+  ('HPG-SLA','JD8','SLA','Sơn La','Sơn La',1,'NO'),
+  ('HPG-TNG','JD8','TNG','Thái Nguyên','Thái Nguyên',1,'NO'),
+  ('HPG-VPH','JD8','VPH','Vĩnh Phúc','Phú Thọ',1,'NO'),
+  ('HPG-YBA','JD8','YBA','Yên Bái','Lào Cai',1,'NO'),
+  ('HPG-HNA','JD8','HNA','Hà Nam','Ninh Bình',1,'RR'),
+  ('HPG-NDI','JD8','NDI','Nam Định','Ninh Bình',1,'RR'),
+  ('HPG-NBI','JD8','NBI','Ninh Bình','Ninh Bình',1,'RR'),
+  ('HPG-QNI','JD8','QNI','Quảng Ninh','Quảng Ninh',1,'RR'),
+  ('HPG-THO','JD8','THO','Thanh Hóa','Thanh Hóa',1,'RR')
+on conflict do nothing;
+
+-- Gắn Zone, số ngày riêng (ngoại lệ) và tên gọi khác cho khu vực chưa cấu hình
+update app.regions r set zone_code = v.z, days_own = v.own
+  from (values
+    ('PMY-VTA','SE',null),('PMY-HCM','SE',null),('PMY-BDU','SE',null),('PMY-DNA','SE',null),('PMY-LAN','SE',null),('PMY-TNI','SE',null),
+    ('PMY-BTH','SE',null),('PMY-PYE','SE',null),
+    ('PMY-TGI','MK',null),('PMY-VLO','MK',null),('PMY-TVI','MK',null),('PMY-CTH','MK',null),('PMY-HGI','MK',null),('PMY-STR','MK',null),
+    ('PMY-BLI','MK',null),('PMY-CMA','MK',null),('PMY-KGI','MK',null),
+    ('PMY-LDG','HL',null),('PMY-DNO','HL',null),('PMY-DLK','HL',null),('PMY-GLA','HL',null),
+    ('PMY-BDI','CT',2),('PMY-QNG','CT',null),('PMY-QNA','CT',null),('PMY-DNG','CT',null),
+    ('CLO-THO','RR',null),('CLO-NAN','RR',null),('CLO-HTI','RR',null),('CLO-QTR','CT',null),
+    ('HPG-HPH','NO',null),('HPG-HDU','NO',null),('HPG-HYE','NO',null),('HPG-TBI','RR',null),('HPG-HNO','NO',null),('HPG-BNI','NO',null),
+    ('HPG-LSO','NO',null),('HPG-PTH','NO',null),('HPG-TQU','NO',null),('HPG-LCA','NO',null),('HPG-HGG','NO',2)
+  ) v(id, z, own)
+ where r.id = v.id and r.zone_code is null;
+
+update app.regions r set aliases = v.al
+  from (values
+    ('PMY-VTA','Bà Rịa - Vũng Tàu; ba ria; vung tau; brvt; phu my'),
+    ('PMY-HCM','Hồ Chí Minh; binh chanh; binh tan; tan binh; thu duc; cu chi; hoc mon; nha be; can gio; go vap; binh thanh; tan phu; phu nhuan; quan 12; q12'),
+    ('PMY-BDU','thu dau mot; thuan an; di an; ben cat; tan uyen'),
+    ('PMY-DNA','bien hoa; long khanh; long thanh; nhon trach; trang bom'),
+    ('PMY-LAN','tan an; ben luc; duc hoa'),
+    ('PMY-BTH','phan thiet; la gi; lagi'),
+    ('PMY-PYE','tuy hoa'),
+    ('PMY-BPH','dong xoai'),
+    ('PMY-KHO','Khánh Hoà; nha trang; cam ranh'),
+    ('PMY-NTH','phan rang'),
+    ('PMY-TGI','my tho'),
+    ('PMY-KGI','rach gia'),
+    ('PMY-AGI','long xuyen; chau doc'),
+    ('PMY-DTH','cao lanh; sa dec'),
+    ('PMY-LDG','da lat; bao loc'),
+    ('PMY-DNO','daknong; dak nong; gia nghia'),
+    ('PMY-DLK','daklak; dac lac; buon ma thuot; bmt'),
+    ('PMY-GLA','pleiku'),
+    ('PMY-BDI','quy nhon'),
+    ('PMY-QNA','tam ky; hoi an'),
+    ('PMY-HUE','Huế'),
+    ('CLO-QBI','dong hoi'),
+    ('CLO-QTR','dong ha'),
+    ('CLO-THO','Thanh Hoá'),
+    ('HPG-THO','Thanh Hoá'),
+    ('HPG-HNO','hn'),
+    ('HPG-HBI','Hoà Bình'),
+    ('HPG-PTH','viet tri'),
+    ('HPG-VPH','vinh yen'),
+    ('HPG-HNA','phu ly'),
+    ('HPG-QNI','ha long; cam pha; uong bi')
+  ) v(id, al)
+ where r.id = v.id and r.aliases = '';
+
+do $$ declare w text; begin for w in select code from app.warehouses loop perform app.sync_region_days(w); end loop; end $$;
+
+-- Một lần: địa chỉ đã gắn khu vực theo tỉnh mới (vd. Tuyên Quang) nhưng địa chỉ ghi tỉnh cũ có khu vực riêng (vd. Hà Giang) → chuyển sang khu vực riêng
+do $$
+begin
+  if not exists (select 1 from app.settings where key = 'v350Remap') then
+    update app.address_regions ar set region_id = g.rid
+      from (select ar2.address_id, ar2.warehouse_code, app.guess_region(ar2.warehouse_code, concat_ws(', ', a.label, nullif(a.ward, '')), '') rid
+              from app.address_regions ar2 join app.customer_addresses a on a.id = ar2.address_id) g
+      join app.regions nr on nr.id = g.rid
+     where ar.address_id = g.address_id and ar.warehouse_code = g.warehouse_code
+       and nr.id in ('HPG-HGG','PMY-BPH','PMY-KHO','PMY-NTH','PMY-HUE','PMY-KTU','PMY-AGI','PMY-BTR','PMY-DTH','CLO-QBI','HPG-BGI','HPG-BKA',
+                     'HPG-CBA','HPG-HBI','HPG-SLA','HPG-TNG','HPG-VPH','HPG-YBA','HPG-HNA','HPG-NDI','HPG-NBI','HPG-QNI','HPG-THO')
+       and ar.region_id <> nr.id
+       and (select r0.new_province from app.regions r0 where r0.id = ar.region_id) = nr.new_province;
+    insert into app.settings (key, value) values ('v350Remap', 'true');
+  end if;
+end $$;
+
+-- Ngày giao cho đơn cũ = ngày bốc + số ngày đi (trigger bk_deliv tự điền khi để trống)
+update app.bookings set delivery_date = null where delivery_date is null;
+
 insert into app.products (code, name) values
   ('SP01','Hoa Cương'),('SP02','INOK'),('SP03','Tôn lạnh AZ150'),('SP04','Tôn mạ màu'),('SP05','Xà gồ mạ kẽm')
 on conflict do nothing;
@@ -181,6 +289,7 @@ insert into app.permissions (code, grp, name, descr, sort, def_roles) values
   ('fleet.manage',    'Điều phối',  'Khai báo số xe theo ngày',            'Trucks capacity setting: số đầu kéo, xe thùng mỗi ngày mỗi kho', 110, '{logistics,admin}'),
   ('config.general',  'Cấu hình',   'Ngưỡng, tải trọng, ngày nghỉ',        'Ngưỡng gần đầy, tải trọng DK/CN, ngưỡng phân loại, SLA, ngày nghỉ lễ', 120, '{logistics,admin}'),
   ('config.regions',  'Cấu hình',   'Khu vực giao hàng',                   'Thêm khu vực, khu vực lân cận, ngừng dùng', 130, '{logistics,admin}'),
+  ('config.transport','Cấu hình',   'Vận chuyển (Zone, số ngày đi)',       'Zone, số ngày xe chạy từ kho, số ngày riêng và tên gọi khác của khu vực; nạp / xuất Excel', 131, '{logistics,admin}'),
   ('config.catalog',  'Cấu hình',   'Sản phẩm, màu, độ dày, khổ',          'Thêm, sửa, ngừng dùng mục trong danh mục', 140, '{logistics,admin}'),
   ('dash.ops',        'Dashboard',  'Bảng thống kê · tab Logistics',      'Năng lực giao, lấp đầy 14 ngày tới, thời gian xác nhận, đơn chờ xếp xe (kèm tab Tổng quan, Ngoại lệ, Lịch đơn, Mục tiêu)', 150, '{logistics,admin}'),
   ('dash.service',    'Dashboard',  'Bảng thống kê · tab CS',             'Trạng thái đơn, việc cần làm (đổi ngày, quá ngày chưa chốt, lưu tạm sắp đến ngày), top khách', 160, '{logistics,cs,admin}'),

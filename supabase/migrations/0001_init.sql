@@ -37,6 +37,19 @@ create table if not exists app.regions (
   active          boolean not null default true,
   unique (warehouse_code, name)
 );
+-- v3.50: Zone vận chuyển theo kho (số ngày xe chạy từ kho tới Zone). Khu vực thuộc một Zone;
+-- days_own = số ngày riêng của khu vực (ngoại lệ, null = theo Zone); aliases = tên gọi khác trong địa chỉ, cách nhau dấu ;
+create table if not exists app.zones (
+  warehouse_code text not null references app.warehouses(code),
+  code           text not null,
+  name           text not null,
+  days           int  not null default 1 check (days between 0 and 30),
+  active         boolean not null default true,
+  primary key (warehouse_code, code)
+);
+alter table app.regions add column if not exists zone_code text;
+alter table app.regions add column if not exists days_own  int;
+alter table app.regions add column if not exists aliases   text not null default '';
 
 create table if not exists app.region_neighbors (
   region_a text not null references app.regions(id) on delete cascade,
@@ -638,6 +651,81 @@ language sql stable security definer set search_path = '' as $$
       or exists (select 1 from jsonb_array_elements_text(coalesce(app.setting('holidays'), '[]'::jsonb)) h where h = p_day::text)
 $$;
 
+-- ---------- v3.50: ngày giao → ngày bốc ----------
+-- Đặt theo ngày giao (CS / Sales / khách chỉ chọn ngày hàng tới tay khách). Tắt = như cũ, đặt thẳng ngày bốc.
+create or replace function app.deliv_on() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select coalesce((app.setting('deliveryMode') #>> '{}')::boolean, false)
+$$;
+
+-- Số ngày xe chạy từ kho tới khu vực: số ngày riêng của khu vực, nếu trống thì theo Zone
+create or replace function app.region_days(p_region text) returns int
+language sql stable security definer set search_path = '' as $$
+  select coalesce(r.days_own, z.days, r.round_trip_days, 1)
+    from app.regions r left join app.zones z on z.warehouse_code = r.warehouse_code and z.code = r.zone_code
+   where r.id = p_region
+$$;
+
+-- Ngày bốc gợi ý = ngày giao − số ngày đi (tính cả Chủ nhật); rơi vào ngày kho nghỉ chưa khai báo xe thì lùi tiếp
+create or replace function app.calc_load_day(p_wh text, p_region text, p_delivery date) returns date
+language plpgsql stable security definer set search_path = '' as $$
+declare d date; n int := 0;
+begin
+  if p_delivery is null or p_region is null then return null; end if;
+  d := p_delivery - coalesce(app.region_days(p_region), 1);
+  while n < 14 and app.is_holiday(p_wh, d)
+        and not exists (select 1 from app.daily_fleet f where f.warehouse_code = p_wh and f.day = d) loop
+    d := d - 1; n := n + 1;
+  end loop;
+  return d;
+end $$;
+
+-- Chuẩn hóa địa chỉ / tên để so khớp: không dấu, bỏ "tỉnh", "TP", dấu câu; HCM / Sài Gòn → ho chi minh
+create or replace function app.rg_norm(t text) returns text
+language sql immutable set search_path = '' as $$
+  select ' ' || trim(regexp_replace(regexp_replace(regexp_replace(regexp_replace(app.fold(t),
+           '\m(tp\.?\s*hcm|tphcm|hcm|sai gon)\M', 'ho chi minh', 'g'),
+           '\m(thanh pho|tinh|tp)\.?\s+', '', 'g'),
+           '[.,;:/()–—_-]', ' ', 'g'),
+           '\s+', ' ', 'g')) || ' '
+$$;
+
+-- Đoán khu vực từ địa chỉ: tên / tên gọi khác dài nhất có trong địa chỉ; không có thì theo tỉnh (cũ hoặc mới) nếu chỉ ứng với một khu vực
+create or replace function app.guess_region(p_wh text, p_text text, p_province text default '') returns text
+language plpgsql stable security definer set search_path = '' as $$
+declare v text; t text;
+begin
+  foreach t in array array[coalesce(p_text, ''), coalesce(p_province, '')] loop
+    continue when trim(t) = '';
+    select r.id into v
+      from app.regions r cross join lateral unnest(array[r.name] || string_to_array(r.aliases, ';')) k(alias)
+     where r.warehouse_code = p_wh and r.active and length(trim(app.rg_norm(k.alias))) >= 2
+       and position(app.rg_norm(k.alias) in app.rg_norm(t)) > 0
+     order by length(app.rg_norm(k.alias)) desc, r.id limit 1;
+    if v is not null then return v; end if;
+  end loop;
+  select min(r.id) into v from app.regions r
+   where r.warehouse_code = p_wh and r.active and app.rg_norm(r.new_province) = app.rg_norm(p_province) having count(*) = 1;
+  return v;
+end $$;
+
+-- Ngày giao luôn có giá trị: trống thì = ngày bốc + số ngày đi; Logistics dời ngày bốc muộn hơn (đề nghị đổi ngày) thì ngày giao lùi theo
+create or replace function app.bk_deliv_trg() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare n int;
+begin
+  n := coalesce(app.region_days(new.region_id), (select coalesce((app.setting('transitDays') ->> new.warehouse_code)::int, 1)));
+  if new.delivery_date is null then
+    new.delivery_date := new.day + n;
+  elsif tg_op = 'UPDATE' and new.day is distinct from old.day and new.day + n > new.delivery_date then
+    new.delivery_date := new.day + n;
+  end if;
+  return new;
+end $$;
+drop trigger if exists bk_deliv on app.bookings;
+create trigger bk_deliv before insert or update of day, delivery_date, region_id on app.bookings
+  for each row execute function app.bk_deliv_trg();
+
 create or replace function app.truck_code(p_wh text, p_day date, p_type text, p_seq int) returns text
 language sql immutable set search_path = '' as $$
   select p_wh || '-' || to_char(p_day, 'DDMMYY') || '-' || p_type || '-' || lpad(p_seq::text, 2, '0')
@@ -999,9 +1087,12 @@ begin
   end if;
   res := res || jsonb_build_object(
     'regions', (select coalesce(jsonb_agg(jsonb_build_object('id', r.id, 'wh', r.warehouse_code, 'code', r.code, 'name', r.name,
-                  'newProvince', r.new_province, 'days', r.round_trip_days, 'active', r.active,
+                  'newProvince', r.new_province, 'days', app.region_days(r.id), 'active', r.active,
+                  'zone', r.zone_code, 'daysOwn', r.days_own, 'aliases', r.aliases,
                   'neighbors', (select coalesce(jsonb_agg(n.region_b), '[]') from app.region_neighbors n where n.region_a = r.id)) order by r.warehouse_code, r.name), '[]')
                 from app.regions r),
+    'zones', (select coalesce(jsonb_agg(jsonb_build_object('wh', z.warehouse_code, 'code', z.code, 'name', z.name, 'days', z.days, 'active', z.active)
+                order by z.warehouse_code, z.days, z.name), '[]') from app.zones z),
     'products', (select coalesce(jsonb_agg(jsonb_build_object('code', code, 'name', name, 'active', active) order by code), '[]') from app.products),
     'colors',   (select coalesce(jsonb_agg(jsonb_build_object('code', code, 'name', name, 'active', active) order by code), '[]') from app.colors),
     'thicks',   (select coalesce(jsonb_agg(jsonb_build_object('value', value_mm, 'active', active) order by value_mm), '[]') from app.thicknesses),
@@ -1172,11 +1263,13 @@ declare
   v_wh text := p->>'wh'; v_day date := nullif(p->>'day', '')::date; v_cust uuid := nullif(p->>'customer_id', '')::uuid;
   v_total numeric; v_avail numeric; v_addr uuid; v_addr_text text := ''; v_prov text := ''; v_region text;
   v_seq int; v_changed boolean := false; v_status text; ln jsonb; i int := 0;
+  v_deliv date := nullif(p->>'delivery', '')::date; v_calc date; v_urgent boolean := false;
 begin
   me := app.require_perm(case when nullif(p->>'id', '') is null then 'booking.create' else 'booking.edit' end);
   if v_mode not in ('draft','hold') then raise exception 'Chế độ lưu không hợp lệ.'; end if;
-  if v_day is null or v_cust is null or v_wh is null then raise exception 'Chọn kho, khách hàng và ngày bốc.'; end if;
-  if v_day < app.today() then raise exception 'Không đặt cho ngày đã qua.'; end if;
+  if v_cust is null or v_wh is null or (v_day is null and not (app.deliv_on() and v_deliv is not null)) then
+    raise exception 'Chọn kho, khách hàng và %.', case when app.deliv_on() then 'ngày giao' else 'ngày bốc' end;
+  end if;
   select * into c from app.customers where id = v_cust and active;
   if not found then raise exception 'Khách hàng không tồn tại hoặc đã ngừng.'; end if;
   perform app.check_scope(me, v_cust);
@@ -1211,6 +1304,45 @@ begin
     end if;
   end if;
 
+  -- v3.50: khu vực chưa chọn thì lấy theo địa chỉ đã lưu, rồi đoán từ địa chỉ
+  if v_region is null and v_addr is not null then
+    select ar.region_id into v_region from app.address_regions ar where ar.address_id = v_addr and ar.warehouse_code = v_wh;
+  end if;
+  if v_region is null and (v_addr_text <> '' or v_prov <> '') then
+    v_region := app.guess_region(v_wh, v_addr_text, v_prov);
+  end if;
+  -- v3.50: đặt theo ngày giao → hệ thống tính ngày bốc. Logistics / Admin được chọn ngày bốc sớm hơn, không được muộn hơn.
+  if app.deliv_on() and v_deliv is not null then
+    if v_region is null then
+      if v_mode = 'hold' then
+        raise exception 'Chưa xác định được khu vực (Zone) của địa chỉ giao nên chưa tính được ngày bốc. Chọn địa chỉ giao hoặc khu vực.';
+      end if;
+      v_calc := v_deliv;
+    else
+      v_calc := app.calc_load_day(v_wh, v_region, v_deliv);
+    end if;
+    if me.role in ('logistics','admin') and v_day is not null and v_day <> v_calc then
+      if v_day > v_calc then
+        raise exception 'Ngày bốc % muộn hơn ngày gợi ý % (giao %, đi % ngày): chỉ được bốc sớm hơn.',
+          app.dm(v_day), app.dm(v_calc), app.dm(v_deliv), app.region_days(v_region);
+      end if;
+    elsif v_id is not null and exists (select 1 from app.bookings o where o.id = v_id and o.delivery_date = v_deliv
+                                         and o.region_id is not distinct from v_region and o.day >= app.today()) then
+      v_day := (select o.day from app.bookings o where o.id = v_id);   -- ngày giao, khu vực không đổi: giữ ngày bốc Logistics đã chọn
+    else
+      v_day := v_calc;
+    end if;
+    if v_day < app.today() then
+      if coalesce((p->>'urgent')::boolean, false) then
+        v_day := app.today(); v_urgent := true;
+      else
+        raise exception 'Không kịp giao ngày %: theo lịch thường phải bốc ngày %. Sớm nhất giao được ngày %. Chọn Đơn khẩn để vẫn đặt.',
+          app.dm(v_deliv), app.dm(v_calc), app.dm(app.today() + coalesce(app.region_days(v_region), 0)) using hint = 'late';
+      end if;
+    end if;
+  end if;
+  if v_day < app.today() then raise exception 'Không đặt cho ngày đã qua.'; end if;
+
   if v_mode = 'hold' then
     -- BR-38: ngày nghỉ vẫn giữ chỗ được khi Logistics đã khai báo xe
     if not exists (select 1 from app.daily_fleet f where f.warehouse_code = v_wh and f.day = v_day) then
@@ -1242,7 +1374,7 @@ begin
     v_id := 'BK-' || v_wh || '-' || to_char(v_day, 'YYMMDD') || '-' || lpad(v_seq::text, 3, '0');
     insert into app.bookings (id, warehouse_code, day, delivery_date, customer_id, ref, address_id, address_text, province, region_id,
                               status, note, cs_user_id, held_at)
-    values (v_id, v_wh, v_day, nullif(p->>'delivery', '')::date, v_cust, coalesce(trim(p->>'ref'), ''), v_addr, v_addr_text, v_prov, v_region,
+    values (v_id, v_wh, v_day, v_deliv, v_cust, coalesce(trim(p->>'ref'), ''), v_addr, v_addr_text, v_prov, v_region,
             v_mode, coalesce(p->>'note', ''),
             case when v_mode = 'draft' or me.role = 'cs' then me.user_id else coalesce(c.cs_user_id, me.user_id) end,
             case when v_mode = 'hold' then now() end);
@@ -1279,7 +1411,8 @@ begin
     elsif old.status = 'ok' and v_changed then v_status := 'hold'; delete from app.allocations where booking_id = v_id;
     elsif old.status = 'hold' and v_changed then delete from app.allocations where booking_id = v_id;
     end if;
-    update app.bookings set day = v_day, delivery_date = nullif(p->>'delivery', '')::date, ref = coalesce(trim(p->>'ref'), ''),
+    update app.bookings set day = v_day, delivery_date = case when v_deliv is not null then v_deliv when old.day <> v_day then null else old.delivery_date end,
+           ref = coalesce(trim(p->>'ref'), ''),
            address_id = v_addr, address_text = v_addr_text, province = v_prov, region_id = v_region, note = coalesce(p->>'note', ''),
            status = v_status,
            held_at = case when v_status = 'hold' and (old.status <> 'hold' or v_changed) then now() else held_at end,
@@ -1310,6 +1443,10 @@ begin
     from jsonb_array_elements(coalesce(p->'lines', '[]'::jsonb)) l
    where coalesce(nullif(l->>'t', '')::numeric, 0) > 0;
 
+  if v_urgent then
+    update app.bookings set urgent_override = true, urgent_note = 'Không kịp lịch thường: giao ' || app.dm(v_deliv) || ', bốc ngay' where id = v_id;
+    perform app.refresh_urgent(v_id);
+  end if;
   if v_status = 'hold' and (old.id is null or old.status <> 'hold' or v_changed) then
     perform app.refresh_urgent(v_id);
     perform app.notify(app.logistics_of(v_wh) || c.sales_user_id,
@@ -1549,6 +1686,40 @@ begin
     jsonb_build_object('bk', p_id, 'day', b.day));
 end $$;
 
+-- v3.50: Logistics đổi ngày bốc của đơn chờ xếp xe sang ngày SỚM hơn ngày gợi ý (ngày giao giữ nguyên, không cần CS duyệt)
+create or replace function public.set_load_day(p_id text, p_day date, p_note text default '') returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; b app.bookings; v_calc date; v_avail numeric; v_t numeric;
+begin
+  me := app.require_perm('alloc.assign');
+  select * into b from app.bookings where id = p_id for update;
+  if not found or b.status <> 'hold' then raise exception 'Chỉ đổi ngày bốc cho đơn đang chờ xếp xe.'; end if;
+  perform app.check_scope(me, b.customer_id);
+  if p_day is null or p_day < app.today() then raise exception 'Ngày bốc phải từ hôm nay trở đi.'; end if;
+  if p_day = b.day then return; end if;
+  v_calc := coalesce(app.calc_load_day(b.warehouse_code, b.region_id, b.delivery_date), b.day);
+  if p_day > v_calc then
+    raise exception 'Ngày bốc % muộn hơn ngày gợi ý % (giao %): chỉ được bốc sớm hơn. Muốn dời muộn hơn thì Đề nghị đổi ngày.',
+      app.dm(p_day), app.dm(v_calc), app.dm(b.delivery_date);
+  end if;
+  if not exists (select 1 from app.daily_fleet f where f.warehouse_code = b.warehouse_code and f.day = p_day) then
+    raise exception 'Ngày % chưa khai báo xe.', app.dm(p_day);
+  end if;
+  perform app.lock_day(b.warehouse_code, p_day);
+  v_t := app.bk_total(p_id);
+  v_avail := (app.day_metrics(b.warehouse_code, p_day)->>'avail')::numeric;
+  if v_t > v_avail + 0.001 then
+    raise exception 'Ngày % chỉ còn % MT, đơn cần % MT.', app.dm(p_day), app.fmt(v_avail), app.fmt(v_t);
+  end if;
+  delete from app.allocations where booking_id = p_id;
+  update app.bookings set day = p_day, change_count = change_count + 1, held_at = now(), updated_at = now() where id = p_id;
+  perform app.status_change(p_id, 'hold', 'hold', null,
+    'Logistics đổi ngày bốc ' || app.dm(b.day) || ' → ' || app.dm(p_day) || ' (giao ' || app.dm(b.delivery_date) || ' giữ nguyên)' ||
+    coalesce(': ' || nullif(trim(p_note), ''), ''));
+  perform app.audit(p_id, 'Đổi ngày bốc ' || app.dm(b.day) || ' → ' || app.dm(p_day) || coalesce(': ' || nullif(trim(p_note), ''), ''));
+  perform app.refresh_urgent(p_id);
+end $$;
+
 -- v3.28: p_save_addr = lưu luôn khu vực cho địa chỉ giao (lần sau không phải gán lại)
 drop function if exists public.set_region(text, text);
 create or replace function public.set_region(p_id text, p_region text, p_save_addr boolean default false) returns void
@@ -1728,7 +1899,7 @@ begin
   me := app.require_perm('config.general');
   for k in select jsonb_object_keys(p) loop
     if k not in ('near','capDK','capCN','split','sla','maxStops','fillMin','suggestOn','sundayOff','holidays','capDKMin','capDKMax','capCNMin','capCNMax','escalateHours',
-                 'shipRemindHours','shipAdminDays','requirePicking','chatOn','chatRoles','chatDaily','chatDailyRole','chatDailyTotal','transitDays','talkRemindHours','uatOn') then
+                 'shipRemindHours','shipAdminDays','requirePicking','chatOn','chatRoles','chatDaily','chatDailyRole','chatDailyTotal','transitDays','talkRemindHours','uatOn','deliveryMode') then
       raise exception 'Cấu hình % không hợp lệ.', k;
     end if;
     -- v3.15: bật/tắt bắt buộc picking list – chỉ Admin
@@ -1742,6 +1913,10 @@ begin
       raise exception 'Giá trị % phải lớn hơn 0.', k;
     end if;
     if k = 'uatOn' and jsonb_typeof(p->k) <> 'boolean' then raise exception 'Giá trị uatOn phải là true/false.'; end if;
+    if k = 'deliveryMode' then
+      if me.role <> 'admin' then raise exception 'Chỉ Admin được bật/tắt đặt hàng theo ngày giao.' using errcode = '42501'; end if;
+      if jsonb_typeof(p->k) <> 'boolean' then raise exception 'Giá trị deliveryMode phải là true/false.'; end if;
+    end if;
     if k = 'transitDays' and (jsonb_typeof(p->k) <> 'object' or exists (select 1 from jsonb_each(p->k) e
         where not exists (select 1 from app.warehouses w where w.code = e.key) or jsonb_typeof(e.value) <> 'number'
            or (e.value #>> '{}')::numeric not between 0 and 15 or (e.value #>> '{}')::numeric <> round((e.value #>> '{}')::numeric))) then
@@ -1820,8 +1995,13 @@ begin
   end loop;
   if r.name <> trim(p_name) then v_txt := v_txt || 'tên ' || r.name || ' → ' || trim(p_name) || '; '; end if;
   if r.new_province <> p_new_province then v_txt := v_txt || 'tỉnh mới → ' || p_new_province || '; '; end if;
-  if r.round_trip_days <> p_days then v_txt := v_txt || 'số ngày đi ' || r.round_trip_days || ' → ' || p_days || ' ngày; '; end if;
-  update app.regions set name = trim(p_name), new_province = p_new_province, round_trip_days = p_days where id = p_id;
+  if app.region_days(p_id) <> p_days then v_txt := v_txt || 'số ngày đi ' || app.region_days(p_id) || ' → ' || p_days || ' ngày; '; end if;
+  -- v3.50: khu vực đã gắn Zone: số ngày khác Zone thì ghi thành số ngày riêng
+  update app.regions set name = trim(p_name), new_province = p_new_province, round_trip_days = p_days,
+         days_own = case when zone_code is null then days_own
+                         when p_days = (select z.days from app.zones z where z.warehouse_code = r.warehouse_code and z.code = r.zone_code) then null
+                         else p_days end
+   where id = p_id;
   delete from app.region_neighbors where region_a = p_id or region_b = p_id;
   foreach n in array coalesce(p_neighbors, '{}') loop
     insert into app.region_neighbors values (p_id, n), (n, p_id) on conflict do nothing;
@@ -2558,21 +2738,24 @@ create or replace function public.bulk_create_bookings(p_rows jsonb, p_mode text
 language plpgsql volatile security definer set search_path = '' as $$
 declare
   me app.profiles; r jsonb; i int := 0; res jsonb := '[]'; v_id text; c app.customers; v_addr uuid; v_region text;
-  v_ok int := 0; v_day date; v_wh text; v_tons numeric; v_err text; v_hint text;
+  v_ok int := 0; v_day date; v_wh text; v_tons numeric; v_err text; v_hint text; v_deliv date;
 begin
   me := app.require_perm('booking.create');
   if p_mode not in ('hold','draft') then raise exception 'Chế độ lưu không hợp lệ.'; end if;
   if jsonb_typeof(p_rows) <> 'array' or jsonb_array_length(p_rows) = 0 then raise exception 'Chưa có dòng nào.'; end if;
   if jsonb_array_length(p_rows) > 300 then raise exception 'Tối đa 300 dòng một lần (đang có %).', jsonb_array_length(p_rows); end if;
   for r in select * from jsonb_array_elements(p_rows) loop
-    i := i + 1; v_id := null; v_day := null; v_wh := upper(trim(coalesce(r->>'wh', ''))); v_tons := null;
+    i := i + 1; v_id := null; v_day := null; v_deliv := null; v_wh := upper(trim(coalesce(r->>'wh', ''))); v_tons := null;
     begin
       select * into c from app.customers where lower(code) = lower(trim(coalesce(r->>'code', '')));
       if not found then raise exception 'Mã khách % không có trong danh mục.', coalesce(nullif(trim(r->>'code'), ''), '(trống)'); end if;
       if not c.active then raise exception 'Khách % đã ngừng dùng.', c.code; end if;
       if not exists (select 1 from app.warehouses w where w.code = v_wh and w.active) then raise exception 'Kho % không hợp lệ.', coalesce(nullif(v_wh, ''), '(trống)'); end if;
-      begin v_day := (r->>'day')::date; exception when others then raise exception 'Ngày bốc % không hợp lệ.', coalesce(r->>'day', ''); end;
-      if v_day is null then raise exception 'Thiếu ngày bốc.'; end if;
+      begin v_day := nullif(r->>'day', '')::date; exception when others then raise exception 'Ngày bốc % không hợp lệ.', coalesce(r->>'day', ''); end;
+      begin v_deliv := nullif(r->>'delivery', '')::date; exception when others then raise exception 'Ngày giao % không hợp lệ.', coalesce(r->>'delivery', ''); end;
+      if v_day is null and not (app.deliv_on() and v_deliv is not null) then
+        raise exception 'Thiếu %.', case when app.deliv_on() then 'ngày giao' else 'ngày bốc' end;
+      end if;
       begin v_tons := replace(r->>'tons', ',', '.')::numeric; exception when others then raise exception 'Số tấn % không hợp lệ.', coalesce(r->>'tons', ''); end;
       if coalesce(v_tons, 0) <= 0 then raise exception 'Số tấn phải lớn hơn 0.'; end if;
       -- Không nhập địa chỉ: dùng địa chỉ mặc định của khách (kèm khu vực đã lưu)
@@ -2585,18 +2768,19 @@ begin
          where a.customer_id = c.id order by a.is_default desc, a.label limit 1;
       end if;
       v_id := public.save_booking(jsonb_build_object(
-        'mode', p_mode, 'wh', v_wh, 'day', v_day, 'customer_id', c.id, 'tons', v_tons,
+        'mode', p_mode, 'wh', v_wh, 'day', v_day, 'delivery', v_deliv, 'urgent', coalesce((r->>'urgent')::boolean, false), 'customer_id', c.id, 'tons', v_tons,
         'ref', coalesce(trim(r->>'ref'), ''), 'note', coalesce(trim(r->>'note'), ''),
         'address_id', coalesce(v_addr::text, 'new'), 'street', coalesce(trim(r->>'address'), ''),
         'province', coalesce(r->>'province', ''), 'save_addr', coalesce((r->>'save_addr')::boolean, false),
         'region', coalesce(v_region, 'NONE')));
       update app.bookings set note = trim(note) where id = v_id;
+      select b.day, b.delivery_date into v_day, v_deliv from app.bookings b where b.id = v_id;
       v_ok := v_ok + 1;
-      res := res || jsonb_build_object('row', i, 'ok', true, 'id', v_id, 'wh', v_wh, 'day', v_day, 'code', c.code, 'name', c.name, 'tons', v_tons,
+      res := res || jsonb_build_object('row', i, 'ok', true, 'id', v_id, 'wh', v_wh, 'day', v_day, 'delivery', v_deliv, 'code', c.code, 'name', c.name, 'tons', v_tons,
                                        'holiday', app.is_holiday(v_wh, v_day));
     exception when others then
       get stacked diagnostics v_err = message_text;
-      res := res || jsonb_build_object('row', i, 'ok', false, 'error', v_err, 'wh', v_wh, 'day', v_day, 'code', r->>'code', 'tons', coalesce(v_tons::text, r->>'tons'),
+      res := res || jsonb_build_object('row', i, 'ok', false, 'error', v_err, 'wh', v_wh, 'day', v_day, 'delivery', v_deliv, 'code', r->>'code', 'tons', coalesce(v_tons::text, r->>'tons'),
                                        'suggest', case when v_day is not null and coalesce(v_tons, 0) > 0 and v_wh <> ''
                                                        then app.suggest_days(v_wh, v_day, v_tons) else '[]'::jsonb end);
     end;
@@ -3076,7 +3260,7 @@ do $$
 declare t text;
 begin
   foreach t in array array['bookings','order_requests','talk_threads','talk_msgs','booking_lines','allocations','daily_fleet','truck_days','delivery_items','profiles',
-                           'regions','region_neighbors','warehouses','settings','holidays','reason_codes'] loop
+                           'regions','region_neighbors','zones','warehouses','settings','holidays','reason_codes'] loop
     if to_regclass('app.' || t) is not null then
       execute format('drop trigger if exists zz_bump_data on app.%I', t);
       execute format('create trigger zz_bump_data after insert or update or delete on app.%I for each row execute function app.bump_data()', t);
@@ -3102,7 +3286,7 @@ begin perform nextval('app.misc_seq'); return null; end $$;
 do $$
 declare t text;
 begin
-  foreach t in array array['daily_fleet','truck_days','profiles','regions','region_neighbors','warehouses','settings','holidays','reason_codes',
+  foreach t in array array['daily_fleet','truck_days','profiles','regions','region_neighbors','zones','warehouses','settings','holidays','reason_codes',
                            'products','colors','thicknesses','widths','permissions','role_permissions','impersonations','cust_views'] loop
     if to_regclass('app.' || t) is not null then
       execute format('drop trigger if exists zz_bump_s on app.%I', t);
@@ -3491,6 +3675,17 @@ language sql stable security definer set search_path = '' as $$
     'handledAt', extract(epoch from r.handled_at), 'reply', r.reply, 'bookingId', r.booking_id)
 $$;
 
+-- v3.50: khu vực của địa chỉ mặc định của khách theo kho (đã lưu, nếu chưa thì đoán từ địa chỉ)
+create or replace function app.cust_region(p_cust uuid, p_wh text) returns text
+language sql stable security definer set search_path = '' as $$
+  select coalesce(ar.region_id, app.guess_region(p_wh, concat_ws(', ', a.label, nullif(a.ward, '')), a.province))
+    from app.customer_addresses a
+    left join app.address_regions ar on ar.address_id = a.id and ar.warehouse_code = p_wh
+   where a.customer_id = p_cust
+   order by a.is_default desc, (ar.region_id is null), a.label
+   limit 1
+$$;
+
 create or replace function public.req_create(p jsonb) returns jsonb
 language plpgsql volatile security definer set search_path = '' as $$
 declare m app.profiles; v_cust uuid; v_day date; v_dl date := coalesce(nullif(p->>'deliver', ''), nullif(p->>'day', ''))::date; v_wh text := p->>'wh'; v_t numeric := nullif(p->>'tons', '')::numeric;
@@ -3511,7 +3706,8 @@ begin
   if not found then raise exception 'Chọn khách hàng.'; end if;
   if not exists (select 1 from app.warehouses where code = v_wh and active) then raise exception 'Chọn kho.'; end if;
   if v_dl is null or v_dl < app.today() then raise exception 'Chọn ngày giao từ hôm nay trở đi.'; end if;
-  v_day := greatest(app.today(), v_dl - app.transit_days(v_wh));
+  -- v3.50: ngày bốc dự kiến theo Zone của địa chỉ mặc định của khách (chưa xác định được thì theo số ngày vận chuyển của kho)
+  v_day := greatest(app.today(), coalesce(app.calc_load_day(v_wh, app.cust_region(v_cust, v_wh), v_dl), v_dl - app.transit_days(v_wh)));
   if length(v_body) < 3 then raise exception 'Ghi nội dung yêu cầu (sản phẩm, màu, độ dày, số MT…).'; end if;
   if length(v_body) > 2000 then raise exception 'Nội dung quá dài (tối đa 2000 ký tự).'; end if;
   if v_t is not null and (v_t <= 0 or v_t > 5000) then raise exception 'Số MT không hợp lệ.'; end if;
@@ -4345,6 +4541,177 @@ end $$;
 revoke all on function app.send_weekly(boolean) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------
+-- v3.50: Cấu hình › Vận chuyển (Zone, khu vực, nạp Excel, đơn lệch ngày bốc)
+-- ---------------------------------------------------------------------
+create or replace function app.sync_region_days(p_wh text) returns void
+language sql volatile security definer set search_path = '' as $$
+  update app.regions r set round_trip_days = app.region_days(r.id)
+   where r.warehouse_code = p_wh and r.round_trip_days is distinct from app.region_days(r.id)
+$$;
+
+create or replace function app.zone_of(p_wh text, p_key text) returns text
+language sql stable security definer set search_path = '' as $$
+  select z.code from app.zones z
+   where z.warehouse_code = p_wh and (lower(z.code) = lower(trim(p_key)) or app.rg_norm(z.name) = app.rg_norm(p_key))
+   order by (lower(z.code) = lower(trim(p_key))) desc limit 1
+$$;
+
+-- Thêm / sửa Zone. p_code null = thêm mới (mã tự sinh từ tên)
+create or replace function public.save_zone(p_wh text, p_code text, p_name text, p_days int, p_active boolean default true) returns text
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; z app.zones; v_code text := nullif(trim(p_code), ''); v_txt text;
+begin
+  me := app.require_perm('config.transport');
+  if not exists (select 1 from app.warehouses w where w.code = p_wh) then raise exception 'Kho % không hợp lệ.', p_wh; end if;
+  if coalesce(trim(p_name), '') = '' then raise exception 'Nhập tên Zone.'; end if;
+  if p_days is null or p_days < 0 or p_days > 30 then raise exception 'Số ngày vận chuyển phải từ 0 đến 30.'; end if;
+  if exists (select 1 from app.zones x where x.warehouse_code = p_wh and app.rg_norm(x.name) = app.rg_norm(p_name) and x.code is distinct from v_code) then
+    raise exception 'Kho % đã có Zone %.', p_wh, trim(p_name);
+  end if;
+  if v_code is null then
+    v_code := upper(left(regexp_replace(app.fold(trim(p_name)), '[^a-z]', '', 'g'), 4));
+    if v_code = '' then v_code := 'Z'; end if;
+    while exists (select 1 from app.zones x where x.warehouse_code = p_wh and x.code = v_code) loop
+      v_code := v_code || (select count(*) from app.zones x where x.warehouse_code = p_wh);
+    end loop;
+    insert into app.zones (warehouse_code, code, name, days, active) values (p_wh, v_code, trim(p_name), p_days, coalesce(p_active, true));
+    v_txt := 'Thêm Zone ' || trim(p_name) || ' (' || p_wh || '): ' || p_days || ' ngày';
+  else
+    select * into z from app.zones x where x.warehouse_code = p_wh and x.code = v_code for update;
+    if not found then raise exception 'Không tìm thấy Zone %.', v_code; end if;
+    update app.zones set name = trim(p_name), days = p_days, active = coalesce(p_active, active) where warehouse_code = p_wh and code = v_code;
+    v_txt := 'Sửa Zone ' || z.name || ' (' || p_wh || '): ' ||
+      concat_ws('; ', case when z.name <> trim(p_name) then 'tên → ' || trim(p_name) end,
+                      case when z.days <> p_days then 'số ngày ' || z.days || ' → ' || p_days end,
+                      case when p_active is not null and z.active <> p_active then case when p_active then 'dùng lại' else 'ngừng dùng' end end);
+  end if;
+  perform app.sync_region_days(p_wh);
+  perform app.audit('zone:' || p_wh || ':' || v_code, v_txt);
+  return v_code;
+end $$;
+
+-- Gắn khu vực vào Zone, số ngày riêng (null = theo Zone), tên gọi khác
+create or replace function public.save_region_transport(p_id text, p_zone text, p_days_own int, p_aliases text) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; r app.regions; v_zone text := nullif(trim(p_zone), '');
+begin
+  me := app.require_perm('config.transport');
+  select * into r from app.regions where id = p_id for update;
+  if not found then raise exception 'Không tìm thấy khu vực.'; end if;
+  if v_zone is not null and not exists (select 1 from app.zones z where z.warehouse_code = r.warehouse_code and z.code = v_zone) then
+    raise exception 'Zone % không thuộc kho %.', v_zone, r.warehouse_code;
+  end if;
+  if p_days_own is not null and (p_days_own < 0 or p_days_own > 30) then raise exception 'Số ngày riêng phải từ 0 đến 30 (để trống = theo Zone).'; end if;
+  update app.regions set zone_code = v_zone, days_own = p_days_own,
+         aliases = array_to_string(array(select distinct trim(x) from unnest(string_to_array(coalesce(p_aliases, ''), ';')) x where trim(x) <> ''), '; ')
+   where id = p_id;
+  perform app.sync_region_days(r.warehouse_code);
+  perform app.audit('region:' || p_id, 'Vận chuyển ' || r.name || ' (' || r.warehouse_code || '): Zone ' || coalesce(v_zone, '–') ||
+    ', ' || coalesce('số ngày riêng ' || p_days_own, 'theo Zone') || ' → đi ' || app.region_days(p_id) || ' ngày' ||
+    case when coalesce(p_aliases, '') <> r.aliases then '; tên gọi khác: ' || coalesce(nullif(trim(p_aliases), ''), '–') else '' end);
+end $$;
+
+-- Nạp Excel. p_kind = 'zones' (Kho, Zone, Số ngày) | 'regions' (Kho, Khu vực, Zone, Số ngày riêng, Tên gọi khác, Tỉnh mới).
+-- p_apply = false: chỉ kiểm tra, trả danh sách thêm / sửa / lỗi. Có lỗi thì không ghi dòng nào.
+create or replace function public.import_transport(p_kind text, p_rows jsonb, p_apply boolean) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare me app.profiles; x jsonb; i int := 0; res jsonb := '[]'; errs jsonb := '[]'; v_wh text; v_name text; v_days int; v_zone text;
+        z app.zones; r app.regions; v_al text; v_np text; v_txt text; v_n int := 0; v_whs text[] := '{}';
+begin
+  me := app.require_perm('config.transport');
+  if p_kind not in ('zones','regions') then raise exception 'Loại dữ liệu không hợp lệ.'; end if;
+  if jsonb_typeof(p_rows) <> 'array' or jsonb_array_length(p_rows) = 0 then raise exception 'File không có dòng dữ liệu.'; end if;
+  if jsonb_array_length(p_rows) > 500 then raise exception 'Tối đa 500 dòng một lần.'; end if;
+  for x in select * from jsonb_array_elements(p_rows) loop
+    i := i + 1;
+    begin
+      v_wh := upper(trim(coalesce(x->>'wh', '')));
+      if not exists (select 1 from app.warehouses w where w.code = v_wh) then raise exception 'Kho "%" không có.', coalesce(x->>'wh', ''); end if;
+      v_days := null;
+      if coalesce(trim(x->>'days'), '') <> '' then
+        begin v_days := replace(trim(x->>'days'), ',', '.')::numeric::int; exception when others then raise exception 'Số ngày "%" không phải số.', x->>'days'; end;
+        if v_days < 0 or v_days > 30 then raise exception 'Số ngày phải từ 0 đến 30.'; end if;
+      end if;
+      if p_kind = 'zones' then
+        v_name := trim(coalesce(x->>'zone', ''));
+        if v_name = '' then raise exception 'Thiếu tên Zone.'; end if;
+        if v_days is null then raise exception 'Thiếu số ngày vận chuyển.'; end if;
+        select * into z from app.zones where warehouse_code = v_wh and code = app.zone_of(v_wh, v_name);
+        if z.code is null then
+          res := res || jsonb_build_object('row', i, 'act', 'add', 'text', v_wh || ' · ' || v_name || ': ' || v_days || ' ngày');
+          if p_apply then perform public.save_zone(v_wh, null, v_name, v_days, true); end if;
+        elsif z.days <> v_days or not z.active then
+          res := res || jsonb_build_object('row', i, 'act', 'upd', 'text', v_wh || ' · ' || z.name || ': ' || z.days || ' → ' || v_days || ' ngày');
+          if p_apply then perform public.save_zone(v_wh, z.code, z.name, v_days, true); end if;
+        else
+          res := res || jsonb_build_object('row', i, 'act', 'same', 'text', v_wh || ' · ' || z.name);
+        end if;
+      else
+        v_name := trim(coalesce(x->>'name', ''));
+        if v_name = '' then raise exception 'Thiếu tên khu vực (tỉnh).'; end if;
+        v_zone := null;
+        if coalesce(trim(x->>'zone'), '') <> '' then
+          v_zone := app.zone_of(v_wh, x->>'zone');
+          if v_zone is null then raise exception 'Zone "%" chưa có ở kho % (thêm ở thẻ Ngày vận chuyển trước).', trim(x->>'zone'), v_wh; end if;
+        end if;
+        v_al := array_to_string(array(select distinct trim(a) from unnest(string_to_array(coalesce(x->>'aliases', ''), ';')) a
+                                       where trim(a) <> '' and app.rg_norm(a) <> app.rg_norm(v_name)), '; ');
+        select * into r from app.regions where warehouse_code = v_wh and app.rg_norm(name) = app.rg_norm(v_name) order by id limit 1;
+        if r.id is not null and not (x ? 'aliases') then v_al := r.aliases; end if;   -- không có cột Tên gọi khác: giữ nguyên
+        if r.id is null then
+          v_np := trim(coalesce(x->>'province', ''));
+          if v_np = '' then raise exception 'Khu vực mới "%": cần cột Tỉnh mới (sau sáp nhập).', v_name; end if;
+          res := res || jsonb_build_object('row', i, 'act', 'add', 'text', v_wh || ' · ' || v_name || ': Zone ' || coalesce(v_zone, '–') || coalesce(', riêng ' || v_days || ' ngày', ''));
+          if p_apply then
+            insert into app.regions (id, warehouse_code, code, name, new_province, round_trip_days, zone_code, days_own, aliases)
+            select v_wh || '-' || k.c || case when exists (select 1 from app.regions q where q.id = v_wh || '-' || k.c) then (select count(*) from app.regions)::text else '' end,
+                   v_wh, k.c, v_name, v_np, 1, v_zone, v_days, v_al
+              from (select coalesce(nullif(upper(left(regexp_replace(app.fold(v_name), '[^a-z]', '', 'g'), 3)), ''), 'KV') c) k;
+          end if;
+        else
+          v_txt := concat_ws('; ',
+            case when r.zone_code is distinct from v_zone then 'Zone ' || coalesce(r.zone_code, '–') || ' → ' || coalesce(v_zone, '–') end,
+            case when r.days_own is distinct from v_days then 'ngày riêng ' || coalesce(r.days_own::text, 'theo Zone') || ' → ' || coalesce(v_days::text, 'theo Zone') end,
+            case when r.aliases <> v_al then 'tên gọi khác → ' || coalesce(nullif(v_al, ''), '–') end);
+          if v_txt <> '' then
+            res := res || jsonb_build_object('row', i, 'act', 'upd', 'text', v_wh || ' · ' || r.name || ': ' || v_txt);
+            if p_apply then perform public.save_region_transport(r.id, v_zone, v_days, v_al); end if;
+          else
+            res := res || jsonb_build_object('row', i, 'act', 'same', 'text', v_wh || ' · ' || r.name);
+          end if;
+        end if;
+      end if;
+      if not v_wh = any(v_whs) then v_whs := v_whs || v_wh; end if;
+    exception when others then
+      if p_apply then raise; end if;
+      errs := errs || jsonb_build_object('row', i, 'error', sqlerrm);
+    end;
+  end loop;
+  if p_apply then
+    if jsonb_array_length(errs) > 0 then raise exception 'File còn lỗi, chưa ghi.'; end if;
+    foreach v_wh in array v_whs loop perform app.sync_region_days(v_wh); end loop;
+    select count(*) into v_n from jsonb_array_elements(res) e where e->>'act' <> 'same';
+    perform app.audit('transport', 'Nạp Excel ' || case when p_kind = 'zones' then 'Ngày vận chuyển' else 'Vùng giao' end || ': ' || v_n || ' dòng thay đổi');
+  end if;
+  return jsonb_build_object('rows', res, 'errors', errs);
+end $$;
+
+-- Đơn chưa bốc có ngày bốc muộn hơn ngày gợi ý hiện tại (sau khi Logistics sửa số ngày / Zone). Chỉ liệt kê, không tự đổi.
+create or replace function public.transport_drift() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare me app.profiles;
+begin
+  me := app.require_perm('config.transport');
+  return (select coalesce(jsonb_agg(jsonb_build_object('id', x.id, 'wh', x.warehouse_code, 'cust', x.cname, 'day', x.day, 'delivery', x.delivery_date,
+                                                     'calc', x.calc, 'region', x.rname, 'status', x.status) order by x.day, x.id), '[]')
+            from (select b.id, b.warehouse_code, c.name cname, b.day, b.delivery_date, b.status, r.name rname,
+                         app.calc_load_day(b.warehouse_code, b.region_id, b.delivery_date) calc
+                    from app.bookings b join app.customers c on c.id = b.customer_id join app.regions r on r.id = b.region_id
+                   where b.status in ('draft','hold','ok','resched') and b.day >= app.today() and b.delivery_date is not null) x
+           where x.calc is not null and x.day > x.calc);   -- bốc muộn hơn ngày gợi ý → có thể giao trễ
+end $$;
+
+-- ---------------------------------------------------------------------
 -- 8. Quyền gọi hàm
 -- ---------------------------------------------------------------------
 revoke all on all functions in schema app from public, anon, authenticated;
@@ -4363,7 +4730,8 @@ begin
        'impersonate_start','impersonate_stop','update_region','set_truck_info','set_away','search','admin_reset_mfa','list_bookings','booking_stats',
        'bulk_create_bookings','suggest_days','set_urgent','confirm_delivery','get_coils','mark_loaded','resolve_short','mark_transit',
        'mark_delivered','mark_failed','close_truck','set_email_prefs','send_to_logistics','save_warehouse','change_booking_wh',
-       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop','req_create','req_update','admin_create_user','admin_reset_password','my_pw_changed','admin_user_refs','admin_delete_user','chat_use','set_customer_chat','chat_stats','set_ai','req_set_day','unload_booking','get_delta','log_usage','sys_health','driver_link_create','driver_link_revoke','pod_list','cust_overview','talk_get','talk_post','talk_edit','talk_react','talk_set','talk_upload','talk_file','my_new_notifs')
+       'get_ver','import_customers','save_targets','dash_data','save_my_shortcuts','admin_save_shortcuts','admin_reset_shortcuts','cust_view_start','cust_view_stop','req_create','req_update','admin_create_user','admin_reset_password','my_pw_changed','admin_user_refs','admin_delete_user','chat_use','set_customer_chat','chat_stats','set_ai','req_set_day','unload_booking','get_delta','log_usage','sys_health','driver_link_create','driver_link_revoke','pod_list','cust_overview','talk_get','talk_post','talk_edit','talk_react','talk_set','talk_upload','talk_file','my_new_notifs',
+       'save_zone','save_region_transport','import_transport','transport_drift','set_load_day')
   loop
     execute format('revoke all on function %s from public, anon', f.sig);
     execute format('grant execute on function %s to authenticated', f.sig);
