@@ -207,6 +207,12 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 - **Cấu hình › Vận chuyển** (quyền mới `config.transport`, Logistics + Admin): sửa Zone, số ngày riêng, tên gọi khác; **Tải Excel / Nạp Excel** (xem trước thêm / sửa / lỗi, có lỗi thì không ghi); liệt kê đơn đang bốc muộn hơn ngày gợi ý sau khi đổi số liệu (không tự đổi). Admin bật / tắt chế độ đặt theo ngày giao.
 - Yêu cầu đặt hàng: ngày bốc dự kiến theo Zone địa chỉ của khách.
 - Mã: `web/v63.js`; CSDL: `app.zones`, `regions.zone_code / days_own / aliases`, `app.calc_load_day`, `app.guess_region`, trigger `bk_deliv`, `save_zone`, `save_region_transport`, `import_transport`, `transport_drift`, `set_load_day`. Test: `test/99m_ngay_giao.sql`, `test/e2e/v63.mjs`.
+## v3.50 — Logo mới trong app
+
+Không đổi database.
+
+- **Logo đầu trang và màn đăng nhập (`v63.js`):** dùng đúng icon app (xe đầu kéo chở 3 cuộn coil, `favicon.svg`), bỏ biểu tượng xe trong vòng tròn.
+- **Menu "Khai báo xe":** biểu tượng nét mới – rơ-moóc chở 3 cuộn coil, cùng kiểu các biểu tượng menu khác.
 
 ## v3.49 — Icon mới, Khai báo xe tháng sau, sửa dữ liệu mẫu
 
@@ -583,6 +589,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v54.js                  v3.38: màn Lịch – gom tuần đã qua, nhãn Hôm nay, số tấn gọn
   v62.js                  v3.49: Khai báo xe – điền tháng sau, hỏi trước khi bỏ thay đổi chưa lưu
   v63.js                  v3.50: Đặt hàng theo ngày giao, Zone vận chuyển, Cấu hình › Vận chuyển, đổi ngày bốc sớm hơn
+  v63.js                  v3.50: logo mới ở đầu trang / đăng nhập, biểu tượng menu Khai báo xe
 functions/api/chat.js     Cloudflare Function gọi Workers AI
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
