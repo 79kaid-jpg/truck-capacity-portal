@@ -1,4 +1,4 @@
-// v3.50: Đặt hàng theo NGÀY GIAO. CS / Sales / khách chọn ngày hàng tới tay khách; hệ thống tính ngày bốc cho Logistics
+// v3.51: Đặt hàng theo NGÀY GIAO. CS / Sales / khách chọn ngày hàng tới tay khách; hệ thống tính ngày bốc cho Logistics
 // = ngày giao − số ngày xe chạy (theo Zone của khu vực, hoặc số ngày riêng của khu vực), rơi vào ngày nghỉ chưa khai báo xe thì lùi tiếp.
 // Máy chủ (save_booking, bulk_create_bookings) là nơi quyết định; ở đây chỉ tính lại để hiển thị.
 // Gồm: Cấu hình › Vận chuyển (Zone, Vùng giao, nạp / xuất Excel, đơn lệch), form + lưới Đặt hàng theo ngày giao,

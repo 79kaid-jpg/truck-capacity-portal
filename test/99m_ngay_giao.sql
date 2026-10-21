@@ -1,4 +1,4 @@
--- v3.50: đặt theo ngày giao → hệ thống tính ngày bốc theo Zone; Cấu hình › Vận chuyển
+-- v3.51: đặt theo ngày giao → hệ thống tính ngày bốc theo Zone; Cấu hình › Vận chuyển
 \set AD '00000000-0000-0000-0000-00000000000a'
 \set LOG '00000000-0000-0000-0000-0000000000b1'
 \set CS '00000000-0000-0000-0000-0000000000c1'
