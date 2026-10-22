@@ -61,7 +61,7 @@
  .top .gsbtn>span,.top .gsbtn kbd{display:none!important}
  .top.sub68 .gsbtn,.top.sub68>[data-a="guide"],.top.sub68 .ast68,.top.sub68 .userbtn{display:none!important}
  .main .pagehead h2{display:none!important}
- .main .qadd{width:40px!important;height:40px!important;min-width:40px;border-radius:10px!important;border:1px solid var(--line)!important;background:var(--surface)!important;color:var(--ink)!important;box-shadow:none!important;font-size:20px!important}
+ .main .qadd{width:44px!important;height:44px!important;min-width:44px;border-radius:10px!important;border:1px solid var(--line)!important;background:var(--surface)!important;color:var(--ink)!important;box-shadow:none!important;font-size:20px!important}
 }`;document.head.appendChild(st);})();
 
 const ph68=()=>matchMedia('(max-width:700px)').matches;
