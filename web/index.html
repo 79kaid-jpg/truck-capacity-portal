@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Truck Capacity Booking Portal</title>
-<link rel="icon" href="favicon.svg?v=3.52" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=3.52" sizes="32x32" type="image/png">
-<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=3.52">
+<link rel="icon" href="favicon.svg?v=3.53" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=3.53" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=3.53">
 <meta name="apple-mobile-web-app-title" content="Đặt Xe">
-<link rel="manifest" href="manifest.webmanifest?v=3.52">
+<link rel="manifest" href="manifest.webmanifest?v=3.53">
 <meta name="theme-color" content="#1F2C3D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
@@ -23,6 +23,7 @@
   /* v3.34: khối ghi chú (vàng), yêu cầu/gợi ý (tím), tin của mình, nền chat, viền ô nhập – có bản dark riêng */
   --note-bg:#FFF4C2; --note-line:#F0D77A; --note-ink:#7A5B00; --req:#7A4BD1; --req-bg:#F1EAFF; --req-line:#C9B3F3; --req-ink:#5B2FB0;
   --mine-bg:#E8F0FB; --mine-line:#C6D7F1; --chat-bg:#FFFDF3; --inp-line:#8B95A1; --alert:#A04E0E;
+ --full-bg:#A8322A; --full-ink:#FFFFFF; --ulo-bg:#CDEBD8; --ulo-ink:#14532F; --umid-bg:#EEF8F1; --umid-ink:#1B6B40;
   --c1:#3E5C8A; --c2:#8A6A3E; --c3:#4F8A7A; --c4:#8A4F6E; --c5:#6E7F3E; --c6:#5E5A8F; --mask:#A8B0BA;
   --shadow:0 10px 30px rgba(18,28,40,.18); --on-c:#FFFFFF; --s1:#2a78d6; --s2:#eb6834;
   --f-display:"Archivo","Arial Narrow",Arial,sans-serif;
@@ -36,6 +37,7 @@
   --blue:#7EA6F2; --blue-bg:#16264A; --pend:#F0A066; --pend-bg:#3A2412;
   --note-bg:#33280F; --note-line:#6B5317; --note-ink:#E3C56A; --req:#9B97D1; --req-bg:#241D38; --req-line:#4A3D73; --req-ink:#C3B6F2;
   --mine-bg:#16264A; --mine-line:#2D4478; --chat-bg:#121922; --inp-line:#66768A; --alert:#A04E0E;
+ --full-bg:#B23A30; --full-ink:#FFFFFF; --ulo-bg:#1F4A30; --ulo-ink:#B9EBCB; --umid-bg:#16301F; --umid-ink:#8FD7AE;
   --c1:#7D9BC9; --c2:#C9A574; --c3:#7CC2AF; --c4:#C98AAE; --c5:#AABB72; --c6:#9B97D1; --mask:#4D5866;
   --shadow:0 10px 30px rgba(0,0,0,.5); --on-c:#0B1220; --s1:#3987e5; --s2:#d95926; color-scheme:dark}}
 :root[data-theme="dark"]{
@@ -46,6 +48,7 @@
   --blue:#7EA6F2; --blue-bg:#16264A; --pend:#F0A066; --pend-bg:#3A2412;
   --note-bg:#33280F; --note-line:#6B5317; --note-ink:#E3C56A; --req:#9B97D1; --req-bg:#241D38; --req-line:#4A3D73; --req-ink:#C3B6F2;
   --mine-bg:#16264A; --mine-line:#2D4478; --chat-bg:#121922; --inp-line:#66768A; --alert:#A04E0E;
+ --full-bg:#B23A30; --full-ink:#FFFFFF; --ulo-bg:#1F4A30; --ulo-ink:#B9EBCB; --umid-bg:#16301F; --umid-ink:#8FD7AE;
   --c1:#7D9BC9; --c2:#C9A574; --c3:#7CC2AF; --c4:#C98AAE; --c5:#AABB72; --c6:#9B97D1; --mask:#4D5866;
   --shadow:0 10px 30px rgba(0,0,0,.5); --on-c:#0B1220; --s1:#3987e5; --s2:#d95926; color-scheme:dark}
 *{box-sizing:border-box}
@@ -415,43 +418,44 @@ body.busy .btn{opacity:.6}
 <body>
 <div id="app"><div style="padding:40px;font-family:sans-serif">Đang tải…</div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-<script>window.APP_V="3.52"</script>
+<script>window.APP_V="3.53"</script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
-<script src="app.js?v=3.52"></script>
-<script src="v29.js?v=3.52"></script>
-<script src="v30.js?v=3.52"></script>
-<script src="v31.js?v=3.52"></script>
-<script src="v35.js?v=3.52"></script>
-<script src="v36.js?v=3.52"></script>
-<script src="v37.js?v=3.52"></script>
-<script src="v38.js?v=3.52"></script>
-<script src="v39.js?v=3.52"></script>
-<script src="v40.js?v=3.52"></script>
-<script src="v41.js?v=3.52"></script>
-<script src="v42.js?v=3.52"></script>
-<script src="v43.js?v=3.52"></script>
-<script src="v44.js?v=3.52"></script>
-<script src="v45.js?v=3.52"></script>
-<script src="v46.js?v=3.52"></script>
-<script src="v47.js?v=3.52"></script>
-<script src="v48.js?v=3.52"></script>
-<script src="v49.js?v=3.52"></script>
-<script src="v50.js?v=3.52"></script>
-<script src="v51.js?v=3.52"></script>
-<script src="v52.js?v=3.52"></script>
-<script src="v53.js?v=3.52"></script>
-<script src="v54.js?v=3.52"></script>
-<script src="v55.js?v=3.52"></script>
-<script src="v56.js?v=3.52"></script>
-<script src="v57.js?v=3.52"></script>
-<script src="v58.js?v=3.52"></script>
-<script src="v59.js?v=3.52"></script>
-<script src="v60.js?v=3.52"></script>
-<script src="v61.js?v=3.52"></script>
-<script src="v62.js?v=3.52"></script>
-<script src="v63.js?v=3.52"></script>
-<script src="v64.js?v=3.52"></script>
-<script src="pwa.js?v=3.52"></script>
+<script src="app.js?v=3.53"></script>
+<script src="v29.js?v=3.53"></script>
+<script src="v30.js?v=3.53"></script>
+<script src="v31.js?v=3.53"></script>
+<script src="v35.js?v=3.53"></script>
+<script src="v36.js?v=3.53"></script>
+<script src="v37.js?v=3.53"></script>
+<script src="v38.js?v=3.53"></script>
+<script src="v39.js?v=3.53"></script>
+<script src="v40.js?v=3.53"></script>
+<script src="v41.js?v=3.53"></script>
+<script src="v42.js?v=3.53"></script>
+<script src="v43.js?v=3.53"></script>
+<script src="v44.js?v=3.53"></script>
+<script src="v45.js?v=3.53"></script>
+<script src="v46.js?v=3.53"></script>
+<script src="v47.js?v=3.53"></script>
+<script src="v48.js?v=3.53"></script>
+<script src="v49.js?v=3.53"></script>
+<script src="v50.js?v=3.53"></script>
+<script src="v51.js?v=3.53"></script>
+<script src="v52.js?v=3.53"></script>
+<script src="v53.js?v=3.53"></script>
+<script src="v54.js?v=3.53"></script>
+<script src="v55.js?v=3.53"></script>
+<script src="v56.js?v=3.53"></script>
+<script src="v57.js?v=3.53"></script>
+<script src="v58.js?v=3.53"></script>
+<script src="v59.js?v=3.53"></script>
+<script src="v60.js?v=3.53"></script>
+<script src="v61.js?v=3.53"></script>
+<script src="v62.js?v=3.53"></script>
+<script src="v63.js?v=3.53"></script>
+<script src="v64.js?v=3.53"></script>
+<script src="v65.js?v=3.53"></script>
+<script src="pwa.js?v=3.53"></script>
 </body>
 </html>

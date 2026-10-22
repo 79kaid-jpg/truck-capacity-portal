@@ -195,6 +195,13 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+## v3.53 — Thống kê Xe: tô màu ngày theo %
+
+- Khung thống kê Xe trên Lịch: ô **Ngày đầy** nền đỏ đậm, **Gần đầy (≥ 90%)** nền đỏ nhạt; ô **Xe chạy non tải** 2 mức: dưới 50% xanh đậm hơn, 50–69% xanh rất nhạt.
+- Mỗi ô hiện % (năng lực đã dùng, hoặc tải trung bình của các xe non tải), sắp theo ngày tăng dần.
+- Ngưỡng 90% chỉ áp dụng cho danh sách này; nhãn "Gần đầy" trên lịch vẫn theo cấu hình.
+- Màu dùng token mới `--full-*`, `--ulo-*`, `--umid-*` (có dark mode). File `web/v65.js`. **Không đổi CSDL**, không cần chạy `setup_all.sql`.
+
 ## v3.52 — Lịch: đếm chờ xếp xe khớp nhau, sửa nút Ngày bốc bị che
 
 Không cần chạy `setup_all.sql`.
@@ -599,6 +606,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v62.js                  v3.49: Khai báo xe – điền tháng sau, hỏi trước khi bỏ thay đổi chưa lưu
   v63.js                  v3.50: logo mới ở đầu trang / đăng nhập, biểu tượng menu Khai báo xe
   v64.js                  v3.51–3.52: Đặt hàng theo ngày giao, Zone vận chuyển, Cấu hình › Vận chuyển, đổi ngày bốc sớm hơn
+  v65.js                  v3.53: Thống kê Xe – tô màu ô ngày đầy / gần đầy / non tải theo %
 functions/api/chat.js     Cloudflare Function gọi Workers AI
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
