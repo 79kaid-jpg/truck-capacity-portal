@@ -52,6 +52,16 @@ await session('cs@demo.vn', async p => {
   await p.fill('#guide [data-gd="q"]', 'picking'); await p.waitForTimeout(500);
   ok(await p.locator('#guide article mark').count() > 0, 'tìm "picking" → tô sáng kết quả');
   await p.fill('#guide [data-gd="q"]', ''); await p.waitForTimeout(400);
+  await p.locator('#guide nav a', { hasText: 'Vòng đời một đơn' }).click(); await p.waitForTimeout(300);
+  ok(await p.locator('#guide .life > li').count() === 7 && await p.locator('#guide .life .st-delivered').count() === 1, 'Vòng đời: sơ đồ 7 bước, có nhãn Đã giao'); await shot(p, 'guide-life');
+  ok(await p.locator('#guide .life').evaluate(e => e.scrollWidth <= e.clientWidth + 1), 'Vòng đời: không tràn ngang');
+  { const fr = p.frameLocator('#guide iframe.qt'); await fr.locator('#t').waitFor({ timeout: 10000 });
+    ok(await fr.locator('#t').textContent() === 'Yêu cầu đặt hàng' && await fr.locator('svg .node').count() === 12, 'Quy trình tự chạy: 12 ô, bước 1 = Yêu cầu đặt hàng');
+    await fr.locator('#next').click(); ok((await fr.locator('#no').textContent()).startsWith('2 /'), 'Quy trình: Bước sau → bước 2');
+    await fr.locator('svg .node', { hasText: 'Load hàng' }).click(); ok(await fr.locator('#t').textContent() === 'Load hàng' && (await fr.locator('#cond').textContent()).includes('danh sách cuộn'), 'Quy trình: bấm ô Load hàng → điều kiện có danh sách cuộn');
+    await fr.locator('#play').click(); ok(await fr.locator('#play').getAttribute('aria-label') === 'Tạm dừng', 'Quy trình: Phát → nút thành Tạm dừng'); await fr.locator('#play').click();
+    ok(await fr.locator('body').evaluate(b => b.scrollWidth <= innerWidth + 1), 'Quy trình: trang không cuộn ngang'); }
+  await p.fill('#guide [data-gd="q"]', ''); await p.waitForTimeout(400);
   await p.locator('#guide nav a', { hasText: 'Xác nhận giao hàng' }).click(); await p.waitForTimeout(300);
   ok(await p.locator('#guide article img').count() > 0 && await p.locator('#guide article img').first().evaluate(i => i.complete && i.naturalWidth > 0), 'mục có ảnh minh họa tải được');
   S('resize'); const w0 = (await p.locator('#guide').boundingBox()).width; const gb = await p.locator('#guide .grip').boundingBox();
@@ -71,7 +81,7 @@ await session('cs@demo.vn', async p => {
   await p.keyboard.press('Escape'); await ev(p, () => go('fleet')).catch(() => {});
   await ev(p, () => go('dash')); await p.waitForTimeout(800); const l = p.locator('.main [data-a="guide"][data-s]');
   ok(await l.count() === 1, 'có link "Hướng dẫn màn này"'); await l.click(); await p.waitForTimeout(300);
-  ok(/Bảng thống kê/.test(await p.locator('#guide article h2').first().innerText()), 'link mở đúng mục của màn');
+  ok(/Thống kê/.test(await p.locator('#guide article h2').first().innerText()), 'link mở đúng mục của màn');
 });
 await browser.close();
 console.log(`${pass} OK, ${errors.length} lỗi`); if (errors.length) { console.log(errors.join('\n')); process.exit(1); }
