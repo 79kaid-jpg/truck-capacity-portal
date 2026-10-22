@@ -195,6 +195,16 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+## v3.57 — Điện thoại: menu dạng bảng trượt từ dưới lên
+
+Không cần chạy `setup_all.sql`.
+
+- **Sửa lỗi:** chọn một mục trong menu **Thêm** (thanh dưới) thì menu đóng ngay rồi mới chuyển màn; đổi màn bằng cách khác cũng tự đóng.
+- Menu Thêm, menu ⋯ của Chi tiết booking và bảng Bộ lọc (Thống kê) cùng kiểu **bảng trượt từ đáy**: thanh kéo, nền tối phía sau.
+- Đóng bằng: vuốt xuống (quá 1/3 bảng hoặc vuốt nhanh; kéo ít thì bật lại), chạm nền tối, chọn một mục, bấm lại nút ⋯, đổi màn. Không dùng vuốt lên từ mép dưới để mở vì trùng thao tác của iOS / Android.
+- Bật "giảm chuyển động" trên máy thì không chạy hiệu ứng.
+- Mã: `web/v69.js`; test `test/e2e/v69.mjs`.
+
 ## v3.56 — Điện thoại: giao diện thống nhất kiểu app
 
 Không cần chạy `setup_all.sql`. Chỉ đổi giao diện điện thoại (≤ 700px); máy tính giữ nguyên.
@@ -639,6 +649,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v66.js                  v3.54: điện thoại – ẩn thanh menu dưới khi mở cửa sổ; thẻ Đặt hàng theo ngày giao
   v67.js                  v3.55: Điện thoại – Bảng thống kê gọn (Bộ lọc, ⋯, tab vuốt ngang, kỳ một dòng)
   v68.js                  v3.56: Điện thoại – giao diện thống nhất (thanh trên, nút 3 cấp, danh sách dòng)
+  v69.js                  v3.57: Điện thoại – menu bảng trượt từ dưới lên, chọn xong tự đóng
 functions/api/chat.js     Cloudflare Function gọi Workers AI
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
