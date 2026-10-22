@@ -195,6 +195,15 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+## v3.58 — Hướng dẫn: sơ đồ quy trình đơn tự chạy, tên menu mới
+
+Không cần chạy `setup_all.sql`.
+
+- Hướng dẫn › **Vòng đời một đơn**: thêm sơ đồ quy trình chia làn theo vai trò (Khách / Sales, CS, Logistics, Tài xế, Hệ thống). Bấm Phát để tự chạy chậm qua 12 bước; mỗi bước nêu ai làm, trạng thái, hành động, điều kiện, kết quả (theo mã: `send_to_logistics`, `save_booking`, `confirm_delivery`, `mark_loaded`, `driver_mark`). Bấm ô hoặc số bước để nhảy tới; chọn tốc độ.
+- Danh sách trạng thái bên dưới sơ đồ giữ để tìm kiếm, in và trợ lý đọc được; bổ sung: tài xế bấm Đang giao / Đã giao / Giao lỗi qua link xe, đơn Giao không thành công được CS đặt lại, xử lý load thiếu cuộn.
+- Đổi tên menu cũ trong Hướng dẫn: Bảng thống kê → Thống kê, Approval request → Chờ xếp xe, bỏ "Setting user account".
+- Mã: `web/quy-trinh.html` (trang riêng, nhúng bằng iframe), CSS trong `web/v38.js`; test `test/e2e/v38.mjs`.
+
 ## v3.57 — Điện thoại: menu dạng bảng trượt từ dưới lên
 
 Không cần chạy `setup_all.sql`.
@@ -655,6 +664,7 @@ functions/api/chat.js     Cloudflare Function gọi Workers AI
   v41.js                  Yêu cầu đặt hàng (💬)
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   guide.html, guide/      Nội dung Hướng dẫn sử dụng + ảnh minh họa
+  quy-trinh.html          Sơ đồ quy trình đơn tự chạy (nhúng trong Hướng dẫn)
   config.js               URL + anon key (công khai)
   favicon.svg, icon-*.png, apple-touch-icon.png, manifest.webmanifest   Biểu tượng trang / màn hình chính điện thoại
 supabase/
