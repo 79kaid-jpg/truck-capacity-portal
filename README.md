@@ -195,6 +195,12 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+## v3.54 — Điện thoại: nút chân cửa sổ không bị che
+
+- Thanh menu dưới (v3.48) đè lên nút chân các cửa sổ toàn màn hình, nên ở Đặt hàng không thấy **Lưu tạm / Đặt & gửi Logistics**. Nay thanh menu tự ẩn khi đang mở cửa sổ và hiện lại khi đóng.
+- Lưới Đặt hàng trên điện thoại khi đặt theo ngày giao: thẻ ghi **Ngày giao**, địa chỉ giao đánh dấu bắt buộc.
+- File `web/v66.js`, test `test/e2e/v66.mjs`. **Không đổi CSDL**, không cần chạy `setup_all.sql`.
+
 ## v3.53 — Thống kê Xe: tô màu ngày theo %
 
 - Khung thống kê Xe trên Lịch: ô **Ngày đầy** nền đỏ đậm, **Gần đầy (≥ 90%)** nền đỏ nhạt; ô **Xe chạy non tải** 2 mức: dưới 50% xanh đậm hơn, 50–69% xanh rất nhạt.
@@ -607,6 +613,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v63.js                  v3.50: logo mới ở đầu trang / đăng nhập, biểu tượng menu Khai báo xe
   v64.js                  v3.51–3.52: Đặt hàng theo ngày giao, Zone vận chuyển, Cấu hình › Vận chuyển, đổi ngày bốc sớm hơn
   v65.js                  v3.53: Thống kê Xe – tô màu ô ngày đầy / gần đầy / non tải theo %
+  v66.js                  v3.54: điện thoại – ẩn thanh menu dưới khi mở cửa sổ; thẻ Đặt hàng theo ngày giao
 functions/api/chat.js     Cloudflare Function gọi Workers AI
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
