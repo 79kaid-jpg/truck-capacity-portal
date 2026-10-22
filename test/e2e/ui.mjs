@@ -75,7 +75,7 @@ await session('cs@demo.vn', async p => {
   S('m-past'); const firstVisible = () => p.evaluate(() => { const c = [...document.querySelectorAll('.cal .cell:not(.pad):not(.wk)')].find(e => e.getBoundingClientRect().height > 0); return c && (c.classList.contains('today') || !c.classList.contains('past')); });
   ok(await firstVisible(), 'lịch CS mở từ hôm nay'); ok(/Xem \d+ ngày đã qua/.test(await p.locator('.past52').innerText()), 'có nút Xem ngày đã qua');
   await p.click('.past52'); await p.waitForTimeout(300); ok(!(await firstVisible()), 'bấm → hiện lại ngày đã qua');
-  S('m-grid'); await p.click('.past52'); await p.locator('[data-a="newBk"]').first().click(); await p.waitForSelector('.modal');
+  S('m-grid'); await p.click('.past52'); await p.locator('[data-a="newBk"]:visible').first().click(); await p.waitForSelector('.modal');
   const g = await p.evaluate(() => { const m = document.querySelector('.modal').getBoundingClientRect(); const tr = document.querySelector('.g30 tbody tr'); const f = document.querySelector('.g30 .mfoot [data-m="hold"]').getBoundingClientRect();
     return { l: m.left, r: m.right, tr: getComputedStyle(tr).display, foot: f.bottom <= innerHeight && f.right <= innerWidth, th: getComputedStyle(document.querySelector('.g30 thead')).display, sw: document.querySelector('.modal').scrollWidth <= innerWidth }; });
   ok(g.l >= 0 && g.r <= 390, 'lưới Đặt hàng nằm gọn trong màn hình', JSON.stringify(g)); ok(g.tr === 'grid' && g.th === 'none', 'mỗi dòng đơn là một thẻ'); ok(g.foot, 'nút Đặt & gửi Logistics luôn thấy ở đáy'); ok(g.sw, 'không cuộn ngang trong lưới');

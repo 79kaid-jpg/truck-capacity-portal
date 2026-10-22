@@ -32,7 +32,7 @@ const S = s => { step = s; };
 const toastTxt = async p => (await p.locator('.toast').last().textContent({ timeout: 5000 }).catch(() => '')) || '';
 const fillArea = async (p, sel, v) => { await p.fill(sel, v); await p.locator(sel).dispatchEvent('input'); await p.waitForTimeout(400); await p.locator(sel).dispatchEvent('change'); await p.waitForTimeout(300); };
 await session('cs@demo.vn', async p => {
-  S('open'); await p.click('#chatFab'); await p.waitForSelector('#chatPanel');
+  S('open'); await p.click((await p.locator('.ast68').isVisible()) ? '.ast68' : '#chatFab'); await p.waitForSelector('#chatPanel');
   globalThis.__plan = () => ({ answer: 'Đơn [BK-JM2-261019-001-RẤT-DÀI-KHÔNG-CÓ-KHOẢNG-TRẮNG-AAAAAAAAAAAAAAAAAAAAAAAAAAAA](#bk:BK-JM2-261019-001) giao https://example.com/duong-dan-rat-dai-khong-co-khoang-trang-aaaaaaaaaaaaaaaaaaaaaaaa' });
   await p.fill('#chatPanel textarea', 'đơn nào'); await p.keyboard.press('Enter'); await p.waitForFunction(() => !CHAT.busy);
   const r = await p.evaluate(() => { const P = document.getElementById('chatPanel').getBoundingClientRect(); const send = document.querySelector('#chatPanel [data-chat="send"]').getBoundingClientRect();
