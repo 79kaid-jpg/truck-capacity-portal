@@ -195,6 +195,18 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+## v3.56 — Điện thoại: giao diện thống nhất kiểu app
+
+Không cần chạy `setup_all.sql`. Chỉ đổi giao diện điện thoại (≤ 700px); máy tính giữ nguyên.
+
+- **Thanh trên:** tên màn 1 dòng (Lịch, Booking, Chờ xếp xe, Khai báo xe…); màn con có nút quay lại + dòng phụ (mã đơn + khách; "T5 22/10 · JM2" + ‹ › đổi ngày). Tìm kiếm, Trợ lý, Hướng dẫn, Tài khoản là biểu tượng; màn con chỉ giữ quay lại và ⋯.
+- **Bỏ nút chat nổi:** Trợ lý mở từ biểu tượng trên thanh trên.
+- **Nội dung tràn ngang:** bỏ khung trắng lồng; tiêu đề trong trang không lặp lại tên màn; tiêu đề mục chữ thường.
+- **Nút 3 cấp:** Chi tiết booking: thanh đáy **Sửa** + **Xác nhận giao hàng**; Copy tin cho khách, Tổng quan khách, Trao đổi, Hướng dẫn vào ⋯ (bỏ emoji). Lịch: **+ Đặt hàng** cố định ở đáy; nút + trong ô ngày viền nhạt.
+- **Danh sách booking / Chờ xếp xe dạng dòng:** tên khách + số tấn, dưới là mã · ngày giao · ngày bốc · kho + chip trạng thái; bấm cả dòng để mở.
+- Phản hồi khi chạm, chừa chỗ thanh vuốt iPhone, mục đang chọn ở thanh dưới có nền viên thuốc; ô chọn kho trên lịch chỉ hiện mã.
+- Mã: `web/v68.js`; test `test/e2e/v68.mjs` (v59 mở trợ lý bằng biểu tượng trên thanh trên khi ở điện thoại).
+
 ## v3.55 — Điện thoại: Bảng thống kê gọn, số liệu lên màn đầu
 
 Không cần chạy `setup_all.sql`. Chỉ đổi giao diện điện thoại (≤ 700px); máy tính giữ nguyên.
@@ -626,6 +638,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v65.js                  v3.53: Thống kê Xe – tô màu ô ngày đầy / gần đầy / non tải theo %
   v66.js                  v3.54: điện thoại – ẩn thanh menu dưới khi mở cửa sổ; thẻ Đặt hàng theo ngày giao
   v67.js                  v3.55: Điện thoại – Bảng thống kê gọn (Bộ lọc, ⋯, tab vuốt ngang, kỳ một dòng)
+  v68.js                  v3.56: Điện thoại – giao diện thống nhất (thanh trên, nút 3 cấp, danh sách dòng)
 functions/api/chat.js     Cloudflare Function gọi Workers AI
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
