@@ -195,6 +195,17 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+## v3.55 — Điện thoại: Bảng thống kê gọn, số liệu lên màn đầu
+
+Không cần chạy `setup_all.sql`. Chỉ đổi giao diện điện thoại (≤ 700px); máy tính giữ nguyên.
+
+- Tiêu đề 1 dòng **Thống kê** + nút **Bộ lọc** (biểu tượng, kèm số lọc đang bật) + nút **⋯** (Tải Excel, In / PDF, Làm mới, Hướng dẫn màn này).
+- Tab một hàng vuốt ngang, tab đang chọn tự cuộn vào giữa.
+- Chọn kỳ một dòng: `‹ Tháng 10/2026 ›` + ô chọn Ngày / Tuần / Tháng / Quý / Năm / Tùy chọn; nút Hôm nay chỉ hiện khi đang xem kỳ khác.
+- Kho / Segment / Sales vào bảng **Bộ lọc** mở từ dưới lên (chip ≥ 44px, Bỏ lọc).
+- Cụm điều khiển dính dưới thanh trên khi cuộn; số trong thẻ tự co; nút trợ lý ẩn khi cuộn xuống, hiện lại khi cuộn lên.
+- Mã: `web/v67.js`; test `test/e2e/v67.mjs`.
+
 ## v3.54 — Điện thoại: nút chân cửa sổ không bị che
 
 - Thanh menu dưới (v3.48) đè lên nút chân các cửa sổ toàn màn hình, nên ở Đặt hàng không thấy **Lưu tạm / Đặt & gửi Logistics**. Nay thanh menu tự ẩn khi đang mở cửa sổ và hiện lại khi đóng.
@@ -614,6 +625,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v64.js                  v3.51–3.52: Đặt hàng theo ngày giao, Zone vận chuyển, Cấu hình › Vận chuyển, đổi ngày bốc sớm hơn
   v65.js                  v3.53: Thống kê Xe – tô màu ô ngày đầy / gần đầy / non tải theo %
   v66.js                  v3.54: điện thoại – ẩn thanh menu dưới khi mở cửa sổ; thẻ Đặt hàng theo ngày giao
+  v67.js                  v3.55: Điện thoại – Bảng thống kê gọn (Bộ lọc, ⋯, tab vuốt ngang, kỳ một dòng)
 functions/api/chat.js     Cloudflare Function gọi Workers AI
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
