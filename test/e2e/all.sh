@@ -1,5 +1,5 @@
 cd "$(dirname "$0")/../.."
-for t in run gs past mfa rebook offday truckedit blfilter salesstats v29 v31 login32 v33 v34 v35 v36 v37 v38 v39 v40 v41 pwa v42 v43 trip v44 v45 v46 v47 v48 v49 v50 v51 v55 v56 v57 v58 v59 v60 v61 v62 v63 v64 v65 v66 v67 v68 v69 ui; do
+for t in run gs past mfa rebook offday truckedit blfilter salesstats v29 v31 login32 v33 v34 v35 v36 v37 v38 v39 v40 v41 pwa v42 v43 trip v44 v45 v46 v47 v48 v49 v50 v51 v55 v56 v57 v58 v59 v60 v61 v62 v63 v64 v65 v66 v67 v68 v69 v70 ui; do
   fuser -k 8787/tcp >/dev/null 2>&1
   bash test/reset.sh >/dev/null 2>&1
   ARGS=""

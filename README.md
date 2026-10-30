@@ -195,6 +195,18 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+## v3.59 — Lịch đội xe cho Logistics
+
+Không cần chạy `setup_all.sql`.
+
+- Menu mới **Lịch đội xe** (Logistics, Admin; ai có quyền Gán xe hoặc Khai báo xe). Lịch đặt xe hiện có giữ nguyên.
+- Ô ngày: số xe theo loại (Đầu kéo / Xe thùng) × trạng thái (Trống, Còn chỗ, Đầy, Đang bốc, Đang giao, Đã giao xong, Giao lỗi); số đơn chờ xếp xe; **Còn đặt được** (cùng cách tính với Lịch đặt xe, đã trừ đơn chờ xếp xe) kèm thanh tỉ lệ; ngày đã qua: **Đã chở / Còn lại**.
+- Cột **Cả tuần**; các tuần đã qua của tháng hiện tại gom thành một dòng, bấm để mở.
+- Bấm ngày → khung chi tiết: 4 số, đơn chờ xếp xe (kéo thả vào thẻ xe hoặc Chọn để xếp → Xếp vào xe này), lọc theo loại xe và trạng thái, xe nhóm theo trạng thái, mở / thu gọn từng nhóm, từng xe.
+- **Đang quay về** là ước tính: giờ báo Đã giao + (Đã giao − Bốc xong).
+- Điện thoại: xem theo tuần, chạm ngày mở bảng trượt.
+- Mã: `web/v70.js`; test `test/e2e/v70.mjs`.
+
 ## v3.58 — Hướng dẫn: sơ đồ quy trình đơn tự chạy, tên menu mới
 
 Không cần chạy `setup_all.sql`.
@@ -659,6 +671,7 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v67.js                  v3.55: Điện thoại – Bảng thống kê gọn (Bộ lọc, ⋯, tab vuốt ngang, kỳ một dòng)
   v68.js                  v3.56: Điện thoại – giao diện thống nhất (thanh trên, nút 3 cấp, danh sách dòng)
   v69.js                  v3.57: Điện thoại – menu bảng trượt từ dưới lên, chọn xong tự đóng
+  v70.js                  v3.59: Lịch đội xe cho Logistics (trạng thái xe theo ngày, còn đặt được, xếp đơn chờ vào xe)
 functions/api/chat.js     Cloudflare Function gọi Workers AI
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)
