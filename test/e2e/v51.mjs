@@ -32,9 +32,9 @@ await session('cs@demo.vn', async p => {
   S('ios-menu'); await menu(p);
   ok(await p.evaluate(() => { const m = document.querySelector('.top .menu'), r = m.getBoundingClientRect(); const e = document.elementFromPoint(r.x + r.width / 2, r.bottom - 8); return !!e && m.contains(e); }), 'điện thoại: menu tài khoản không bị che'); ok(await p.locator('.top .menu .instlink').count() === 1, 'iPhone: menu có Cài lên điện thoại');
   await p.click('.top .menu .instlink'); await p.waitForTimeout(300);
-  const t = await p.locator('.modal').innerText(); ok(/Chia sẻ/.test(t) && /Thêm vào MH chính/.test(t), 'iPhone Safari: hướng dẫn 3 bước');
-  ok(await p.locator('.modal .inststeps li').count() === 3, 'đủ 3 bước'); await p.screenshot({ path: `${OUT}/ios.png` });
-  await p.click('.modal [data-a="close"]'); await p.waitForTimeout(300);
+  const t = await p.locator('#ov71').innerText(); ok(/Chia sẻ/.test(t) && /Thêm vào MH chính/.test(t), 'iPhone Safari: hướng dẫn 3 bước');
+  ok(await p.locator('#ov71 .st71 li').count() === 3, 'đủ 3 bước'); await p.screenshot({ path: `${OUT}/ios.png` });
+  await p.click('#ov71 .x'); await p.waitForTimeout(300);
   S('ios-bar'); await p.evaluate(() => { localStorage.removeItem('tcp-inst-nag'); instBar.at = 0; render(); }); await p.waitForTimeout(4600);
   ok(await p.locator('#instbar').count() === 1, 'điện thoại: hiện dải nhắc cài'); await p.screenshot({ path: `${OUT}/bar.png` });
   await p.click('#instbar [data-a="instLater"]'); await p.waitForTimeout(200);
@@ -43,14 +43,14 @@ await session('cs@demo.vn', async p => {
 }, phone(IOS));
 await session('cs@demo.vn', async p => {
   S('zalo'); await menu(p); await p.click('.top .menu .instlink'); await p.waitForTimeout(300);
-  ok(/Safari/.test(await p.locator('.modal').innerText()) && await p.locator('#inst-url').count() === 1, 'iPhone trong Zalo: bảo mở bằng Safari + link');
+  ok(/Mở bằng trình duyệt/.test(await p.locator('#ov71').innerText()) && await p.locator('#inst71-url').count() === 1, 'iPhone trong Zalo: bảo mở bằng trình duyệt + link'); await p.click('#ov71 .x');
 }, phone(IOS + ' Zalo iOS'));
 await session('log@demo.vn', async p => {
-  S('desktop'); await menu(p); ok(await p.locator('.top .menu .instlink').count() === 0, 'máy tính chưa hỗ trợ cài → không hiện nút');
+  S('desktop'); await menu(p); ok(await p.locator('.top .menu .instlink').count() === 1, 'máy tính: có mục Cài app (hướng dẫn + mã QR)');
   S('prompt'); await p.evaluate(() => { const e = new Event('beforeinstallprompt'); e.prompt = async () => { window.__prompted = true; }; e.userChoice = Promise.resolve({ outcome: 'accepted' }); dispatchEvent(e); });
   await p.waitForTimeout(200); if (!(await p.locator('.top .menu').count())) await menu(p);
   ok(await p.locator('.top .menu .instlink').count() === 1, 'Chrome/Edge báo cài được → hiện nút');
-  await p.click('.top .menu .instlink'); await p.waitForTimeout(300);
+  await p.click('.top .menu .instlink'); await p.waitForTimeout(300); await p.click('#ov71 [data-inst71="prompt"]'); await p.waitForTimeout(300);
   ok(await p.evaluate(() => window.__prompted === true), 'bấm → mở hộp cài của trình duyệt');
   if (!(await p.locator('.top .menu').count())) await menu(p);
   ok(await p.locator('.top .menu .instlink').count() === 0, 'đã cài → ẩn nút');

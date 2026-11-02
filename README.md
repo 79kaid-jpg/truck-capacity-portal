@@ -195,6 +195,16 @@ Admin (hoặc vai trò được cấp quyền "Login as người dùng khác") b
 
 
 
+## v3.60 — Tự cập nhật, hướng dẫn cài app lên màn hình chính
+
+Không cần chạy `setup_all.sql`.
+
+- **Tự cập nhật:** có bản mới thì app tự tải lại khi an toàn: lúc vừa mở lại app, hoặc 30 giây không thao tác và không có cửa sổ / bảng đang nhập. Giữ nguyên màn, kho, tháng, ngày, đơn đang xem; báo "Đã cập nhật lên bản …". Đang nhập dở thì vẫn hiện dải nhắc như cũ.
+- **Bản bắt buộc:** `bash tools/bump-version.sh 3.61 "ghi chú" force` → `version.json` có `"force": true`; app đếm ngược 60 giây rồi tự tải lại, không có nút Để sau; đang nhập dở thì chờ lưu xong.
+- **Có gì mới:** menu tên → "Có gì mới · bản …", đọc `web/changelog.json`. `tools/bump-version.sh` tự thêm dòng mới vào file này.
+- **Cài app:** hướng dẫn theo đúng trình duyệt (Safari, Chrome iPhone, Chrome Android, Samsung Internet, Zalo / Facebook / Messenger, máy tính), hình minh họa từng bước; máy tính có mã QR để mở trên điện thoại (thư viện `qrcode-generator` tải khi cần). Link "Cài app lên điện thoại" ở màn đăng nhập. Hướng dẫn sử dụng viết lại mục này.
+- Mã: `web/v71.js` (nạp sau `pwa.js`); test `test/e2e/v71.mjs`, cập nhật `test/e2e/v51.mjs`.
+
 ## v3.59 — Lịch đội xe cho Logistics
 
 Không cần chạy `setup_all.sql`.
@@ -672,6 +682,8 @@ web/                      Giao diện (HTML + JS thuần, không cần build)
   v68.js                  v3.56: Điện thoại – giao diện thống nhất (thanh trên, nút 3 cấp, danh sách dòng)
   v69.js                  v3.57: Điện thoại – menu bảng trượt từ dưới lên, chọn xong tự đóng
   v70.js                  v3.59: Lịch đội xe cho Logistics (trạng thái xe theo ngày, còn đặt được, xếp đơn chờ vào xe)
+  v71.js                  v3.60: Tự cập nhật khi rảnh, bản bắt buộc, Có gì mới, hướng dẫn cài app theo trình duyệt
+  changelog.json          Danh sách thay đổi cho mục "Có gì mới" (tools/bump-version.sh tự thêm)
 functions/api/chat.js     Cloudflare Function gọi Workers AI
   pwa.js, sw.js           Phiên bản mới, PWA, xem khi mất mạng
   v41.js                  Yêu cầu đặt hàng (💬)

@@ -1,0 +1,57 @@
+[
+ {
+  "v": "3.60",
+  "date": "2026-11-02",
+  "note": "Tự cập nhật bản mới, hướng dẫn cài app lên màn hình chính theo từng trình duyệt"
+ },
+ {
+  "v": "3.59",
+  "date": "",
+  "note": "Lịch đội xe cho Logistics"
+ },
+ {
+  "v": "3.58",
+  "date": "",
+  "note": "Hướng dẫn: sơ đồ quy trình đơn tự chạy, tên menu mới"
+ },
+ {
+  "v": "3.57",
+  "date": "",
+  "note": "Điện thoại: menu dạng bảng trượt từ dưới lên"
+ },
+ {
+  "v": "3.56",
+  "date": "",
+  "note": "Điện thoại: giao diện thống nhất kiểu app"
+ },
+ {
+  "v": "3.55",
+  "date": "",
+  "note": "Điện thoại: Bảng thống kê gọn, số liệu lên màn đầu"
+ },
+ {
+  "v": "3.54",
+  "date": "",
+  "note": "Điện thoại: nút chân cửa sổ không bị che"
+ },
+ {
+  "v": "3.53",
+  "date": "",
+  "note": "Thống kê Xe: tô màu ngày theo %"
+ },
+ {
+  "v": "3.52",
+  "date": "",
+  "note": "Lịch: đếm chờ xếp xe khớp nhau, sửa nút Ngày bốc bị che"
+ },
+ {
+  "v": "3.51",
+  "date": "",
+  "note": "Đặt hàng theo ngày giao, Zone vận chuyển"
+ },
+ {
+  "v": "3.50",
+  "date": "",
+  "note": "Logo mới trong app"
+ }
+]
